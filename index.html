@@ -10,14 +10,14 @@
 <meta name="referrer" content="no-referrer-when-downgrade">
 <title>Xàbia Eats</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* Layout: travel-app feed — photo cards on a warm off-white ground, serif titles, one terracotta accent, bottom bar with a round centre button */
 :root{
   --bg:#f5f3ef; --card:#ffffff; --ink:#1d2229; --muted:#838891; --line:#ebe7e1;
   --accent:#d4622e; --accent-dark:#b94f1f; --accent-soft:#fbeadf;
   --open:#2c8553; --soon:#c0771a; --closed:#979ca3; --mich:#b8333a; --warn-bg:#fdf1dc; --warn:#8a5a0c;
-  --display:'DM Serif Display',Georgia,'Times New Roman',serif;
+  --display:'Bricolage Grotesque',Manrope,system-ui,sans-serif;
   --body:Manrope,system-ui,-apple-system,'Segoe UI',sans-serif;
   --r:22px; --shadow:0 6px 22px rgba(40,30,20,.08);
   color-scheme:light;
@@ -44,7 +44,8 @@ a{color:inherit}
 .iconbtn svg{width:20px;height:20px}
 .hello{padding-top:10px}
 .hello p{color:var(--muted);font-size:14px}
-h1,h2,h3{font-family:var(--display);font-weight:400;letter-spacing:.005em;text-wrap:balance}
+h1,h2,h3{font-family:var(--display);font-weight:800;letter-spacing:-.015em;text-wrap:balance}
+.rname{font-weight:700}.brand{font-weight:800}
 .hello h1{font-size:32px;line-height:1.1;margin-top:2px}
 .pagetitle{font-size:30px;line-height:1.1;padding-top:6px}
 .lead{color:var(--muted);font-size:14px;margin-top:4px}
@@ -170,6 +171,56 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .poi{position:fixed;left:12px;right:12px;margin:0 auto;bottom:calc(92px + env(safe-area-inset-bottom));max-width:456px;z-index:8}
 .poi .pcard{box-shadow:0 10px 40px rgba(0,0,0,.18)}
 .poi .pcard h3 i{display:none}
+.tile{height:12px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Crect width='24' height='12' fill='%23d4622e'/%3E%3Cpath d='M12 1L15 6L12 11L9 6Z' fill='%23fbeadf'/%3E%3Ccircle cx='0' cy='6' r='2.4' fill='%231d2229'/%3E%3Ccircle cx='24' cy='6' r='2.4' fill='%231d2229'/%3E%3C/svg%3E");background-repeat:repeat-x;background-size:24px 12px}
+/* Home: map first, sliding panel */
+.hmap{position:relative;height:46vh;min-height:320px;max-height:440px;background:#ece6dc}
+.hmap #recmap{height:100%;margin:0;border-radius:0;box-shadow:none}
+.hmap .nomap{height:100%;display:grid;place-items:center;text-align:center;padding:0 30px;color:var(--muted);font-size:14px}
+.hfloat{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:calc(14px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));pointer-events:none;z-index:2}
+.hfloat>*{pointer-events:auto}
+.bpill{background:var(--card);border-radius:14px;padding:9px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(40,30,20,.14);font-family:var(--display);font-weight:800;font-size:18px}
+.bpill i{width:16px;height:16px;border-radius:4px;background:var(--accent);display:block}
+.sqbtn{width:44px;height:44px;border-radius:14px;border:0;background:var(--card);display:grid;place-items:center;box-shadow:0 4px 14px rgba(40,30,20,.14);cursor:pointer}
+.sqbtn svg{width:20px;height:20px}
+.sheetA{position:relative;margin-top:-26px;background:var(--card);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(40,30,20,.08);min-height:52vh;padding-bottom:24px;z-index:3;overflow:hidden}
+.shead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-top:14px}
+.shead h1{font-size:26px;line-height:1.1}
+.whenbtn{border:0;background:none;color:var(--accent-dark);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;padding:6px 0}
+.chipsA{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}
+.chipsA::-webkit-scrollbar{display:none}
+.chipsA button{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chipsA button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.pickA{display:flex;gap:14px;align-items:center;padding:12px;border-radius:18px;background:var(--accent-soft);border:1.5px solid var(--accent);margin-top:14px;cursor:pointer;position:relative}
+.pickA .th{width:76px;height:76px;border-radius:14px;overflow:hidden;flex:none}
+.pickA .th img,.pickA .th .noph{width:100%;height:100%;object-fit:cover;font-size:30px}
+.pickA .tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-dark)}
+.pname{font-family:var(--display);font-size:20px;font-weight:700;line-height:1.15;overflow-wrap:anywhere}
+.pmeta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}
+.waitA{display:flex;gap:14px;align-items:center;padding:10px 12px;border-radius:18px;background:var(--warn-bg);margin-top:10px;cursor:pointer}
+.waitA .ic{width:44px;height:44px;border-radius:12px;background:#e8a23a;flex:none;display:grid;place-items:center;color:var(--ink)}
+.waitA .ic svg{width:20px;height:20px}
+.waitA b{font-size:15px;display:block}
+.waitA span{font-size:13px;color:var(--warn)}
+.favA{width:40px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none;cursor:pointer}
+.favA svg{width:18px;height:18px}.favA.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.morebtn{border:0;background:none;color:var(--accent-dark);font-weight:700;font-size:14px;padding:12px 0 2px;cursor:pointer}
+.smallrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.smallrow .chip{font-size:13px;padding:6px 12px}
+/* Place page, option A */
+.kickA{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-dark)}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.pill{font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;background:var(--bg);color:var(--ink)}
+.pill.open{background:#e3f1e8;color:var(--open)}.pill.soon{background:var(--warn-bg);color:var(--warn)}.pill.closed,.pill.unknown{background:#ecebe8;color:#6b6f75}
+.pill.m{background:var(--mich);color:#fff}
+.acts4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}
+.acts4 a{border:1.5px solid var(--line);background:var(--card);border-radius:14px;padding:12px 4px;font-size:12px;font-weight:600;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;text-align:center}
+.acts4 a svg{width:20px;height:20px;color:var(--accent)}
+.acts4 a.off{opacity:.35;pointer-events:none}
+.noteA{background:var(--warn-bg);border-radius:18px;padding:14px 16px;font-size:14px;line-height:1.45;margin-top:14px}
+.ctaA{display:flex;gap:10px;align-items:center}
+.ctaA .btn{padding:14px 16px}
+.ctaA .go{flex:1}
 .sec{display:flex;align-items:baseline;justify-content:space-between;margin-top:24px;margin-bottom:12px}
 .sec h2{font-size:23px}
 .sec span{color:var(--muted);font-size:13px}
@@ -231,23 +282,23 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .link{background:none;border:0;color:var(--accent-dark);font-weight:600;cursor:pointer;padding:6px 0;text-decoration:none}
 
 /* detail */
-.hero{position:relative;height:340px;background:var(--line)}
+.hero{position:relative;height:260px;background:var(--line)}
 .gal{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
 .gal::-webkit-scrollbar{display:none}
 .gal>*{flex:none;width:100%;height:100%;scroll-snap-align:start;position:relative}
 .gal img{width:100%;height:100%;object-fit:cover;display:block}
 .gal .noph{font-size:90px}
-.credit{position:absolute;left:12px;bottom:34px;color:#fff;font-size:11px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.credit{position:absolute;left:12px;bottom:10px;color:#fff;font-size:11px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .credit a{color:#fff}
-.round{position:absolute;top:calc(14px + env(safe-area-inset-top));width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.94);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.round{position:absolute;top:calc(14px + env(safe-area-inset-top));width:44px;height:44px;border-radius:14px;border:0;background:rgba(255,255,255,.94);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12)}
 .round svg{width:20px;height:20px}
 .round.l{left:max(16px,env(safe-area-inset-left))}.round.r{right:max(16px,env(safe-area-inset-right))}
 .round.r2{right:calc(max(16px,env(safe-area-inset-right)) + 54px)}
 .round.on{background:var(--accent);color:#fff}
-.dots{position:absolute;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:5px}
+.dots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:5px}
 .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55)}
 .dots i.on{background:#fff;width:16px;border-radius:4px}
-.sheet{position:relative;margin-top:-22px;background:var(--bg);border-radius:26px 26px 0 0;padding-top:22px}
+.sheet{position:relative;background:var(--bg);padding-top:18px}
 .kicker{display:inline-flex;align-items:center;gap:5px;color:var(--accent-dark);font-size:13px;font-weight:600}
 .kicker svg{width:14px;height:14px}
 .dtitle{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
@@ -314,8 +365,8 @@ select.field{appearance:auto}
 .tab{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;position:relative}
 .tab svg{width:23px;height:23px}
 .tab.on{color:var(--accent)}
-.tab.mid i{width:58px;height:58px;margin-top:-30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 8px 20px rgba(212,98,46,.38);border:4px solid var(--card)}
-.tab.mid.on i{background:var(--accent-dark)}
+.tab.mid i{width:54px;height:54px;margin-top:-24px;border-radius:16px;background:var(--ink);color:#fff;display:grid;place-items:center;box-shadow:0 8px 20px rgba(212,98,46,.38);border:4px solid var(--card)}
+.tab.mid.on i{background:var(--accent)}
 .badge{position:absolute;top:-30px;right:calc(50% - 32px);background:var(--ink);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;font-style:normal;border:2px solid var(--card)}
 .toast{position:fixed;left:50%;bottom:calc(108px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
@@ -333,7 +384,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v20';
+const APP_VERSION='v21';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -738,56 +789,55 @@ function candidates(cat){
   if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4);
   return all;
 }
+const CAT_SHORT={breakfast:'Coffee',bakery:'Bakery',lunch:'Lunch',seafood:'Paella',tapas:'Tapas',drinks:'Drinks',dessert:'Sweets',dinner:'Dinner'};
 function screenToday(){
-  const w=when(), h=Math.floor(w.min/60), isNow=!state.when, today=madridNow().date, cat=catOf();
-  const greet=!isNow?'Planning ahead':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
-  const {from,to}=data.trip;
-  let trip='';
-  if(from&&to){const k=dayDiff(today,from);trip=k>0?` · ${k} day${k>1?'s':''} to go`:dayDiff(today,to)>=0?` · day ${dayDiff(from,today)+1} of ${dayDiff(from,to)+1}`:''}
+  const w=when(), isNow=!state.when, today=madridNow().date, cat=catOf();
   const hol=holidayOn(w.date);
   if(data.key) discover(cat);
-  return topbar()+`<div class="pad">
-   <div class="hello"><p>${greet}${trip}</p><h1>What are you looking for?</h1></div></div>
-   <div class="cats pad">${CATS.map(c=>`<button class="cat ${c.k===cat.k?'on':''}" onclick="state.cat='${c.k}';state.showClosed=false;render(true)"><i>${c.icon}</i><span>${c.label}</span></button>`).join('')}</div>
-   <div class="pad">
-   <div class="when"><div class="r">${I.clock}
+  const dayLbl=w.date===today?'Today':pretty(w.date);
+  return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">Add your Google key in Settings to see your places on the map.</div>`}
+    <div class="hfloat"><div class="bpill"><i></i>Xàbia Eats</div><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+  <div class="sheetA"><div class="tile"></div><div class="pad">
+    <div class="sync" id="sync">${esc(state.sync)}</div>
+    <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
+    ${state.showWhen?`<div class="when"><div class="r">${I.clock}
      <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
      <span class="t" id="tm">${fmt(w.min)}</span>
-     <button class="now ${isNow?'on':''}" onclick="state.when=null;render(true)">Now</button></div>
-     <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>
-   <div class="toggles">
-     <button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button>
-     <button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button>
-   </div>
-   ${!data.key&&!SB()?`<div class="note"><b>Already using the app on another screen?</b> Paste its trip link to bring everything here. <button class="link" onclick="push('billsetup')">Connect →</button><br><b>New here?</b> <button class="link" onclick="push('settings')">Add your Google key →</button></div>`:''}
-   ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
-   ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
-   <div id="discnote" class="small" style="text-align:center;margin-top:10px"></div>
-   ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="text-align:center;margin-top:4px">Google results from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search Google again</button></p>`:''}
-   </div>
-   <div id="list"></div>`;
+     <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
+     <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
+    <div class="chipsA">${CATS.map(c=>`<button class="${c.k===cat.k?'on':''}" onclick="state.cat='${c.k}';state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    ${!data.key&&!SB()?`<div class="note"><b>Already using the app on another screen?</b> Paste its trip link to bring everything here. <button class="link" onclick="push('billsetup')">Connect →</button><br><b>New here?</b> <button class="link" onclick="push('settings')">Add your Google key →</button></div>`:''}
+    ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
+    ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
+    <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
+    <div id="list"></div>
+    <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
+    ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
+    <p class="small" style="margin-top:14px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p>
+  </div></div>`;
 }
 function renderDiscNote(){const el=document.getElementById('discnote');if(el)el.textContent=state.discBusy?`Looking on Google for top-rated ${catOf().label.toLowerCase()}…`:''}
 function setWhen(date,min,light){
   const w=when(); state.when={date:date||w.date,min:min??w.min};
-  if(light){document.getElementById('tm').textContent=fmt(state.when.min);document.querySelector('.when .now')?.classList.remove('on');renderList()}else render(true);
+  if(light){document.getElementById('tm').textContent=fmt(state.when.min);document.querySelector('.when .now')?.classList.remove('on');const wb=document.querySelector('.whenbtn');if(wb)wb.textContent=(state.when.date===madridNow().date?'Today':pretty(state.when.date))+' '+fmt(state.when.min)+' ▾';renderList()}else render(true);
 }
 function why(p,st){
   const m=matches(p);
   const dt=distTxt(p);
   return [p.rating?`★ ${p.rating.toFixed(1)}${p.ratingCount?` from ${p.ratingCount.toLocaleString('en-GB')} reviews`:''}`:'',st.txt,dt?`${dt} from ${baseSpot().name}`:'',m.length?`♥ ${m.slice(0,2).join(', ')}`:'',p.disc?'found on Google':'in your places'].filter(Boolean).join(' · ');
 }
+function walkMin(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return null;return Math.max(1,Math.round(km(b,p)*1.3/4.8*60))}
 function heroCard(p,kind,st){
-  const inPlan=data.plan.includes(p.id);
+  const inPlan=data.plan.includes(p.id), m=matches(p), dt=distTxt(p);
+  if(kind==='pick') return `<div class="pickA" onclick="openDetail('${p.id}')" role="link" tabindex="0">
+    <div class="th">${img(p)}</div>
+    <div class="tx"><span class="lbl">Our pick${state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
+      <span class="pmeta"><span>${esc(st.txt)}</span><span>${esc(areaOf(p))}</span>${dt?`<span>${dt}</span>`:''}${mich(p)}</span>
+      ${m.length?`<span class="match">♥ ${esc(m.slice(0,2).join(' · '))}</span>`:''}${flagsFor(p,when().date)}</div>
+    <button class="favA ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>`;
   const inT=st.wait<60?st.wait+' min':Math.floor(st.wait/60)+' h'+(st.wait%60?' '+st.wait%60+' min':'');
-  const label=kind==='pick'?`<span class="pickbadge">${I.star} Our pick ${state.when?'for '+fmt(when().min):'right now'}</span>`:`<span class="pickbadge wait">${I.clock} ${kind==='first'?'Opens first':'Worth the wait'} · in ${inT}</span>`;
-  return `<article class="card hero-card ${kind}" onclick="openDetail('${p.id}')">
-    <div class="ph">${img(p)}<span class="loc">${I.pin}${esc(areaOf(p))}</span>
-      <button class="fav ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>
-    <div class="cb">${label}
-      <div class="ct"><h3>${esc(p.name)}</h3><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div></div>
-      <div class="facts">${facts(p)}</div>
-      <p class="why">${esc(why(p,st))}</p>${flagsFor(p,when().date)}</div></article>`;
+  return `<div class="waitA" onclick="openDetail('${p.id}')" role="link" tabindex="0"><div class="ic">${I.clock}</div>
+    <div style="min-width:0;flex:1"><b>${esc(p.name)} · ${kind==='first'?'opens first':'worth the wait'}</b><span>${esc(st.txt)} (in ${inT})${p.michelin?' · '+MICH[p.michelin]:''}${dt?' · '+dt:''}</span></div></div>`;
 }
 function renderList(){
   const el=document.getElementById('list'); if(!el) return;
@@ -806,23 +856,26 @@ function renderList(){
   state.recPins=[...(pick?[[pick,'pick']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
-  if(data.key) html+=`<div class="pad"><div id="recmap"><div class="empty" style="padding-top:110px">Loading map…</div></div>
-     <div class="legend">${pick?'<span class="lg pick">Our pick</span>':''}${wait?`<span class="lg wait">${waitKind==='first'?'Opens first':'Worth the wait'}</span>`:''}${rest.length?'<span class="s-open"><span class="dotc">Open</span></span>':''}${later.length?'<span class="lg later">Opens later</span>':''}${data.spots.length?`<span>${data.spots.map(s=>kindOf(s).glyph+' '+esc(s.name)).join(' · ')}</span>`:''}</div></div>`;
-  if(pick) html+=`<div class="pad" style="margin-top:16px">${heroCard(pick,'pick',S.get(pick.id))}</div>`;
-  else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div></div>`;
-  if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,waitKind,S.get(wait.id))}</div>`;
-  if(rest.length) html+=`<div class="pad">${sec(`Also open ${label}`,`${rest.length}`)}<div class="list">${rest.map(row).join('')}</div></div>`;
-  if(later.length) html+=`<div class="pad">${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div></div>`;
-  if(unk.length) html+=`<div class="pad">${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div></div>`;
-  if(closed.length) html+=`<div class="pad">${state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="link" style="display:block;margin:16px auto 0" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed place${closed.length>1?'s':''}</button>`}</div>`;
-  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div></div>`;
-  html+=`<div class="pad"><p class="small" style="text-align:center;margin-top:18px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p></div>`;
+  if(pick) html+=heroCard(pick,'pick',S.get(pick.id));
+  else if(list.length&&!unk.length) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div>`;
+  if(wait) html+=heroCard(wait,waitKind,S.get(wait.id));
+  const more=rest.length+later.length;
+  if(more&&!state.showMore) html+=`<button class="morebtn" onclick="state.showMore=true;renderList()">${rest.length?`${rest.length} more open nearby`:''}${rest.length&&later.length?' · ':''}${later.length?`${later.length} opening later`:''} ›</button>`;
+  if(state.showMore){
+    if(rest.length) html+=`${sec(`Also open ${label}`,`${rest.length}`)}<div class="list">${rest.map(row).join('')}</div>`;
+    if(later.length) html+=`${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div>`;
+  }
+  if(unk.length) html+=`${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div>`;
+  if(closed.length&&state.showMore) html+=state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="morebtn" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed ›</button>`;
+  if(!list.length) html+=`<div class="note">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div>`;
   el.innerHTML=html;
   renderDiscNote();
   drawRecMap();
 }
 async function drawRecMap(){
   const el=document.getElementById('recmap'); if(!el) return;
+  const sig=(state.recPins||[]).map(([p,k])=>p.id+k).join()+'|'+data.spots.map(s=>s.id).join();
+  if(el.dataset.sig===sig&&el.dataset.drawn) return; el.dataset.sig=sig;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
     el.innerHTML='';
@@ -836,7 +889,8 @@ async function drawRecMap(){
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
     n+=addSpotMarkers(g,map,b);
-    if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
+    if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
+    el.dataset.drawn='1';
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
 
@@ -990,26 +1044,23 @@ function screenDetail(id){
     <button class="round r ${inPlan?'on':''}" onclick="togglePlan('${id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button>
     ${slides.length>1?`<div class="dots" id="dots">${slides.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:''}
   </div>
+  <div class="tile"></div>
   <section class="sheet pad">
-    <div class="kicker">${I.pin}${esc(areaOf(p))}${p.type?` · ${esc(p.type)}`:''}${distTxt(p)?` · ${distTxt(p)} from ${esc(baseSpot().name)}`:''}</div>
-    <div class="dtitle"><h1>${esc(p.name)}</h1></div>
-    <div class="facts" style="margin-top:8px">${p.rating?`<span><span class="star">${I.star}</span><b style="color:var(--ink)">${p.rating.toFixed(1)}</b>&nbsp;(${(p.ratingCount||0).toLocaleString('en-GB')} reviews)</span>`:''}${p.price?`<span>${p.price}</span>`:''}${mich(p)}</div>
-    <div style="margin-top:8px">${flagsFor(p,D)}</div>
-    ${p.note?`<p class="desc">${esc(p.note)}</p>`:''}
-    ${m.length?`<div class="chips wrap" style="margin-top:12px">${m.map(x=>`<span class="chip" style="background:var(--accent-soft);border-color:transparent;color:var(--accent-dark);cursor:default">♥ ${esc(x)}</span>`).join('')}</div>`:''}
-    <div class="feat">
-      <a href="${esc(dirLink(p))}" target="_blank" rel="noopener"><i>${I.nav}</i>Directions</a>
-      <a class="${p.phone?'':'off'}" href="tel:${esc((p.phone||'').replace(/\s/g,''))}"><i>${I.phone}</i>Call</a>
-      <a class="${p.web?'':'off'}" href="${esc(p.web||'#')}" target="_blank" rel="noopener"><i>${I.globe}</i>Website</a>
-      <a href="${esc(p.ig?igLink(p.ig):'https://www.instagram.com/explore/search/keyword/?q='+encodeURIComponent(p.name.replace(/,.*$/,'')+' xabia'))}" target="_blank" rel="noopener"><i>${I.camera}</i>${p.ig?'Instagram':'Find on Insta'}</a>
-      <a href="${esc(mapsLink(p))}" target="_blank" rel="noopener"><i>${I.map}</i>Maps</a>
+    <div class="kickA">${esc([p.type,areaOf(p),distTxt(p)].filter(Boolean).join(' · '))}</div>
+    <h1 style="font-size:32px;line-height:1.05;margin-top:6px">${esc(p.name)}</h1>
+    <div class="pills"><span class="pill ${st.s}">${esc(st.txt)}</span>${p.michelin?`<span class="pill m">${MICH[p.michelin]}</span>`:''}${p.rating?`<span class="pill">★ ${p.rating.toFixed(1)}${p.ratingCount?` · ${p.ratingCount.toLocaleString('en-GB')}`:''}</span>`:''}${p.price?`<span class="pill">${p.price}</span>`:''}</div>
+    <div style="margin-top:6px">${flagsFor(p,D)}</div>
+    ${m.length?`<div class="chips wrap" style="margin-top:10px">${m.map(x=>`<span class="chip" style="background:var(--accent-soft);border-color:transparent;color:var(--accent-dark);cursor:default">♥ ${esc(x)}</span>`).join('')}</div>`:''}
+    <div class="acts4">
+      <a href="${esc(dirLink(p))}" target="_blank" rel="noopener">${I.nav}Go</a>
+      <a class="${p.phone?'':'off'}" href="tel:${esc((p.phone||'').replace(/\s/g,''))}">${I.phone}Call</a>
+      <a href="${esc(p.ig?igLink(p.ig):'https://www.instagram.com/explore/search/keyword/?q='+encodeURIComponent(p.name.replace(/,.*$/,'')+' xabia'))}" target="_blank" rel="noopener">${I.camera}Instagram</a>
+      <a class="${p.web?'':'off'}" href="${esc(p.web||'#')}" target="_blank" rel="noopener">${I.globe}Website</a>
     </div>
-    ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)}</p>`:''}
-
-    ${sec('Opening hours',p.gid&&p.updated?`checked ${new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'')}
-    <div class="panel">${hoursList(p)}</div>
-    <p class="small" style="margin-top:8px">${p.gid?'From Google when last checked. Check again before you go to pick up holiday or last-minute changes.':'Connect Google in Settings to load hours.'}</p>
-    ${p.gid&&data.key?`<button class="btn block" onclick="checkHours('${id}')">${I.clock} Going there? Check today’s hours</button>`:''}
+    ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)} · <a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`:`<p class="small" style="text-align:center;margin-top:8px"><a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`}
+    <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
+    <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
+    ${p.note?`<div class="noteA"><b>Your note · </b>${esc(p.note)}</div>`:''}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
     ${sec('Photos',`${slides.length}`)}
@@ -1023,7 +1074,7 @@ function screenDetail(id){
     ${serv.length?`<p class="small" style="margin-top:8px">Google says it serves: ${serv.join(', ')}</p>`:''}
 
     ${p.disc?`${sec('Not saved yet')}<div class="pcard"><p style="font-size:14px">Found on Google for “${esc(catOf().label)}”. Save it to add notes, your photos and menu items.</p><button class="btn block" onclick="savePlace('${id}')">${I.plus} Save to my places</button></div></section>
-  <div class="cta"><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div><a class="btn" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></div>`:`
+  <div class="cta ctaA">${p.gid&&data.key?`<button class="btn ghost" onclick="checkHours('${id}')">Check hours</button>`:''}<a class="btn go" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions${walkMin(p)&&walkMin(p)<=40?` · ${walkMin(p)} min walk`:''}</a></div>`:`
     ${sec('About this place')}
     <div class="pcard">
       <span class="lab" style="margin-top:0">Type</span>
@@ -1043,8 +1094,7 @@ function screenDetail(id){
       <button class="btn danger block" onclick="delPlace('${id}')">${state.confirmDel===id?'Tap again to delete':'Delete this place'}</button>
     </div>
   </section>
-  <div class="cta"><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div>
-    <a class="btn" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></div>`}`;
+  <div class="cta ctaA">${p.gid&&data.key?`<button class="btn ghost" onclick="checkHours('${id}')">Check hours</button>`:''}<a class="btn go" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions${walkMin(p)&&walkMin(p)<=40?` · ${walkMin(p)} min walk`:''}</a></div>`}`;
 }
 function galDots(el){const d=document.getElementById('dots');if(!d)return;const i=Math.round(el.scrollLeft/el.clientWidth);[...d.children].forEach((x,j)=>x.classList.toggle('on',i===j))}
 function setField(id,k,v){const p=byId(id);p[k]=v;p.touched=true;save();toast('Saved')}
