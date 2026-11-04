@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v34';
+const APP_VERSION='v35';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1331,13 +1331,23 @@ function logVisit(p,how){
   data.visits=data.visits||[];data.visits.push(v);save();return v;
 }
 function visitNow(id){const p=byId(id);if(!p)return;if(p.disc)id=saveDisc(id);logVisit(byId(id),'tap');toast(`Logged: you went to ${byId(id).name}`);render(true)}
+// Every bill in the tally is a visit too: rebuild history from them
+function billVisits(){
+  return (B.meals||[]).filter(m=>!m.settle&&m.place&&!/^Meal \d+$/.test(m.place)).map(m=>{
+    const p=data.places.find(x=>x.name&&x.name.toLowerCase()===m.place.toLowerCase())||data.places.find(x=>x.name&&(x.name.toLowerCase().includes(m.place.toLowerCase())||m.place.toLowerCase().includes(x.name.toLowerCase())));
+    return {id:'vb_'+m.id,placeId:p?p.id:null,name:p?p.name:m.place,area:p?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:m.at,how:'bill'}});
+}
+function fillVisits(){const have=new Set((data.visits||[]).map(v=>v.id)),add=billVisits().filter(v=>!have.has(v.id));
+  data.visits=[...(data.visits||[]),...add];save();toast(`Added ${add.length} visit${add.length>1?'s':''} from your bills`);render(true)}
 function rmVisit(vid){data.visits=data.visits.filter(v=>v.id!==vid);save();render(true)}
 const visitDay=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 function historyHtml(){
   const vs=[...(data.visits||[])].sort((a,b)=>b.at-a.at);
-  if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>`;
+  const fromBills=billVisits().filter(v=>!vs.some(x=>x.id===v.id));
+  const fill=fromBills.length?`<button class="btn ghost block" onclick="fillVisits()">Add ${fromBills.length} visit${fromBills.length>1?'s':''} from our bills</button>`:'';
+  if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>${fill}`;
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
-  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('')+fill;
 }
 // Our own ratings: 5 definitely go back · 4 good if in the area · 3 only if desperate · 1-2 not going back
 const ourRank=p=>p.ours?(p.ours<=2?p.ours-3:p.ours):2.5;
@@ -1559,15 +1569,53 @@ async function pushAll(){
 const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
+// Three-way merge so phones combine their changes instead of overwriting each other.
+// base = what this phone last saw on the server; a key/item/field this phone didn't change takes the server's version.
+const pickApp=()=>{const d={};APP_KEYS.forEach(k=>{if(data[k]!==undefined)d[k]=data[k]});return JSON.parse(JSON.stringify(d))};
+function loadBase(){try{const b=JSON.parse(localStorage.getItem('xe.base')||'null');return b&&b.trip===(SB()||{}).trip?b.d:null}catch(e){return null}}
+function saveBase(d){try{localStorage.setItem('xe.base',JSON.stringify({trip:(SB()||{}).trip,d}))}catch(e){}}
+const J=x=>JSON.stringify(x);
+const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
+const keyOf=x=>isObj(x)?x.id:typeof x==='string'||typeof x==='number'?'v:'+x:undefined;
+const idArr=a=>Array.isArray(a)&&a.every(x=>keyOf(x)!==undefined);
+function m3(b,l,r){
+  if(J(l)===J(r)) return l;
+  if(b!==undefined){if(J(l)===J(b)) return r; if(J(r)===J(b)) return l}
+  else{if(l===undefined) return r; if(r===undefined) return l}
+  if(idArr(l)&&idArr(r)&&(b===undefined||idArr(b))){
+    const bm=new Map((b||[]).map(x=>[keyOf(x),x])),lm=new Map(l.map(x=>[keyOf(x),x])),rm=new Map(r.map(x=>[keyOf(x),x]));
+    const order=[...r.map(keyOf),...l.map(keyOf).filter(k=>!rm.has(k))], out=[];
+    for(const k of order){const inB=bm.has(k),inL=lm.has(k),inR=rm.has(k);
+      if(inB&&(!inL||!inR)) continue;          // removed on one phone
+      out.push(inL&&inR?m3(bm.get(k),lm.get(k),rm.get(k)):inL?lm.get(k):rm.get(k))}
+    return out;
+  }
+  if(isObj(l)&&isObj(r)){const o={};for(const k of new Set([...Object.keys(r),...Object.keys(l)])){const v=m3(isObj(b)?b[k]:undefined,l[k],r[k]);if(v!==undefined)o[k]=v}return o}
+  return b===undefined?r:l;                     // both changed the same value: this phone's edit wins
+}
+function mergeApp(local,remote){
+  const base=state.takeRemote?null:loadBase();
+  if(state.takeRemote||!base) return JSON.parse(J(remote));   // first sync on this phone: the server's copy wins
+  const out={};for(const k of APP_KEYS){const v=m3(base[k],local[k],remote[k]);if(v!==undefined)out[k]=v}
+  if(!remote.key&&local.key) out.key=local.key;
+  return out;
+}
 async function pushApp(){
-  if(!SB()) return; const d={}; APP_KEYS.forEach(k=>{if(data[k]!==undefined)d[k]=data[k]});
+  if(!SB()) return;
+  const rows=await sbFetch(`splitter?${tripQ()}&id=eq.app&select=data`), remote=rows&&rows[0]&&rows[0].data;
+  let d=pickApp();
+  if(remote&&remote.d){d=mergeApp(d,remote.d);APP_KEYS.forEach(k=>{if(d[k]!==undefined&&!(k==='key'&&!d[k]))data[k]=d[k]})}
   if(!d.key) delete d.key;
-  await sbUpsert([sbRow('app','app',{updated:data.appUpdated||Date.now(),d})]); appDirty=false;
+  const upd=Math.max(Date.now(),(remote&&remote.updated||0)+1);
+  await sbUpsert([sbRow('app','app',{updated:upd,d})]); appDirty=false;
+  data.appUpdated=upd; save({remote:true}); saveBase(d);
 }
 function applyApp(remote){
-  const hadKey=data.key;
-  APP_KEYS.forEach(k=>{if(remote.d[k]!==undefined&&!(k==='key'&&!remote.d[k]))data[k]=remote.d[k]});
-  data.appUpdated=remote.updated; save({remote:true});
+  const hadKey=data.key, local=pickApp(), m=mergeApp(local,remote.d);
+  APP_KEYS.forEach(k=>{if(m[k]!==undefined&&!(k==='key'&&!m[k]))data[k]=m[k]});
+  state.takeRemote=false; data.appUpdated=remote.updated; save({remote:true}); saveBase(remote.d);
+  const mine=pickApp(),theirs={...remote.d};delete mine.key;delete theirs.key;
+  if(J(mine)!==J(theirs)) queueAppPush();   // this phone had changes the server didn't: send the merged copy
   const ml=state.mergeLocal; state.mergeLocal=null;
   if(ml){
     let added=0;
@@ -2301,7 +2349,7 @@ async function startSharing(f){
     const r=await fetch(url+'/rest/v1/splitter?id=eq.app&select=trip,data,updated_at&order=updated_at.desc&limit=5',{headers:h});
     if(r.ok){const rows=await r.json();existing=(rows||[]).sort((a,b)=>((b.data&&b.data.d&&b.data.d.key)?1:0)-((a.data&&a.data.d&&a.data.d.key)?1:0))[0]||null}
   }catch(e){}
-  if(existing){stashLocal();data.sb={url,key,trip:existing.trip};data.appUpdated=0;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
+  if(existing){stashLocal();data.sb={url,key,trip:existing.trip};data.appUpdated=0;state.takeRemote=true;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
   else{data.sb={url,key,trip:newTripCode()};save();B.seeded=false}
   await pullBills();
   if(B.status==='live'){state.sbU=state.sbK=undefined;if(!existing)await pushApp().catch(()=>{});toast(existing?'Reconnected. Your trip is back.':'Sync is on');state.stack=[];state.tab='today';render();if(data.key&&!gPromise)gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
@@ -2339,7 +2387,7 @@ function stashLocal(){state.mergeLocal={spots:(data.spots||[]).slice(),places:(d
 function joinTrip(j){
   stashLocal();
   data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}
-  data.appUpdated=0;save({remote:true});state.joined=true;B.seeded=true;B.bill=blankBill();B.meals=[];localBills();
+  data.appUpdated=0;state.takeRemote=true;save({remote:true});state.joined=true;B.seeded=true;B.bill=blankBill();B.meals=[];localBills();
 }
 async function pasteTrip(text){
   const m=String(text||'').match(/#join=([\w-]+)/);
