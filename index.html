@@ -168,6 +168,41 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .mealph img{width:100%;max-height:260px;object-fit:cover;border-radius:18px;box-shadow:var(--shadow);cursor:zoom-in;display:block}
 .mealph.big img{max-height:none;object-fit:contain;cursor:zoom-out}
 .mdot{width:10px;height:10px;border-radius:50%;flex:none}.mdot.u{background:#1f7a6c}.mdot.w{background:#c8681c}.mdot.s{background:#5b5f9e}
+/* everyone picks */
+.gwho{padding:6px 14px 10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px dashed var(--line)}
+.gwho .chip{padding:6px 12px;font-size:13px}
+.pdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;flex:none}
+li.gitem{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px dotted var(--line)}
+li.gitem.mine{background:var(--accent-soft)}
+.ginfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:14px}
+.ginfo .l1{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.ginfo .orig{font-size:12px;color:var(--muted);font-style:italic}
+.gtags{display:flex;flex-wrap:wrap;gap:4px}
+.gtag{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;background:#f1ede6;color:var(--c,#555)}
+li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
+.gbtn{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:8px 10px;font-weight:700;font-size:13px;min-width:80px;cursor:pointer;color:var(--ink)}
+.gbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.gstep{flex:none;display:flex;align-items:center;gap:4px}
+.gstep button{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-size:18px;font-weight:700;cursor:pointer;color:var(--ink)}
+.gstep button:disabled{opacity:.35}
+.gstep span{min-width:1.4em;text-align:center;font-weight:800}
+.gprog{margin-top:12px}
+.gpl{display:flex;flex-direction:column;gap:6px;font-size:14px;margin-bottom:10px}
+.gpl span{color:var(--muted)}.gpl span.ok{color:var(--ink);font-weight:700}
+.gsplit{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.gsplit .gp{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px;font-size:14px}
+.gsplit .gp b.t{font-variant-numeric:tabular-nums;font-size:16px}
+.vline{display:flex;justify-content:space-between;gap:10px;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.payrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.paybtn{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--ink);border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:700;font-size:13px;text-decoration:none;cursor:pointer;font-family:inherit}
+.paybtn.ghost{background:transparent}
+.verdict .paybtn{border-color:transparent}
+.verdict .paybtn.ghost{color:#fff;border-color:rgba(255,255,255,.5)}
+.setl{padding:12px 0 2px;border-top:1px solid var(--line);margin-top:10px}
+.setl .vline{font-size:16px}
+.tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
+.hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
+.hhrow .frow{margin-top:6px}
 .poi{position:fixed;left:12px;right:12px;margin:0 auto;bottom:calc(92px + env(safe-area-inset-bottom));max-width:456px;z-index:8}
 .poi .pcard{box-shadow:0 10px 40px rgba(0,0,0,.18)}
 .poi .pcard h3 i{display:none}
@@ -402,7 +437,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v25';
+const APP_VERSION='v26';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1391,17 +1426,24 @@ begin
 end $fn$;
 grant execute on function public.resolve_link(text) to anon;`;
 const SB=()=>data.sb&&data.sb.url&&data.sb.key&&data.sb.trip?data.sb:null;
-const NM=()=>Object.assign({a:'Us',b:'Wass',ha:2,hb:1},data.splitNames||{});
-const B={bill:null,meals:null,deleted:[],openId:null,editId:null,photo:null,photoUrl:null,ctl:null,dirtyBill:false,dirtyMeals:false,status:'local',err:'',seeded:false,manual:false,mMode:'items',qSide:null,tRatio:null,confirmNew:false,readMsg:'',readErr:false};
-const blankBill=cur=>({place:'',paid:'',payer:null,tipMode:'prop',cur:cur||'€',bill:null,items:[],updated:0});
+// Households splitting bills. The first two keep the ids 'us' and 'wass' so older bills still add up.
+function PT(){
+  if(Array.isArray(data.parties)&&data.parties.length>=2) return data.parties;
+  const n=Object.assign({a:'Us',b:'Wass',ha:2,hb:1},data.splitNames||{});
+  return [{id:'us',name:n.a,heads:n.ha},{id:'wass',name:n.b,heads:n.hb}];
+}
+const NM=()=>{const p=PT();return {a:p[0].name,b:p[1].name,ha:p[0].heads,hb:p[1].heads}};
+const B={claims:{},dirtyCl:new Set(),pickFor:null,bill:null,meals:null,deleted:[],openId:null,editId:null,photo:null,photoUrl:null,ctl:null,dirtyBill:false,dirtyMeals:false,status:'local',err:'',seeded:false,manual:false,mMode:'items',qSide:null,tRatio:null,confirmNew:false,readMsg:'',readErr:false};
+const blankBill=(cur,mode)=>({uid:uid(),mode:mode||undefined,place:'',paid:'',payer:null,tipMode:'prop',cur:cur||'€',bill:null,items:[],updated:0});
 function loadBills(){
   try{B.bill=JSON.parse(localStorage.getItem('xe.bill')||'null')}catch(e){}
   try{B.meals=JSON.parse(localStorage.getItem('xe.meals')||'null')}catch(e){}
   try{B.deleted=JSON.parse(localStorage.getItem('xe.mdel')||'[]')}catch(e){B.deleted=[]}
+  try{B.claims=JSON.parse(localStorage.getItem('xe.claims')||'{}')||{}}catch(e){B.claims={}}
   if(!B.bill) B.bill=blankBill();
   if(!B.meals) B.meals=TRIP_SNAPSHOT.meals.map(m=>({id:m.id,place:m.place,net:m.net,cur:'€',at:m.at}));
 }
-function localBills(){try{localStorage.setItem('xe.bill',JSON.stringify(B.bill));localStorage.setItem('xe.meals',JSON.stringify(B.meals));localStorage.setItem('xe.mdel',JSON.stringify(B.deleted))}catch(e){}}
+function localBills(){try{localStorage.setItem('xe.bill',JSON.stringify(B.bill));localStorage.setItem('xe.meals',JSON.stringify(B.meals));localStorage.setItem('xe.mdel',JSON.stringify(B.deleted));localStorage.setItem('xe.claims',JSON.stringify(B.claims))}catch(e){}}
 loadBills();
 const LEGACY_DETAIL={'7oh4s4r':{paid:'116.65',payer:'wass',tipMode:'prop',bill:{total:11665,inc:false,svc:0,note:''},names:{a:'Us',b:'Wass',ha:2,hb:1},items:[
  {id:'6faa2br',name:'Kids’ sea bass with rice',orig:'LUBINA NIÑO CON ARRO',qty:1,c:790,side:'us'},
@@ -1433,7 +1475,7 @@ const sbPhoto=id=>sbFetch(`splitter?${tripQ()}&id=eq.${encodeURIComponent('photo
 const sbRow=(id,kind,d)=>({trip:SB().trip,id,kind,data:d,updated_at:new Date().toISOString()});
 function setB(st,err){B.status=st;B.err=err||'';const el=document.getElementById('bsync');if(el)el.outerHTML=bSyncHtml()}
 function bSyncHtml(){
-  const n=NM(), t={live:`Shared with ${esc(n.b)} · live`,saving:'Saving…',offline:'Offline. Saved on this phone and will send when you’re back online.',local:'Only on this screen. Turn on sync in Settings.',error:'Couldn’t reach shared bills: '+esc(B.err)}[B.status]||'';
+  const n=NM(), t={live:`Shared with ${esc(PT().slice(1).map(p=>p.name).join(', '))} · live`,saving:'Saving…',offline:'Offline. Saved on this phone and will send when you’re back online.',local:'Only on this screen. Turn on sync in Settings.',error:'Couldn’t reach shared bills: '+esc(B.err)}[B.status]||'';
   return `<div id="bsync" class="bsync s-${B.status}"><i></i><span>${t}</span></div>`;
 }
 async function pushAll(){
@@ -1444,7 +1486,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 async function pushApp(){
@@ -1475,6 +1517,7 @@ async function pullBills(){
   try{
     if(B.dirtyBill||B.dirtyMeals||B.deleted.length){setB('saving');await pushAll()}
     if(appDirty) await pushApp();
+    if(B.dirtyCl.size) await flushClaims();
     const rows=await sbAll();
     const ar=rows.find(r=>r.id==='app');
     if(!ar) await pushApp();
@@ -1487,9 +1530,14 @@ async function pullBills(){
     if(br&&!B.dirtyBill&&(br.data.updated||0)>(B.bill.updated||0)){B.bill=br.data;changed=true}
     if(!B.dirtyMeals&&JSON.stringify(meals)!==JSON.stringify(B.meals)){B.meals=meals;changed=true}
     if(patchLegacy()){B.dirtyMeals=true;pushAll().catch(()=>{});changed=true}
+    const cl={};
+    for(const r of rows) if(r.kind==='claim'&&r.data&&r.data.bill&&r.data.bill===B.bill.uid) cl[r.data.party]=r.data;
+    for(const [p,c] of Object.entries(B.claims||{})) if(c&&c.bill===B.bill.uid&&(B.dirtyCl.has(p)||!cl[p])) cl[p]=c;
+    if(JSON.stringify(cl)!==JSON.stringify(CL())){B.claims=cl;changed=true}
+    nudgePick();
     if(B.photoPending&&B.photoPending.length){for(const id of B.photoPending.splice(0)){const src=localStorage.getItem('xe.ph.'+id);if(src)await sbUpsert([sbRow('photo_'+id,'photo',{src})]).catch(()=>B.photoPending.push(id))}}
     localBills(); setB('live');
-    if(changed) billsRefresh();
+    if(changed){billsRefresh();renderTabs()}
   }catch(e){setB(navigator.onLine?'error':'offline',e.message)}
   pulling=false;
 }
@@ -1521,11 +1569,88 @@ function calc(){
 const weOwe=()=>{const n=NM();return n.a==='Us'?`We owe ${n.b}`:`${n.a} owe ${n.b}`};
 const theyOwe=()=>{const n=NM();return n.a==='Us'?`${n.b} owes us`:`${n.b} owes ${n.a}`};
 
+/* --- households, everyone-picks bills, settling up --- */
+const PCOL=['#1f7a6c','#c8681c','#5b5f9e','#a63a6a','#3b6fb6','#7a6a1f','#2f7d32','#8a4fbf'];
+const pcol=(id,P)=>{const i=(P||PT()).findIndex(p=>p.id===id);return i<0?'#888':PCOL[i%PCOL.length]};
+const pn=(id,P)=>{const p=(P||PT()).find(x=>x.id===id);return p?p.name:id==='us'?'Us':id==='wass'?'Wass':'Someone'};
+const plural=nm=>/&| and |,/.test(nm);
+function owesTxt(f,t,P){const a=pn(f,P),b=pn(t,P);return `${a==='Us'?'We':a} ${a==='Us'||plural(a)?'owe':'owes'} ${b==='Us'?'us':b}`}
+function paidTxt(f,t,P){const a=pn(f,P),b=pn(t,P);return `${a==='Us'?'We':a} paid ${b==='Us'?'us':b}`}
+const ME=()=>{try{return localStorage.getItem('xe.me')}catch(_){return null}};
+function setMe(id){try{localStorage.setItem('xe.me',id)}catch(_){}}
+const gm=()=>B.bill.mode?B.bill.mode==='group':PT().length>2;
+const pickFor=()=>{const P=PT(),id=B.pickFor||ME();return P.some(p=>p.id===id)?id:null};
+function CL(){const u=B.bill.uid,o={};if(!u)return o;for(const [p,c] of Object.entries(B.claims||{}))if(c&&c.bill===u)o[p]=c;return o}
+function claimOf(pid){const u=B.bill.uid;let c=B.claims[pid];if(!c||c.bill!==u)c=B.claims[pid]={bill:u,party:pid,items:{},done:false,at:0};return c}
+let clT;
+function saveClaim(pid){B.claims[pid].at=Date.now();B.dirtyCl.add(pid);localBills();clearTimeout(clT);if(!SB())return;clT=setTimeout(()=>flushClaims().then(()=>setB('live')).catch(e=>setB(navigator.onLine?'error':'offline',e.message)),500)}
+async function flushClaims(){
+  if(!SB()||!B.dirtyCl.size) return; const ids=[...B.dirtyCl];
+  const rows=ids.filter(p=>B.claims[p]&&B.claims[p].bill).map(p=>sbRow('claim_'+B.claims[p].bill+'_'+p,'claim',B.claims[p]));
+  if(rows.length) await sbUpsert(rows); ids.forEach(p=>B.dirtyCl.delete(p));
+}
+function clearClaims(){const u=B.bill.uid;if(u&&SB())for(const p of Object.keys(CL()))sbDelete('claim_'+u+'_'+p).catch(()=>{});B.claims={};B.dirtyCl.clear()}
+function needsMyPick(){const S=B.bill,me=ME();if(!gm()||!S.items.length||S.tallied||!me||!PT().some(p=>p.id===me))return false;const c=CL()[me];return !(c&&c.done)}
+function nudgePick(){if(!needsMyPick()||B.nudged===B.bill.uid)return;B.nudged=B.bill.uid;if(state.tab!=='bills'||state.stack.length)toast(`Pick what you had${B.bill.place?' at '+B.bill.place:''} in Bills`)}
+function gcalc(){
+  const S=B.bill,P=PT(),cl=CL(),heads=P.reduce((t,p)=>t+(p.heads||1),0)||1,per={};
+  P.forEach(p=>per[p.id]={food:0,unc:0,extra:0,tot:0,items:[]});
+  let items=0,unc=0;const uncItems=[];
+  for(const it of S.items){
+    items+=it.c; const q=Math.max(1,it.qty||1);
+    const units=P.map(p=>[p.id,+((cl[p.id]&&cl[p.id].items[it.id])||0)]).filter(x=>x[1]>0), U=units.reduce((t,x)=>t+x[1],0);
+    const got=U?it.c*Math.min(U,q)/q:0;
+    for(const [pid,u] of units){const v=got*u/U;per[pid].food+=v;per[pid].items.push({id:it.id,u,c:Math.round(v),n:q===1||U>q?units.length:1})}
+    if(it.c-got>=0.5){unc+=it.c-got;uncItems.push(it)}
+  }
+  P.forEach(p=>per[p.id].unc=unc*(p.heads||1)/heads);
+  const paidC=String(S.paid||'').trim()?toC(S.paid):items, extra=paidC-items, food=items;
+  P.forEach(p=>{const o=per[p.id];o.extra=S.tipMode==='head'||!food?extra*(p.heads||1)/heads:extra*(o.food+o.unc)/food;o.tot=Math.round(o.food+o.unc+o.extra)});
+  const diff=paidC-P.reduce((t,p)=>t+per[p.id].tot,0); if(diff&&P.length){const big=P.reduce((a,p)=>per[p.id].tot>per[a.id].tot?p:a,P[0]);per[big.id].tot+=diff}
+  return {per,items,paidC,extra,unc,uncItems,heads};
+}
+// Monzo.me and Revolut.me links. Monzo.me only takes an amount in pounds, so for other currencies the amount is copied instead.
+const cleanHandle=h=>String(h||'').trim().replace(/^https?:\/\/(www\.)?(monzo\.me|revolut\.me)\//i,'').replace(/^@/,'').split(/[\/?#\s]/)[0];
+function payLink(kind,pid,c,cur,note){
+  const p=PT().find(x=>x.id===pid), h=p&&cleanHandle(p[kind]); if(!h) return null;
+  if(kind==='monzo') return 'https://monzo.me/'+encodeURIComponent(h)+(cur==='£'&&c>0?`/${(c/100).toFixed(2)}?d=${encodeURIComponent(note||'Xàbia')}`:'');
+  return 'https://revolut.me/'+encodeURIComponent(h);
+}
+function payBtns(pid,c,cur,note){
+  return [['monzo','Monzo'],['revolut','Revolut']].map(([k,l])=>{const u=payLink(k,pid,c,cur,note);
+    return u?`<a class="paybtn ${k}" href="${esc(u)}" target="_blank" rel="noopener" data-amt="${esc(mMoney(c,cur))}" data-app="${l}" data-cur="${esc(cur)}" onclick="payCopy(this)">Pay ${esc(pn(pid))} with ${l}</a>`:''}).join('');
+}
+function payCopy(a){const amt=a.dataset.amt;try{navigator.clipboard.writeText(amt.replace(/[^\d.]/g,''))}catch(_){}
+  toast(a.dataset.app==='Monzo'&&a.dataset.cur==='£'?`Opening Monzo with ${amt}`:`${amt} copied. Paste it in ${a.dataset.app}`)}
+// Who owes whom, household by household (no re-routing debts between people who didn't eat together)
+function settleLines(){
+  const pr={},add=(f,t,v)=>{if(!f||!t||f===t||!v)return;const k=f<t?f+'|'+t:t+'|'+f;pr[k]=(pr[k]||0)+(f<t?v:-v)};
+  for(const m of B.meals){
+    if(m.settle) add(m.from,m.to,-m.amt);
+    else if(m.group&&m.shares){for(const [p,v] of Object.entries(m.shares))if(p!==m.payer)add(p,m.payer,v)}
+    else add('wass','us',m.net||0);
+  }
+  const out=[];for(const [k,v] of Object.entries(pr)){const [a,b]=k.split('|');if(v>=1)out.push({from:a,to:b,c:Math.round(v)});else if(v<=-1)out.push({from:b,to:a,c:Math.round(-v)})}
+  return out.sort((x,y)=>y.c-x.c);
+}
+function markPaid(btn){
+  const k=btn.dataset.mark;
+  if(B.markC!==k){B.markC=k;btn.textContent='Tap again to record it';setTimeout(()=>{if(B.markC===k){B.markC=null;renderBillTrip()}},3500);return}
+  B.markC=null; const [from,to,c,cur]=k.split('|'), amt=+c, net=from==='us'&&to==='wass'?amt:from==='wass'&&to==='us'?-amt:0;
+  B.meals.push({id:uid(),place:'Settled up',settle:true,from,to,amt,net,cur:cur||'€',at:Date.now()});
+  saveMeals(); renderBillsBody(); toast(`Recorded: ${paidTxt(from,to)} ${mMoney(amt,cur)}`);
+}
+async function shareGroup(){
+  const S=B.bill,url=location.origin+location.pathname+'#bills',text=`Tap what you had${S.place?' at '+S.place:''} so we can split the bill`;
+  if(navigator.share){try{await navigator.share({title:'Pick what you had',text,url});return}catch(e){if(e.name==='AbortError')return}}
+  copyText(text+': '+url,'Link copied. Paste it in your group chat.');
+}
+
 /* --- screen --- */
 function screenBills(){
   const n=NM();
   return topbar('Bills')+`<div class="pad bills">
-   <p class="lead">Snap the bill, swipe each line left for ${esc(n.a.toLowerCase()==='us'?'us':n.a)} or right for ${esc(n.b)}, and see who owes what.</p>
+   <p class="lead">Snap the bill, then swipe each line left for ${esc(n.a.toLowerCase()==='us'?'us':n.a)} or right for ${esc(n.b)}, or send it round so everyone taps what they had.</p>
    ${bSyncHtml()}
    ${!SB()?`<div class="note">Bills are only on this phone. <button class="link" onclick="push('billsetup')">Set up sharing with ${esc(n.b)} →</button></div>`:''}
    <div id="billsRoot"></div></div>`;
@@ -1535,7 +1660,7 @@ function billsRefresh(){if(state.tab!=='bills'||state.stack.length)return;if(bEd
 document.addEventListener('focusout',()=>setTimeout(()=>{if(B.needRender&&!bEditing()){B.needRender=false;renderBillsBody()}},0));
 function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
-  const S=B.bill,n=NM(),canRead=!!data.key;
+  const S=B.bill,n=NM(),canRead=!!data.key,g=gm(),P=PT(),heads=P.reduce((t,p)=>t+(p.heads||1),0);
   root.innerHTML=`
   ${sec('Bill & what you paid')}
   <div class="pcard">
@@ -1557,19 +1682,22 @@ function renderBillsBody(){
   </div>
   <div id="bTip"></div>
   ${sec('Sort the items')}
+  <div class="seg2" id="bMode" style="margin:0 0 10px"><button data-m="swipe" class="${g?'':'on'}">${P.length>2?`Swipe · ${esc(P[0].name)} &amp; ${esc(P[1].name)}`:'Swipe it myself'}</button><button data-m="group" class="${g?'on':''}">Everyone picks</button></div>
   <div class="receipt">
     <input class="place" id="bPlace" placeholder="Restaurant name" aria-label="Restaurant name" value="${esc(S.place)}">
-    <div class="hint"><span><b class="l">← Swipe left</b> ${esc(n.a)}</span><span>Tap for more</span><span><b class="r">${esc(n.b)} swipe right →</b></span></div>
+    ${g?'<div id="gWho"></div>':`<div class="hint"><span><b class="l">← Swipe left</b> ${esc(n.a)}</span><span>Tap for more</span><span><b class="r">${esc(n.b)} swipe right →</b></span></div>`}
     <ul class="items" id="bItems"></ul>
     <div class="rfoot" id="bFoot"></div>
-    <button class="link" id="bAdd" style="margin:6px 14px 0">+ Add item</button>
+    ${g?'':'<button class="link" id="bAdd" style="margin:6px 14px 0">+ Add item</button>'}
   </div>
+  ${g?'<div id="gProg"></div>':''}
   ${sec('Settle up')}
   <span class="lab" style="margin-top:0">Tip &amp; extras split</span>
-  <div class="choice" id="bTipMode"><button data-v="prop">By what you ate<small>Bigger order, bigger tip</small></button><button data-v="head">Per head<small>${esc(n.b)} pays ${n.hb} of ${n.ha+n.hb}</small></button></div>
+  <div class="choice" id="bTipMode"><button data-v="prop">By what you ate<small>Bigger order, bigger tip</small></button><button data-v="head">Per head<small>${g?`Split ${heads} ways`:`${esc(n.b)} pays ${n.hb} of ${n.ha+n.hb}`}</small></button></div>
   <span class="lab">Who paid the bill?</span>
-  <div class="choice" id="bPayer"><button class="u" data-v="us">${esc(n.a==='Us'?'We':n.a)} paid</button><button class="w" data-v="wass">${esc(n.b)} paid</button></div>
-  <div class="split" id="bSplit"></div>
+  ${g?`<div class="chips wrap" id="bPayer">${P.map(p=>`<button class="chip" data-v="${p.id}"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name==='Us'?'We':p.name)} paid</button>`).join('')}</div>`
+  :`<div class="choice" id="bPayer"><button class="u" data-v="us">${esc(n.a==='Us'?'We':n.a)} paid</button><button class="w" data-v="wass">${esc(n.b)} paid</button></div>`}
+  <div class="${g?'gsplit':'split'}" id="bSplit"></div>
   <div class="verdict pending" id="bVerdict"></div>
   <button class="btn block" id="bTally" disabled>Add to trip tally</button>
   ${sec('Trip summary',`${B.meals.length} meal${B.meals.length===1?'':'s'}`)}
@@ -1590,7 +1718,75 @@ function manualHtml(){
     <p class="small">Starting a bill here replaces the current bill for both of you. The trip tally isn’t touched.</p></div>`;
 }
 const RATIOS=()=>[...new Set([.25,defWs(),.5,2/3,.75].map(x=>Math.round(x*1000)/1000))].sort((a,b)=>a-b);
+function renderGroupItems(){
+  const ul=document.getElementById('bItems'); if(!ul) return;
+  const S=B.bill,P=PT(),cl=CL(),me=pickFor(),who=document.getElementById('gWho');
+  if(who) who.innerHTML=`<span class="lab" style="margin:0">${me?(me===ME()?'You’re picking for':'Passing the phone · picking for'):'Who are you? Tap your household'}</span>
+    <div class="chips wrap" id="gPick">${P.map(p=>`<button class="chip ${p.id===me?'on':''}" data-p="${p.id}"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name)}${cl[p.id]&&cl[p.id].done?' ✓':''}</button>`).join('')}</div>`;
+  if(!S.items.length){ul.innerHTML='<li class="empty" style="padding:18px 14px">No items yet. Snap the bill and tap Read bill, or enter it by hand.</li>'}
+  else ul.innerHTML=S.items.map(it=>{
+    const q=Math.max(1,it.qty||1), mine=me?+((cl[me]&&cl[me].items[it.id])||0):0;
+    const others=P.filter(p=>p.id!==me&&cl[p.id]&&cl[p.id].items[it.id]).map(p=>{const u=cl[p.id].items[it.id];return `<span class="gtag" style="--c:${pcol(p.id)}">${esc(p.name)}${q>1?' ×'+u:''}</span>`}).join('');
+    const ctl=!me?'':q===1?`<button class="gbtn ${mine?'on':''}" data-t="${it.id}" aria-pressed="${!!mine}">${mine?'✓ Had it':'Had it'}</button>`
+      :`<div class="gstep"><button data-t="${it.id}" data-d="-1" ${mine?'':'disabled'} aria-label="One fewer ${esc(it.name)}">−</button><span>${mine}</span><button data-t="${it.id}" data-d="1" ${mine>=q?'disabled':''} aria-label="One more ${esc(it.name)}">+</button></div>`;
+    return `<li class="gitem ${mine?'mine':''}"><div class="ginfo"><span class="l1">${q>1?`<span class="qty">${q}×</span>`:''}${esc(it.name)}</span>${it.orig&&it.orig!==it.name?`<span class="orig">${esc(it.orig)}</span>`:''}${others?`<span class="gtags">${others}</span>`:''}</div><span class="amt">${bMoney(it.c)}</span>${ctl}</li>`}).join('');
+  ul.querySelectorAll('.gbtn,.gstep button').forEach(b=>b.onclick=()=>{
+    const c=claimOf(me), it=S.items.find(x=>x.id===b.dataset.t); if(!it) return;
+    const cur=+(c.items[it.id]||0), nv=b.dataset.d?Math.max(0,Math.min(Math.max(1,it.qty||1),cur+ +b.dataset.d)):(cur?0:1);
+    if(nv) c.items[it.id]=nv; else delete c.items[it.id];
+    saveClaim(me); renderGroupItems(); renderBillTotals();
+  });
+  document.querySelectorAll('#gPick .chip').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.p; if(!ME()){setMe(id);toast(`This phone is ${pn(id)}’s. Change it in Settings → Sync & sharing.`)}
+    B.pickFor=id===ME()?null:id; renderGroupItems(); renderBillTotals(); renderTabs();
+  });
+  const pr=document.getElementById('gProg'); if(!pr) return;
+  const mc=me&&cl[me], done=!!(mc&&mc.done), nPicked=mc?Object.keys(mc.items).length:0;
+  pr.innerHTML=`<div class="pcard gprog"><div class="gpl">${P.map(p=>{const c=cl[p.id],n=c?Object.keys(c.items).length:0;
+      return `<span class="${c&&c.done?'ok':''}"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name)} · ${c&&c.done?`picked ${n} item${n===1?'':'s'} ✓`:n?`picking (${n} so far)`:'waiting'}</span>`}).join('')}</div>
+    ${me&&S.items.length?`<button class="btn block ${done?'ghost':''}" id="gDone">${done?`${esc(pn(me))} picked ✓ · tap to change`:me===ME()?`I’ve picked mine${nPicked?'':' (nothing)'}`:`Done for ${esc(pn(me))}`}</button>`:''}
+    ${SB()?`<button class="btn ghost block" id="gSend">Send to the group to pick</button><p class="small" style="margin-top:6px">Everyone on the trip sees this bill in their Bills tab. Anyone without the app can tap theirs on this phone: pick their household above.</p>`
+      :`<p class="small" style="margin-top:6px">Pass the phone round: each household picks their name above and taps what they had. Turn on sync in Settings to let everyone pick on their own phone.</p>`}</div>`;
+  const d=document.getElementById('gDone'); if(d) d.onclick=()=>{const c=claimOf(me);c.done=!c.done;saveClaim(me);if(c.done&&B.pickFor){B.pickFor=null}renderGroupItems();renderBillTotals();renderTabs();if(c.done)toast('Thanks. The bill updates for everyone.')};
+  const s=document.getElementById('gSend'); if(s) s.onclick=shareGroup;
+}
+function renderGroupTotals(){
+  const r=gcalc(),S=B.bill,P=PT(),cl=CL(),foot=document.getElementById('bFoot'); if(!foot) return r;
+  foot.innerHTML=`<div><span>Items</span><span>${bMoney(r.items)}</span></div>
+    <div><span>${r.extra>=0?'Tip & extras':'Less than items'}</span><span>${bMoney(r.extra)}${r.items?` <span class="small">(${(r.extra/r.items*100).toFixed(1)}%)</span>`:''}</span></div>
+    <div class="tot"><span>Paid</span><span>${bMoney(r.paidC)}</span></div>
+    ${r.uncItems.length?`<div class="small" style="color:var(--accent-dark)"><span>${r.uncItems.length} not picked yet, split by head for now</span><span>${bMoney(Math.round(r.unc))}</span></div>`:''}`;
+  document.getElementById('bSplit').innerHTML=P.map(p=>{const o=r.per[p.id];return `<div class="gp"><i class="pdot" style="background:${pcol(p.id)};width:12px;height:12px"></i><div class="grow"><b>${esc(p.name)}</b> <span class="small">${p.heads||1} ${(p.heads||1)>1?'people':'person'}</span>
+      <div class="small">Food ${bMoney(Math.round(o.food))}${o.unc>=1?` · unpicked ${bMoney(Math.round(o.unc))}`:''} · tip ${bMoney(Math.round(o.extra))}</div></div><b class="t">${bMoney(o.tot)}</b></div>`}).join('');
+  const v=document.getElementById('bVerdict'), waiting=P.filter(p=>!(cl[p.id]&&cl[p.id].done)); let ready=false;
+  if(!S.items.length){v.className='verdict pending';v.innerHTML='<div class="vamt">Add the bill items first</div>'}
+  else if(!S.payer||!P.some(p=>p.id===S.payer)){v.className='verdict pending';v.innerHTML=`<div class="vamt">Who paid the bill?</div><div class="vsub">${waiting.length?`Waiting for ${esc(waiting.map(p=>p.name).join(', '))} to pick. `:''}Pick who paid above to see who owes what.</div>`}
+  else{ready=true;v.className='verdict';
+    const lines=P.filter(p=>p.id!==S.payer&&r.per[p.id].tot>0), me=ME(), myAmt=me&&me!==S.payer&&r.per[me]?r.per[me].tot:0;
+    v.innerHTML=`<div class="vwho">${esc(pn(S.payer)==='Us'?'We':pn(S.payer))} paid ${bMoney(r.paidC)}</div>
+      ${lines.map(p=>`<div class="vline"><span>${esc(owesTxt(p.id,S.payer))}</span><span>${bMoney(r.per[p.id].tot)}</span></div>`).join('')||'<div class="vamt">Nobody owes anything</div>'}
+      <div class="vsub">${waiting.length?`Still picking: ${esc(waiting.map(p=>p.name).join(', '))}. `:'Everyone has picked. '}${r.uncItems.length?`${bMoney(Math.round(r.unc))} nobody picked is split by head.`:''}</div>
+      ${myAmt>0&&payBtns(S.payer,myAmt,S.cur,S.place)?`<div class="payrow">${payBtns(S.payer,myAmt,S.cur,S.place)}</div>`:''}`}
+  const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':B.tallyC?`${waiting.map(p=>p.name).join(', ')} still picking. Tap again to add anyway`:'Add to trip tally';
+  return r;
+}
+function tallyGroup(){
+  const S=B.bill,P=PT(),cl=CL(),waiting=P.filter(p=>!(cl[p.id]&&cl[p.id].done));
+  if(waiting.length&&!B.tallyC){B.tallyC=true;renderBillTotals();setTimeout(()=>{if(B.tallyC){B.tallyC=false;renderBillTotals()}},4000);return}
+  B.tallyC=false;
+  const r=gcalc(),id=uid(),shares={};P.forEach(p=>{if(r.per[p.id].tot)shares[p.id]=r.per[p.id].tot});
+  const two=P.length===2&&P[0].id==='us'&&P[1].id==='wass', net=two?(S.payer==='us'?(shares.wass||0):-(shares.us||0)):0;
+  const per={};P.forEach(p=>{const o=r.per[p.id];per[p.id]={food:Math.round(o.food),unc:Math.round(o.unc),extra:Math.round(o.extra),tot:o.tot,items:o.items}});
+  const detail={group:true,items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,parties:JSON.parse(JSON.stringify(P)),
+    t:{items:r.items,paidC:r.paidC,extra:r.extra,unc:Math.round(r.unc),per}};
+  B.meals.push({id,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
+  if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
+    if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
+  const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
+  S.tallied=true;saveBill();saveMeals();renderBillsBody();renderTabs();toast('Added to the trip tally');
+}
 function renderBillItems(){
+  if(gm()) return renderGroupItems();
   const ul=document.getElementById('bItems'); if(!ul) return; const S=B.bill,n=NM();
   ul.textContent='';
   if(!S.items.length){ul.innerHTML='<li class="empty" style="padding:18px 14px">No items yet. Snap the bill and tap Read bill, or add items.</li>';return}
@@ -1645,6 +1841,7 @@ function renderBillChoices(){
   document.querySelectorAll('#bPayer button').forEach(b=>b.classList.toggle('on',B.bill.payer===b.dataset.v));
 }
 function renderBillTotals(){
+  if(gm()) return renderGroupTotals();
   const r=calc(),S=B.bill,n=NM(),foot=document.getElementById('bFoot'); if(!foot) return r;
   foot.innerHTML=`<div><span>Items</span><span>${bMoney(r.items)}</span></div>
     <div><span>${r.extra>=0?'Tip & extras':'Less than items'}</span><span>${bMoney(r.extra)}${r.items?` <span class="small">(${(r.extra/r.items*100).toFixed(1)}%)</span>`:''}</span></div>
@@ -1656,10 +1853,12 @@ function renderBillTotals(){
   const v=document.getElementById('bVerdict');let ready=false;
   if(!S.items.length){v.className='verdict pending';v.innerHTML='<div class="vamt">Add the bill items first</div>'}
   else if(r.nNone){v.className='verdict pending';v.innerHTML=`<div class="vamt">${r.nNone} item${r.nNone>1?'s':''} still to sort</div><div class="vsub">Swipe each one left for ${esc(n.a)} or right for ${esc(n.b)}.</div>`}
-  else if(!S.payer){v.className='verdict pending';v.innerHTML='<div class="vamt">Who paid the bill?</div><div class="vsub">Pick above to see who owes whom.</div>'}
+  else if(S.payer!=='us'&&S.payer!=='wass'){v.className='verdict pending';v.innerHTML='<div class="vamt">Who paid the bill?</div><div class="vsub">Pick above to see who owes whom.</div>'}
   else{ready=true;v.className='verdict';
-    v.innerHTML=S.payer==='us'?`<div class="vwho">${esc(theyOwe())}</div><div class="vamt">${bMoney(r.wTot)}</div><div class="vsub">${esc(n.a==='Us'?'We':n.a)} paid ${bMoney(r.paidC)}. ${esc(n.a==='Us'?'Our':n.a+'’s')} share was ${bMoney(r.uTot)}${n.ha>1?`, ${bMoney(Math.round(r.uTot/n.ha))} each`:''}.</div>`
-      :`<div class="vwho">${esc(weOwe())}</div><div class="vamt">${bMoney(r.uTot)}</div><div class="vsub">${n.ha>1?`That’s ${bMoney(Math.round(r.uTot/n.ha))} each. `:''}${esc(n.b)} paid ${bMoney(r.paidC)} and their share was ${bMoney(r.wTot)}.</div>`}
+    const pb=S.payer==='us'?payBtns('us',r.wTot,S.cur,S.place):payBtns('wass',r.uTot,S.cur,S.place);
+    v.innerHTML=(S.payer==='us'?`<div class="vwho">${esc(theyOwe())}</div><div class="vamt">${bMoney(r.wTot)}</div><div class="vsub">${esc(n.a==='Us'?'We':n.a)} paid ${bMoney(r.paidC)}. ${esc(n.a==='Us'?'Our':n.a+'’s')} share was ${bMoney(r.uTot)}${n.ha>1?`, ${bMoney(Math.round(r.uTot/n.ha))} each`:''}.</div>`
+      :`<div class="vwho">${esc(weOwe())}</div><div class="vamt">${bMoney(r.uTot)}</div><div class="vsub">${n.ha>1?`That’s ${bMoney(Math.round(r.uTot/n.ha))} each. `:''}${esc(n.b)} paid ${bMoney(r.paidC)} and their share was ${bMoney(r.wTot)}.</div>`)
+      +(pb?`<div class="payrow">${pb}</div>`:'')}
   const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':'Add to trip tally';
   return r;
 }
@@ -1680,13 +1879,24 @@ function renderBillTip(){
 }
 function renderBillTrip(){
   const el=document.getElementById('bTrip'); if(!el) return;
-  const meals=B.meals, net=meals.reduce((t,m)=>t+m.net,0), cur=(meals.at(-1)||{}).cur||'€';
+  const meals=B.meals, cur=(meals.filter(m=>!m.settle).at(-1)||{}).cur||'€', lines=settleLines();
+  const usOwes=lines.some(l=>l.from==='us'), usOwed=lines.some(l=>l.to==='us');
   const day=ms=>new Date(ms).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'});
-  el.innerHTML=`<div class="pcard" style="background:${net<0?'#fbeadf':net>0?'#e3f1e8':'var(--card)'}"><p class="small" style="margin:0">Trip balance</p>
-    <p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${net<0?'var(--accent-dark)':net>0?'var(--open)':'var(--ink)'}">${net===0?'All square':net<0?`${esc(weOwe())} ${mMoney(net,cur)}`:`${esc(theyOwe().replace(/^./,c=>c.toUpperCase()))} ${mMoney(net,cur)}`}</p></div>
-    ${meals.length?`<div class="list" style="margin-top:12px">${[...meals].reverse().map(m=>`<div class="row" onclick="openMeal('${m.id}')"><div class="grow"><div class="rname" style="font-size:17px">${esc(m.place)}</div><div class="rmeta">${day(m.at)}${m.detail?` · ${m.hasPhoto?'📷 ':''}${m.detail.items.length} items`:''}</div></div>
-      <div class="stat"><b style="color:${m.net<0?'var(--accent-dark)':'var(--open)'}">${m.net<0?'−':'+'}${mMoney(m.net,m.cur)}</b><small>${m.net<0?esc(weOwe().replace(/ owe .*/,' owe')):'owed to '+esc(NM().a==='Us'?'us':NM().a)}</small></div>
-      <span class="small" aria-hidden="true">›</span></div>`).join('')}</div>`:'<p class="small" style="margin-top:8px">Meals you add appear here with a running balance for the trip.</p>'}`;
+  const head=l=>{const t=owesTxt(l.from,l.to);return t.replace(/^./,c=>c.toUpperCase())};
+  const noPay=[...new Set(lines.map(l=>l.to))].filter(to=>!payLink('monzo',to,1,cur)&&!payLink('revolut',to,1,cur));
+  el.innerHTML=`<div class="pcard" style="background:${usOwes?'#fbeadf':usOwed&&!usOwes?'#e3f1e8':'var(--card)'}"><p class="small" style="margin:0">Trip balance</p>
+    ${!lines.length?'<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px">All square</p>'
+      :lines.length===1?`<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${usOwes?'var(--accent-dark)':usOwed?'var(--open)':'var(--ink)'}">${esc(head(lines[0]))} ${mMoney(lines[0].c,cur)}</p>`:''}
+    ${lines.map((l,i)=>`<div class="${lines.length>1?'setl':''}">${lines.length>1?`<div class="vline"><span>${esc(head(l))}</span><span>${mMoney(l.c,cur)}</span></div>`:''}
+      <div class="payrow">${payBtns(l.to,l.c,cur,'Xàbia trip')}<button class="paybtn ghost" data-mark="${esc(l.from+'|'+l.to+'|'+l.c+'|'+cur)}" onclick="markPaid(this)">Mark as paid</button></div></div>`).join('')}
+    ${noPay.length?`<button class="link" style="margin-top:8px" onclick="push('billsetup')">Add ${esc(noPay.map(id=>pn(id)==='Us'?'your':pn(id)+'’s').join(' and '))} Monzo or Revolut to pay from here →</button>`:''}</div>
+    ${meals.length?`<div class="list" style="margin-top:12px">${[...meals].reverse().map(m=>{
+      let stat;
+      if(m.settle) stat=`<b style="color:var(--ink)">${mMoney(m.amt,m.cur)}</b><small>${esc(paidTxt(m.from,m.to))}</small>`;
+      else if(m.group) stat=`<b style="color:var(--ink)">${mMoney(Object.values(m.shares||{}).reduce((a,b)=>a+b,0),m.cur)}</b><small>${esc(pn(m.payer,m.detail&&m.detail.parties)==='Us'?'we':pn(m.payer,m.detail&&m.detail.parties))} paid · ${Object.keys(m.shares||{}).length} households</small>`;
+      else stat=`<b style="color:${m.net<0?'var(--accent-dark)':'var(--open)'}">${m.net<0?'−':'+'}${mMoney(m.net,m.cur)}</b><small>${m.net<0?esc(weOwe().replace(/ owe .*/,' owe')):'owed to '+esc(NM().a==='Us'?'us':NM().a)}</small>`;
+      return `<div class="row" onclick="openMeal('${m.id}')"><div class="grow"><div class="rname" style="font-size:17px">${m.settle?'💸 ':''}${esc(m.place)}</div><div class="rmeta">${day(m.at)}${m.detail?` · ${m.hasPhoto?'📷 ':''}${m.detail.items.length} items`:''}${m.group?' · everyone picked':''}</div></div>
+      <div class="stat">${stat}</div><span class="small" aria-hidden="true">›</span></div>`}).join('')}</div>`:'<p class="small" style="margin-top:8px">Meals you add appear here with a running balance for the trip.</p>'}`;
 }
 function delMeal(id){
   const m=B.meals.find(x=>x.id===id); if(!m) return;
@@ -1715,12 +1925,16 @@ function wireBills(){
   $('bCur').onchange=e=>{S.cur=e.target.value;saveBill();renderBillsBody()};
   $('bTipMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tipMode=b.dataset.v;saveBill();renderBillChoices();renderBillTotals()};
   $('bPayer').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.payer=b.dataset.v;saveBill();renderBillChoices();renderBillTotals()};
-  $('bAdd').onclick=()=>{const it={id:uid(),name:'New item',qty:1,c:0,side:null};S.items.push(it);B.openId=B.editId=it.id;saveBill();renderBillItems();renderBillTotals();document.querySelector('#bItems input.in')?.select()};
+  $('bMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mode=b.dataset.m;if(!S.uid)S.uid=uid();
+    if(S.mode==='swipe'&&S.payer&&S.payer!=='us'&&S.payer!=='wass')S.payer=null;B.tallyC=false;saveBill();renderBillsBody();
+    if(S.mode==='group'&&!pickFor())toast('Tap your household, then tap what you had')};
+  if($('bAdd')) $('bAdd').onclick=()=>{const it={id:uid(),name:'New item',qty:1,c:0,side:null};S.items.push(it);B.openId=B.editId=it.id;saveBill();renderBillItems();renderBillTotals();document.querySelector('#bItems input.in')?.select()};
   $('bNew').onclick=()=>{
     if(!B.confirmNew&&S.items.length){B.confirmNew=true;$('bNew').textContent=S.tallied?'Tap again to clear':'Not in tally yet. Tap again';setTimeout(()=>{B.confirmNew=false;const b=$('bNew');if(b)b.textContent='New bill'},3000);return}
-    B.confirmNew=false;B.bill=blankBill(S.cur);B.photo=null;B.photoUrl=null;B.photoData=null;B.readMsg='';B.openId=B.editId=null;saveBill();renderBillsBody();
+    B.confirmNew=false;clearClaims();B.tallyC=false;B.pickFor=null;B.bill=blankBill(S.cur,S.mode);B.photo=null;B.photoUrl=null;B.photoData=null;B.readMsg='';B.openId=B.editId=null;saveBill();renderBillsBody();
   };
   $('bTally').onclick=()=>{
+    if(gm()) return tallyGroup();
     const r=calc(),net=S.payer==='us'?r.wTot:-r.uTot,id=uid();
     const detail={items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,names:NM(),
       t:{items:r.items,paidC:r.paidC,extra:r.extra,uTot:r.uTot,wTot:r.wTot,us:r.us,wass:r.wass,shared:r.shared,sharedW:Math.round(r.sharedW),uExtra:Math.round(r.uExtra),wExtra:Math.round(r.wExtra)}};
@@ -1738,14 +1952,14 @@ function wireBills(){
     if(B.mMode==='items'){
       document.querySelectorAll('#qSide button').forEach(b=>b.onclick=()=>{B.qSide=B.qSide===b.dataset.s?null:b.dataset.s;document.querySelectorAll('#qSide button').forEach(x=>x.classList.toggle('on',x.dataset.s===B.qSide))});
       const add=()=>{const nm=$('qName').value.trim(),c=toC($('qPrice').value);if(!nm||!c){toast('Add a name and a price');return}
-        if(S.bill&&!S.bill.manual){B.bill=blankBill(S.cur);}
+        if(S.bill&&!S.bill.manual){clearClaims();B.bill=blankBill(S.cur,S.mode);}
         const b=B.bill; b.example=false; if(!b.bill)b.bill={manual:true,total:0,inc:null}; b.items.push({id:uid(),name:nm,qty:1,c,side:B.qSide,ws:B.qSide==='shared'?defWs():undefined});
         b.bill.total=b.items.reduce((t,i)=>t+i.c,0);if(!b.place)b.place=$('qPlace')?.value||'';saveBill();renderBillsBody();setTimeout(()=>document.getElementById('qName')?.focus(),30)};
       $('qAdd').onclick=add; $('qPrice').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add()}};
     }else{
       document.querySelectorAll('#tRatio .chip').forEach(b=>b.onclick=()=>{B.tRatio=+b.dataset.w;document.querySelectorAll('#tRatio .chip').forEach(x=>x.classList.toggle('on',x===b))});
       $('tApply').onclick=()=>{const c=toC($('tTotal').value);if(!c){toast('Enter the bill total');return}
-        const place=S.place;B.bill=blankBill(S.cur);B.bill.place=place;B.bill.bill={manual:true,total:c,inc:null};
+        const place=S.place;clearClaims();B.bill=blankBill(S.cur,S.mode);B.bill.place=place;B.bill.bill={manual:true,total:c,inc:null};
         B.bill.items=[{id:uid(),name:'Bill total',qty:1,c,side:'shared',ws:B.tRatio??defWs()}];B.manual=false;saveBill();renderBillsBody()};
     }
   }
@@ -1789,7 +2003,7 @@ async function readBill(){
       const cur={EUR:'€',GBP:'£',USD:'$'}[String(d.currency||'').toUpperCase()]||B.bill.cur;
       const its=items.map(x=>({id:uid(),name:String(x.en||x.name||'Item'),orig:String(x.name||''),qty:Math.max(1,parseInt(x.qty)||1),c:Math.round((+x.total||0)*100),side:null}));
       const sum=its.reduce((t,i)=>t+i.c,0), total=d.billTotal!=null?Math.round(+d.billTotal*100):sum;
-      B.bill={...blankBill(cur),place:d.place||B.bill.place||'',items:its,bill:{total,inc:d.serviceIncluded===true?true:d.serviceIncluded===false?false:null,svc:d.serviceAmount?Math.round(+d.serviceAmount*100):0,note:d.serviceNote||''}};
+      clearClaims();B.bill={...blankBill(cur,B.bill.mode),place:d.place||B.bill.place||'',items:its,bill:{total,inc:d.serviceIncluded===true?true:d.serviceIncluded===false?false:null,svc:d.serviceAmount?Math.round(+d.serviceAmount*100):0,note:d.serviceNote||''}};
       B.readMsg=`Found ${its.length} item${its.length>1?'s':''}${Math.abs(total-sum-(B.bill.bill.svc||0))>5?` (they add up to ${bMoney(sum)}; the bill says ${bMoney(total)}, so check for a missed line)`:''}. Now swipe each one.`;
       saveBill();
     }
@@ -1809,9 +2023,26 @@ function screenMeal(id){
   const d=m.detail, n=(d&&d.names)||NM(), cur=m.cur||'€', mm=c=>(c<0?'−':'')+cur+(Math.abs(c)/100).toFixed(2);
   const when=new Date(m.at).toLocaleString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
   const us=n.a==='Us'?'us':n.a, We=n.a==='Us'?'We':n.a;
-  const verdict=m.net<0?`${We} owed ${n.b} ${mm(-m.net)}`:m.net>0?`${n.b} owed ${us} ${mm(m.net)}`:'All square';
+  let verdict=m.net<0?`${We} owed ${n.b} ${mm(-m.net)}`:m.net>0?`${n.b} owed ${us} ${mm(m.net)}`:'All square';
   let body='';
-  if(!d) body=`<div class="note" style="margin-top:14px">Only the total was saved for this meal, because it was added before bill details were kept. Bills you add from now on show their photo and every item.</div>`;
+  if(m.settle){verdict=`${paidTxt(m.from,m.to)} ${mm(m.amt)}`;body=`<p class="small" style="margin-top:12px">A payment to settle up, recorded with “Mark as paid”.</p>`}
+  else if(d&&d.group){
+    const P=d.parties||PT(),t=d.t,byId=Object.fromEntries(d.items.map(i=>[i.id,i]));
+    verdict=`${pn(d.payer,P)==='Us'?'We':pn(d.payer,P)} paid ${mm(t.paidC)}`;
+    const line=(lbl,c)=>`<div class="row" style="cursor:default"><div class="grow small">${lbl}</div><b style="font-variant-numeric:tabular-nums">${mm(c)}</b></div>`;
+    body=`${m.hasPhoto?`<div id="mealPh" class="mealph"><div class="empty">Loading the photo…</div></div>`:''}
+    ${P.map(p=>{const o=t.per[p.id];if(!o||!o.tot)return'';
+      return `${sec(p.name,p.id===d.payer?`${mm(o.tot)} · paid`:`owed ${mm(o.tot)}`)}<div class="list">${(o.items||[]).map(x=>{const i=byId[x.id];if(!i)return'';
+        return `<div class="row" style="cursor:default"><span class="mdot" style="background:${pcol(p.id,P)}"></span><div class="grow"><div style="font-weight:600;font-size:14px">${i.qty>1?`<span class="qty">${x.u} of ${i.qty}</span>`:''}${esc(i.name)}</div>${x.n>1?'<div class="small">Shared</div>':''}</div><b style="font-variant-numeric:tabular-nums">${mm(x.c)}</b></div>`}).join('')}
+        ${o.unc?line('Share of items nobody picked',o.unc):''}${line('Tip &amp; extras',o.extra)}</div>`}).join('')}
+    ${sec('Totals')}
+    <div class="pcard"><div class="srow"><span>Items</span><b>${mm(t.items)}</b></div>
+      <div class="srow"><span>Tip &amp; extras</span><b>${mm(t.extra)}</b></div>
+      <div class="srow"><span>Paid</span><b>${mm(t.paidC)}</b></div>
+      <div class="srow"><span>Paid by</span><b>${esc(pn(d.payer,P))}</b></div>
+      <div class="srow"><span>Tip split</span><b>${d.tipMode==='head'?'Per head':'By what you ate'}</b></div></div>`;
+  }
+  else if(!d) body=`<div class="note" style="margin-top:14px">Only the total was saved for this meal, because it was added before bill details were kept. Bills you add from now on show their photo and every item.</div>`;
   else{
     const t=d.t, grp=[['us',n.a,'u'],['shared','Shared','s'],['wass',n.b,'w']];
     body=`${m.hasPhoto?`<div id="mealPh" class="mealph"><div class="empty">Loading the photo…</div></div>`:''}
@@ -1833,7 +2064,7 @@ function screenMeal(id){
     ${body}
     ${state.mealDel===m.id?(()=>{const now=B.meals.reduce((t,x)=>t+x.net,0),after=now-m.net,bal=v=>v===0?'all square':v<0?`${We.toLowerCase()==='we'?'you':We} owe ${n.b} ${mm(-v)}`:`${n.b} owes ${us==='us'?'you':us} ${mm(v)}`;
       return `<div class="pcard" style="margin-top:22px;border-color:#e3b5b5"><h3 style="font-size:18px">Remove this bill from the trip?</h3>
-        <p style="font-size:14px;margin-top:6px">The trip balance goes from <b>${bal(now)}</b> to <b>${bal(after)}</b>, on ${esc(n.b)}’s phone too.${m.hasPhoto?' The bill photo is deleted as well.':''}</p>
+        <p style="font-size:14px;margin-top:6px">${m.group||m.settle||PT().length>2?'The trip balance changes on everyone’s phone.':`The trip balance goes from <b>${bal(now)}</b> to <b>${bal(after)}</b>, on ${esc(n.b)}’s phone too.`}${m.hasPhoto?' The bill photo is deleted as well.':''}</p>
         <div class="frow"><button class="btn ghost" style="flex:1" onclick="state.mealDel=null;render(true)">Keep it</button><button class="btn" style="flex:1;background:#a63a3a" onclick="delMeal('${m.id}')">Remove it</button></div></div>`})()
       :`<button class="link" style="display:block;margin:26px auto 0;color:#a63a3a" onclick="state.mealDel='${m.id}';render(true);setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50)">Remove this bill from the trip…</button>`}</div>`;
 }
@@ -1877,11 +2108,16 @@ function screenBillSetup(){
      <button class="btn block">Connect</button>
    </form>`}
   ${sec('Who’s splitting')}
-  <form class="pcard" onsubmit="event.preventDefault();saveNames(this)">
-    <label class="lab" for="nmA" style="margin-top:0">Your side</label><div class="frow" style="margin-top:0"><input class="field" id="nmA" name="a" value="${esc(n.a)}"><input class="field" id="nmHA" name="ha" inputmode="numeric" value="${n.ha}" style="max-width:5em" aria-label="People on your side"></div>
-    <label class="lab" for="nmB">Other side</label><div class="frow" style="margin-top:0"><input class="field" id="nmB" name="b" value="${esc(n.b)}"><input class="field" id="nmHB" name="hb" inputmode="numeric" value="${n.hb}" style="max-width:5em" aria-label="People on their side"></div>
-    <p class="small" style="margin-top:6px">The numbers are how many people on each side. They set the default share and the per-head tip split.</p>
-    <button class="btn ghost block">Save names</button>
+  <form class="pcard" id="hhForm" onsubmit="event.preventDefault();saveParties()">
+    <p class="small" style="margin-top:0">One line per household: its name and how many people. Add a Monzo or Revolut username so others can pay that household with one tap.</p>
+    ${PT().map((p,i)=>`<div class="hhrow"><div class="frow"><i class="pdot" style="background:${pcol(p.id)};align-self:center"></i><input class="field" id="hhN${i}" value="${esc(p.name)}" aria-label="Household ${i+1} name" placeholder="Name"><input class="field" id="hhH${i}" inputmode="numeric" value="${p.heads||1}" style="max-width:4.5em" aria-label="People in household ${i+1}"></div>
+      <div class="frow"><input class="field" id="hhM${i}" value="${esc(p.monzo||'')}" placeholder="Monzo username" aria-label="Monzo username for household ${i+1}" autocapitalize="off" autocomplete="off" spellcheck="false"><input class="field" id="hhR${i}" value="${esc(p.revolut||'')}" placeholder="Revolut username" aria-label="Revolut username for household ${i+1}" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
+      ${i>=2?`<button type="button" class="link danger" style="margin-top:6px" onclick="rmParty(${i})">Remove ${esc(p.name||'this household')}</button>`:''}</div>`).join('')}
+    <button type="button" class="btn ghost block" onclick="addParty()">+ Add a household</button>
+    <button class="btn block">Save households</button>
+    <span class="lab">This phone belongs to</span>
+    <div class="chips wrap">${PT().map(p=>`<button type="button" class="chip ${ME()===p.id?'on':''}" onclick="setMe('${p.id}');render(true)"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name)}</button>`).join('')}</div>
+    <p class="small" style="margin-top:6px">Only saved on this phone. It’s who you pick for when everyone picks, and who you pay from.</p>
   </form>
   ${sec('Reading bill photos')}
   <div class="pcard"><p style="font-size:14px">Uses Google’s Gemini with your Google key. In Google Cloud:</p>
@@ -1923,7 +2159,22 @@ async function shareInvite(){
   copyText(text,'Invite link copied. Paste it to '+NM().b+'.');
 }
 function leaveTrip(){if(state.confirmDel!=='LEAVE'){state.confirmDel='LEAVE';render(true);return}state.confirmDel=null;data.sb=null;save();setB('local');toast('Stopped sharing on this phone');render(true)}
-function saveNames(f){const ha=Math.max(1,parseInt(f.ha.value)||1),hb=Math.max(1,parseInt(f.hb.value)||1);data.splitNames={a:f.a.value.trim()||'Us',b:f.b.value.trim()||'Them',ha,hb};save();toast('Saved');render(true)}
+function collectParties(){
+  return PT().map((p,i)=>{const v=k=>{const el=document.getElementById(k+i);return el?el.value:null};
+    const o={...p},nm=v('hhN'),h=v('hhH'),mz=v('hhM'),rv=v('hhR');
+    if(nm!=null)o.name=nm.trim()||(i===0?'Us':i===1?'Wass':'Household '+(i+1));
+    if(h!=null)o.heads=Math.max(1,parseInt(h)||1);
+    if(mz!=null){o.monzo=cleanHandle(mz);if(!o.monzo)delete o.monzo}
+    if(rv!=null){o.revolut=cleanHandle(rv);if(!o.revolut)delete o.revolut}
+    return o});
+}
+function storeParties(P){data.parties=P;data.splitNames={a:P[0].name,b:P[1].name,ha:P[0].heads,hb:P[1].heads};save()}
+function saveParties(){storeParties(collectParties());toast('Saved');render(true)}
+function addParty(){const P=collectParties();P.push({id:uid(),name:'',heads:2});storeParties(P);render(true);setTimeout(()=>document.getElementById('hhN'+(P.length-1))?.focus(),30)}
+function rmParty(i){const P=collectParties();if(i<2||!P[i])return;
+  const used=B.meals.some(m=>(m.shares&&m.shares[P[i].id])||m.payer===P[i].id||m.from===P[i].id||m.to===P[i].id);
+  if(used){toast(`${P[i].name} is in the trip tally, so they stay`);return}
+  const gone=P[i].id;P.splice(i,1);storeParties(P);if(ME()===gone)setMe('');render(true)}
 function stashLocal(){state.mergeLocal={spots:(data.spots||[]).slice(),places:(data.places||[]).filter(p=>!p.seed||p.touched),key:data.key}}
 function joinTrip(j){
   stashLocal();
@@ -1941,6 +2192,7 @@ async function pasteTrip(text){
 }
 // Opening an invite link joins the trip on this phone
 (function joinFromLink(){
+  if(location.hash==='#bills'){state.tab='bills';history.replaceState(null,'',location.pathname+location.search);return}
   const m=location.hash.match(/#join=([\w-]+)/); if(!m) return;
   try{
     const j=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
@@ -2070,7 +2322,7 @@ function renderTabs(){
   const t=document.getElementById('tabs'); t.hidden=!!hide; if(hide) return;
   t.innerHTML=TABS.map(([k,l,ic])=>{const on=state.tab===k&&!state.stack.length;
     return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${data.plan.length?`<em class="badge">${data.plan.length}</em>`:''}</button>`
-      :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}</button>`}).join('');
+      :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}${k==='bills'&&needsMyPick()?'<em class="bdot" aria-label="Your picks are needed"></em>':''}</button>`}).join('');
 }
 function go(k){state.tab=k;state.stack=[];state.confirmDel=null;render()}
 function renderSync(){const el=document.getElementById('sync');if(el)el.textContent=state.sync}

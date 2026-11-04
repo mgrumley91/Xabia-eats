@@ -18,7 +18,14 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
 - `kind = 'meal'` rows: bills in the trip tally. `data` has place, at, cur and `net` in cents
   (negative = we owed Wass, positive = Wass owed us), plus `detail` with items
   (name, orig, qty, c in cents, side us/wass/shared, ws = Wass's share), payer, paid and totals.
-- `kind = 'bill'` is the bill being split right now. Ignore `kind = 'photo'` rows.
+- `data->'d'->'parties'`: households splitting bills (id, name, heads, optional monzo / revolut usernames).
+  The first two always have ids `us` and `wass`.
+- "Everyone picks" meals have `group = true`, `payer` (a household id) and `shares` (household id → cents of
+  the bill that household owes). Everyone except the payer owes the payer their share. Their `detail.parties`
+  and `detail.t.per` show who picked what.
+- Meals with `settle = true` are payments: `from` paid `to` `amt` cents.
+- `kind = 'bill'` is the bill being split right now; `kind = 'claim'` rows are each household's picks for it.
+  Ignore `kind = 'photo'` rows.
 - `at` values are milliseconds since 1970: show dates and times in Europe/Madrid.
 
 ## Rules
