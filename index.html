@@ -329,7 +329,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v18';
+const APP_VERSION='v19';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1343,6 +1343,15 @@ function applyApp(remote){
   const hadKey=data.key;
   APP_KEYS.forEach(k=>{if(remote.d[k]!==undefined&&!(k==='key'&&!remote.d[k]))data[k]=remote.d[k]});
   data.appUpdated=remote.updated; save({remote:true});
+  const ml=state.mergeLocal; state.mergeLocal=null;
+  if(ml){
+    let added=0;
+    for(const sp of ml.spots) if(!data.spots.some(x=>x.id===sp.id||(x.name===sp.name&&Math.abs(x.lat-sp.lat)<.0005))){data.spots.push(sp);added++}
+    for(const p of ml.places) if(!data.places.some(x=>x.id===p.id||(p.gid&&x.gid===p.gid))){data.places.push(p);added++}
+    if(!data.key&&ml.key) data.key=ml.key;
+    if(!data.base&&data.spots.some(x=>x.kind==='home')) data.base=data.spots.find(x=>x.kind==='home').id;
+    if(added){save();toast(`Added ${added} spot${added>1?'s':''} and place${added>1?'s':''} from this screen to your trip`)}
+  }
   if(data.key&&!hadKey){state.keyStatus='loading';gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
   renderSoft();
 }
@@ -1716,7 +1725,7 @@ async function startSharing(f){
     const r=await fetch(url+'/rest/v1/splitter?id=eq.app&select=trip,data,updated_at&order=updated_at.desc&limit=5',{headers:h});
     if(r.ok){const rows=await r.json();existing=(rows||[]).sort((a,b)=>((b.data&&b.data.d&&b.data.d.key)?1:0)-((a.data&&a.data.d&&a.data.d.key)?1:0))[0]||null}
   }catch(e){}
-  if(existing){data.sb={url,key,trip:existing.trip};data.appUpdated=0;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
+  if(existing){stashLocal();data.sb={url,key,trip:existing.trip};data.appUpdated=0;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
   else{data.sb={url,key,trip:newTripCode()};save();B.seeded=false}
   await pullBills();
   if(B.status==='live'){state.sbU=state.sbK=undefined;if(!existing)await pushApp().catch(()=>{});toast(existing?'Reconnected. Your trip is back.':'Sync is on');state.stack=[];state.tab='today';render();if(data.key&&!gPromise)gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
@@ -1735,7 +1744,9 @@ async function shareInvite(){
 }
 function leaveTrip(){if(state.confirmDel!=='LEAVE'){state.confirmDel='LEAVE';render(true);return}state.confirmDel=null;data.sb=null;save();setB('local');toast('Stopped sharing on this phone');render(true)}
 function saveNames(f){const ha=Math.max(1,parseInt(f.ha.value)||1),hb=Math.max(1,parseInt(f.hb.value)||1);data.splitNames={a:f.a.value.trim()||'Us',b:f.b.value.trim()||'Them',ha,hb};save();toast('Saved');render(true)}
+function stashLocal(){state.mergeLocal={spots:(data.spots||[]).slice(),places:(data.places||[]).filter(p=>!p.seed||p.touched),key:data.key}}
 function joinTrip(j){
+  stashLocal();
   data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}
   data.appUpdated=0;save({remote:true});state.joined=true;B.seeded=true;B.bill=blankBill();B.meals=[];localBills();
 }
