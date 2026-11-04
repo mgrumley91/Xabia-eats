@@ -439,7 +439,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v28';
+const APP_VERSION='v29';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -854,7 +854,7 @@ function screenToday(){
   const hol=holidayOn(w.date);
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
-  return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">Add your Google key in Settings to see your places on the map.</div>`}
+  return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
     <div class="hfloat"><span></span><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
@@ -865,7 +865,9 @@ function screenToday(){
      <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
     <div class="chipsA">${CATS.map(c=>`<button class="${c.k===cat.k?'on':''}" onclick="state.cat='${c.k}';state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
-    ${!data.key&&!SB()?`<div class="note"><b>Already using the app on another screen?</b> Paste its trip link to bring everything here. <button class="link" onclick="push('billsetup')">Connect →</button><br><b>New here?</b> <button class="link" onclick="push('settings')">Add your Google key →</button></div>`:''}
+    ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
+      <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
+      <p class="small" style="margin-top:8px">Your friend gets it in ⚙ → Sync &amp; sharing → Send trip link. Starting your own trip instead? <button class="link" onclick="push('settings')">Add a Google key</button></p></div>`:''}
     ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
     ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
@@ -1700,7 +1702,7 @@ function markPaid(btn){
   toast(`Paid · Ref ${ref||''}`.trim());
 }
 async function shareGroup(){
-  const S=B.bill,url=location.origin+location.pathname+'#bills',text=`Tap what you had${S.place?' at '+S.place:''} so we can split the bill`;
+  const S=B.bill,url=SB()?inviteLink(true):location.origin+location.pathname+'#bills',text=`Tap what you had${S.place?' at '+S.place:''} so we can split the bill`;
   if(navigator.share){try{await navigator.share({title:'Pick what you had',text,url});return}catch(e){if(e.name==='AbortError')return}}
   copyText(text+': '+url,'Link copied. Paste it in your group chat.');
 }
@@ -2224,8 +2226,8 @@ async function startSharing(f){
   if(B.status==='live'){state.sbU=state.sbK=undefined;if(!existing)await pushApp().catch(()=>{});toast(existing?'Reconnected. Your trip is back.':'Sync is on');state.stack=[];state.tab='today';render();if(data.key&&!gPromise)gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
   else{toast('Couldn’t connect: '+B.err);data.sb={url,key,trip:''};save();render(true)}
 }
-function inviteLink(){
-  const n=NM(),j={u:data.sb.url,k:data.sb.key,t:data.sb.trip,n:{...n}};
+function inviteLink(toBills){
+  const n=NM(),j={u:data.sb.url,k:data.sb.key,t:data.sb.trip,n:{...n}};if(toBills)j.b=1;
   if(state.invKey!==false&&data.key) j.g=data.key;
   const b64=btoa(unescape(encodeURIComponent(JSON.stringify(j)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   return location.origin+location.pathname+'#join='+b64;
@@ -2273,7 +2275,7 @@ async function pasteTrip(text){
   const m=location.hash.match(/#join=([\w-]+)/); if(!m) return;
   try{
     const j=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
-    if(j.u&&j.k&&j.t){joinTrip(j);state.tab='today'}
+    if(j.u&&j.k&&j.t){if(!(data.sb&&data.sb.trip===j.t&&data.sb.url===j.u))joinTrip(j);else if(j.g&&!data.key){data.key=j.g;save()}state.tab=j.b?'bills':'today'}
   }catch(e){}
   history.replaceState(null,'',location.pathname+location.search);
 })();
