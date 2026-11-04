@@ -23,7 +23,8 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
 - "Everyone picks" meals have `group = true`, `payer` (a household id) and `shares` (household id → cents of
   the bill that household owes). Everyone except the payer owes the payer their share. Their `detail.parties`
   and `detail.t.per` show who picked what.
-- Meals with `settle = true` are payments: `from` paid `to` `amt` cents.
+- Meals with `settle = true` are payments: `from` paid `to` `amt` cents, with `ref` (payment reference, e.g. XE-K7Q2X)
+  and `forMeal` (the id of the bill it paid, if any). Bills carry the same `ref`.
 - `kind = 'bill'` is the bill being split right now; `kind = 'claim'` rows are each household's picks for it.
   Ignore `kind = 'photo'` rows.
 - `at` values are milliseconds since 1970: show dates and times in Europe/Madrid.

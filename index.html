@@ -200,6 +200,8 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .verdict .paybtn.ghost{color:#fff;border-color:rgba(255,255,255,.5)}
 .setl{padding:12px 0 2px;border-top:1px solid var(--line);margin-top:10px}
 .setl .vline{font-size:16px}
+.paidok{margin-top:8px;font-size:13px;font-weight:700;color:var(--open)}.verdict .paidok{color:#9fe0c0}
+.refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
 .hhrow .frow{margin-top:6px}
@@ -437,7 +439,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v27';
+const APP_VERSION='v28';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1670,12 +1672,32 @@ function settleLines(){
   const out=[];for(const [k,v] of Object.entries(pr)){const [a,b]=k.split('|');if(v>=1)out.push({from:a,to:b,c:Math.round(v)});else if(v<=-1)out.push({from:b,to:a,c:Math.round(-v)})}
   return out.sort((x,y)=>y.c-x.c);
 }
+// Payment references: short, stable per bill, preloaded into the Monzo note
+const refOf=x=>{let h=2166136261;for(const ch of String(x))h=Math.imul(h^ch.charCodeAt(0),16777619)>>>0;return 'XE-'+h.toString(36).toUpperCase().padStart(7,'0').slice(-5)};
+const mealRef=m=>m.ref||refOf(m.billUid||m.id);
+const payNote=(place,ref)=>((place||'').slice(0,22)+' '+ref).trim();
+function mealDebts(m){
+  if(!m||m.settle) return [];
+  if(m.group&&m.shares) return Object.entries(m.shares).filter(([p,v])=>p!==m.payer&&v>0).map(([p,v])=>({from:p,to:m.payer,c:v}));
+  return m.net>0?[{from:'wass',to:'us',c:m.net}]:m.net<0?[{from:'us',to:'wass',c:-m.net}]:[];
+}
+const paidFor=(m,from)=>B.meals.find(x=>x.settle&&x.forMeal===m.id&&x.from===from);
+const mealPaid=m=>{const d=mealDebts(m);return d.length&&d.every(x=>paidFor(m,x.from))};
+const whenShort=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const refChip=ref=>`<button class="paybtn ghost refchip" onclick="copyText('${ref}','Reference ${ref} copied')" aria-label="Copy reference ${ref}">Ref ${ref} ⧉</button>`;
+function debtBlock(m,d){
+  const p=paidFor(m,d.from), ref=mealRef(m);
+  if(p) return `<div class="paidok">✓ Paid · Ref ${esc(p.ref||ref)} · ${whenShort(p.at)}</div>`;
+  return `<div class="payrow">${payBtns(d.to,d.c,m.cur,payNote(m.place,ref))}${refChip(ref)}<button class="paybtn ghost" data-mark="${esc([d.from,d.to,d.c,m.cur||'€',ref,m.id].join('|'))}" onclick="markPaid(this)">Mark as paid</button></div>`;
+}
 function markPaid(btn){
   const k=btn.dataset.mark;
-  if(B.markC!==k){B.markC=k;btn.textContent='Tap again to record it';setTimeout(()=>{if(B.markC===k){B.markC=null;renderBillTrip()}},3500);return}
-  B.markC=null; const [from,to,c,cur]=k.split('|'), amt=+c, net=from==='us'&&to==='wass'?amt:from==='wass'&&to==='us'?-amt:0;
-  B.meals.push({id:uid(),place:'Settled up',settle:true,from,to,amt,net,cur:cur||'€',at:Date.now()});
-  saveMeals(); renderBillsBody(); toast(`Recorded: ${paidTxt(from,to)} ${mMoney(amt,cur)}`);
+  if(B.markC!==k){B.markC=k;btn.textContent='Tap again to record it';setTimeout(()=>{if(B.markC===k){B.markC=null;btn.isConnected&&(btn.textContent='Mark as paid')}},3500);return}
+  B.markC=null; const [from,to,c,cur,ref,mid]=k.split('|'), amt=+c, net=from==='us'&&to==='wass'?amt:from==='wass'&&to==='us'?-amt:0;
+  const fm=mid&&B.meals.find(x=>x.id===mid);
+  B.meals.push({id:uid(),place:fm?'Paid for '+fm.place:'Settled up',settle:true,from,to,amt,net,cur:cur||'€',ref:ref||undefined,forMeal:fm?fm.id:undefined,at:Date.now()});
+  saveMeals(); if(state.stack.length) render(true); else renderBillsBody();
+  toast(`Paid · Ref ${ref||''}`.trim());
 }
 async function shareGroup(){
   const S=B.bill,url=location.origin+location.pathname+'#bills',text=`Tap what you had${S.place?' at '+S.place:''} so we can split the bill`;
@@ -1697,6 +1719,7 @@ function billsRefresh(){if(state.tab!=='bills'||state.stack.length)return;if(bEd
 document.addEventListener('focusout',()=>setTimeout(()=>{if(B.needRender&&!bEditing()){B.needRender=false;renderBillsBody()}},0));
 function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
+  if(!B.bill.uid){B.bill.uid=uid();saveBill()}
   const S=B.bill,n=NM(),canRead=!!data.key,g=gm(),P=PT(),heads=P.reduce((t,p)=>t+(p.heads||1),0);
   if(anyPay()) getFx();
   root.innerHTML=`
@@ -1801,10 +1824,11 @@ function renderGroupTotals(){
   else if(!S.payer||!P.some(p=>p.id===S.payer)){v.className='verdict pending';v.innerHTML=`<div class="vamt">Who paid the bill?</div><div class="vsub">${waiting.length?`Waiting for ${esc(waiting.map(p=>p.name).join(', '))} to pick. `:''}Pick who paid above to see who owes what.</div>`}
   else{ready=true;v.className='verdict';
     const lines=P.filter(p=>p.id!==S.payer&&r.per[p.id].tot>0), me=ME(), myAmt=me&&me!==S.payer&&r.per[me]?r.per[me].tot:0;
+    const tm=S.tallied&&B.meals.find(m=>m.billUid&&m.billUid===S.uid), ref=refOf(S.uid);
     v.innerHTML=`<div class="vwho">${esc(pn(S.payer)==='Us'?'We':pn(S.payer))} paid ${bMoney(r.paidC)}</div>
-      ${lines.map(p=>`<div class="vline"><span>${esc(owesTxt(p.id,S.payer))}</span><span>${bMoney(r.per[p.id].tot)}</span></div>`).join('')||'<div class="vamt">Nobody owes anything</div>'}
+      ${lines.map(p=>`<div class="vline"><span>${esc(owesTxt(p.id,S.payer))}</span><span>${bMoney(r.per[p.id].tot)}</span></div>${tm&&tm.shares&&tm.shares[p.id]?debtBlock(tm,{from:p.id,to:S.payer,c:tm.shares[p.id]}):''}`).join('')||'<div class="vamt">Nobody owes anything</div>'}
       <div class="vsub">${waiting.length?`Still picking: ${esc(waiting.map(p=>p.name).join(', '))}. `:'Everyone has picked. '}${r.uncItems.length?`${bMoney(Math.round(r.unc))} nobody picked is split by head.`:''}</div>
-      ${myAmt>0&&payBtns(S.payer,myAmt,S.cur,S.place)?`<div class="payrow">${payBtns(S.payer,myAmt,S.cur,S.place)}</div>${fxNote(S.cur,true)}`:''}`}
+      ${!tm&&myAmt>0?`<div class="payrow">${payBtns(S.payer,myAmt,S.cur,payNote(S.place,ref))}${refChip(ref)}</div>`:''}${anyPay()&&lines.length?fxNote(S.cur,true):''}`}
   const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':B.tallyC?`${waiting.map(p=>p.name).join(', ')} still picking. Tap again to add anyway`:'Add to trip tally';
   return r;
 }
@@ -1817,7 +1841,7 @@ function tallyGroup(){
   const per={};P.forEach(p=>{const o=r.per[p.id];per[p.id]={food:Math.round(o.food),unc:Math.round(o.unc),extra:Math.round(o.extra),tot:o.tot,items:o.items}});
   const detail={group:true,items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,parties:JSON.parse(JSON.stringify(P)),
     t:{items:r.items,paidC:r.paidC,extra:r.extra,unc:Math.round(r.unc),per}};
-  B.meals.push({id,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
+  B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
   if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
     if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
   const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
@@ -1893,10 +1917,11 @@ function renderBillTotals(){
   else if(r.nNone){v.className='verdict pending';v.innerHTML=`<div class="vamt">${r.nNone} item${r.nNone>1?'s':''} still to sort</div><div class="vsub">Swipe each one left for ${esc(n.a)} or right for ${esc(n.b)}.</div>`}
   else if(S.payer!=='us'&&S.payer!=='wass'){v.className='verdict pending';v.innerHTML='<div class="vamt">Who paid the bill?</div><div class="vsub">Pick above to see who owes whom.</div>'}
   else{ready=true;v.className='verdict';
-    const pb=S.payer==='us'?payBtns('us',r.wTot,S.cur,S.place):payBtns('wass',r.uTot,S.cur,S.place);
+    const tm=S.tallied&&B.meals.find(m=>m.billUid&&m.billUid===S.uid), ref=refOf(S.uid);
+    const pb=tm?mealDebts(tm).map(d=>debtBlock(tm,d)).join(''):(()=>{const x=S.payer==='us'?payBtns('us',r.wTot,S.cur,payNote(S.place,ref)):payBtns('wass',r.uTot,S.cur,payNote(S.place,ref));return `<div class="payrow">${x}${refChip(ref)}</div>`})();
     v.innerHTML=(S.payer==='us'?`<div class="vwho">${esc(theyOwe())}</div><div class="vamt">${bMoney(r.wTot)}</div><div class="vsub">${esc(n.a==='Us'?'We':n.a)} paid ${bMoney(r.paidC)}. ${esc(n.a==='Us'?'Our':n.a+'’s')} share was ${bMoney(r.uTot)}${n.ha>1?`, ${bMoney(Math.round(r.uTot/n.ha))} each`:''}.</div>`
       :`<div class="vwho">${esc(weOwe())}</div><div class="vamt">${bMoney(r.uTot)}</div><div class="vsub">${n.ha>1?`That’s ${bMoney(Math.round(r.uTot/n.ha))} each. `:''}${esc(n.b)} paid ${bMoney(r.paidC)} and their share was ${bMoney(r.wTot)}.</div>`)
-      +(pb?`<div class="payrow">${pb}</div>${fxNote(S.cur,true)}`:'')}
+      +pb+(anyPay()?fxNote(S.cur,true):'')}
   const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':'Add to trip tally';
   return r;
 }
@@ -1927,7 +1952,7 @@ function renderBillTrip(){
     ${!lines.length?'<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px">All square</p>'
       :lines.length===1?`<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${usOwes?'var(--accent-dark)':usOwed?'var(--open)':'var(--ink)'}">${esc(head(lines[0]))} ${mMoney(lines[0].c,cur)}</p>${gbp(lines[0].c).replace('text-align:right','text-align:left')}`:''}
     ${lines.map((l,i)=>`<div class="${lines.length>1?'setl':''}">${lines.length>1?`<div class="vline"><span>${esc(head(l))}</span><span style="text-align:right;white-space:nowrap">${mMoney(l.c,cur)}${gbp(l.c)}</span></div>`:''}
-      <div class="payrow">${payBtns(l.to,l.c,cur,'Xàbia trip')}<button class="paybtn ghost" data-mark="${esc(l.from+'|'+l.to+'|'+l.c+'|'+cur)}" onclick="markPaid(this)">Mark as paid</button></div></div>`).join('')}
+      ${(()=>{const ref=refOf('settle|'+l.from+'|'+l.to+'|'+l.c+'|'+B.meals.length);return `<div class="payrow">${payBtns(l.to,l.c,cur,'Xàbia trip '+ref)}${refChip(ref)}<button class="paybtn ghost" data-mark="${esc([l.from,l.to,l.c,cur,ref,''].join('|'))}" onclick="markPaid(this)">Mark as paid</button></div>`})()}</div>`).join('')}
     ${lines.length&&anyPay()?fxNote(cur):''}
     ${noPay.length?`<button class="link" style="margin-top:8px" onclick="push('billsetup')">Add ${esc(noPay.map(id=>pn(id)==='Us'?'your':pn(id)+'’s').join(' and '))} Monzo or Revolut to pay from here →</button>`:''}</div>
     ${meals.length?`<div class="list" style="margin-top:12px">${[...meals].reverse().map(m=>{
@@ -1935,7 +1960,7 @@ function renderBillTrip(){
       if(m.settle) stat=`<b style="color:var(--ink)">${mMoney(m.amt,m.cur)}</b><small>${esc(paidTxt(m.from,m.to))}</small>`;
       else if(m.group) stat=`<b style="color:var(--ink)">${mMoney(Object.values(m.shares||{}).reduce((a,b)=>a+b,0),m.cur)}</b><small>${esc(pn(m.payer,m.detail&&m.detail.parties)==='Us'?'we':pn(m.payer,m.detail&&m.detail.parties))} paid · ${Object.keys(m.shares||{}).length} households</small>`;
       else stat=`<b style="color:${m.net<0?'var(--accent-dark)':'var(--open)'}">${m.net<0?'−':'+'}${mMoney(m.net,m.cur)}</b><small>${m.net<0?esc(weOwe().replace(/ owe .*/,' owe')):'owed to '+esc(NM().a==='Us'?'us':NM().a)}</small>`;
-      return `<div class="row" onclick="openMeal('${m.id}')"><div class="grow"><div class="rname" style="font-size:17px">${m.settle?'💸 ':''}${esc(m.place)}</div><div class="rmeta">${day(m.at)}${m.detail?` · ${m.hasPhoto?'📷 ':''}${m.detail.items.length} items`:''}${m.group?' · everyone picked':''}</div></div>
+      return `<div class="row" onclick="openMeal('${m.id}')"><div class="grow"><div class="rname" style="font-size:17px">${m.settle?'💸 ':''}${esc(m.place)}</div><div class="rmeta">${day(m.at)}${m.detail?` · ${m.hasPhoto?'📷 ':''}${m.detail.items.length} items`:''}${m.group?' · everyone picked':''}${m.settle&&m.ref?' · Ref '+esc(m.ref):''}${mealPaid(m)?' · <b style="color:var(--open)">Paid ✓</b>':''}</div></div>
       <div class="stat">${stat}</div><span class="small" aria-hidden="true">›</span></div>`}).join('')}</div>`:'<p class="small" style="margin-top:8px">Meals you add appear here with a running balance for the trip.</p>'}`;
 }
 function delMeal(id){
@@ -1978,7 +2003,7 @@ function wireBills(){
     const r=calc(),net=S.payer==='us'?r.wTot:-r.uTot,id=uid();
     const detail={items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,names:NM(),
       t:{items:r.items,paidC:r.paidC,extra:r.extra,uTot:r.uTot,wTot:r.wTot,us:r.us,wass:r.wass,shared:r.shared,sharedW:Math.round(r.sharedW),uExtra:Math.round(r.uExtra),wExtra:Math.round(r.wExtra)}};
-    B.meals.push({id,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
+    B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
     if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
       if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
     const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
@@ -2065,7 +2090,10 @@ function screenMeal(id){
   const us=n.a==='Us'?'us':n.a, We=n.a==='Us'?'We':n.a;
   let verdict=m.net<0?`${We} owed ${n.b} ${mm(-m.net)}`:m.net>0?`${n.b} owed ${us} ${mm(m.net)}`:'All square';
   let body='';
-  if(m.settle){verdict=`${paidTxt(m.from,m.to)} ${mm(m.amt)}`;body=`<p class="small" style="margin-top:12px">A payment to settle up, recorded with “Mark as paid”.</p>`}
+  if(m.settle){const fm=m.forMeal&&B.meals.find(x=>x.id===m.forMeal);verdict=`${paidTxt(m.from,m.to)} ${mm(m.amt)}`;
+    body=`<div class="pcard" style="margin-top:14px">${m.ref?`<div class="srow"><span>Reference</span><b>${esc(m.ref)} <button class="link" onclick="copyText('${esc(m.ref)}','Reference copied')">copy</button></b></div>`:''}
+      <div class="srow"><span>For</span><b>${fm?`<button class="link" onclick="openMeal('${fm.id}')">${esc(fm.place)} →</button>`:'The trip balance'}</b></div>
+      <div class="srow"><span>Recorded</span><b>${whenShort(m.at)}</b></div></div>`}
   else if(d&&d.group){
     const P=d.parties||PT(),t=d.t,byId=Object.fromEntries(d.items.map(i=>[i.id,i]));
     verdict=`${pn(d.payer,P)==='Us'?'We':pn(d.payer,P)} paid ${mm(t.paidC)}`;
@@ -2101,6 +2129,7 @@ function screenMeal(id){
   }
   return head+`<div class="pad"><h1 class="pagetitle">${esc(m.place)}</h1><p class="lead">${when}</p>
     <div class="verdict" style="margin-top:14px;background:${m.net<0?'var(--accent-dark)':m.net>0?'#1f7a6c':'var(--ink)'}"><div class="vwho">This bill</div><div class="vamt">${esc(verdict)}</div></div>
+    ${mealDebts(m).length?`${sec('Payment','Ref '+esc(mealRef(m)))}${mealDebts(m).map(d=>`<div class="pcard"><div class="vline" style="font-size:16px"><span>${esc(owesTxt(d.from,d.to,d&&m.detail&&m.detail.parties))}</span><span>${mm(d.c)}</span></div>${debtBlock(m,d)}</div>`).join('')}${anyPay()?fxNote(cur):''}`:''}
     ${body}
     ${state.mealDel===m.id?(()=>{const now=B.meals.reduce((t,x)=>t+x.net,0),after=now-m.net,bal=v=>v===0?'all square':v<0?`${We.toLowerCase()==='we'?'you':We} owe ${n.b} ${mm(-v)}`:`${n.b} owes ${us==='us'?'you':us} ${mm(v)}`;
       return `<div class="pcard" style="margin-top:22px;border-color:#e3b5b5"><h3 style="font-size:18px">Remove this bill from the trip?</h3>
