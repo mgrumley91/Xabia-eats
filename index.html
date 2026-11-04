@@ -327,7 +327,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v16';
+const APP_VERSION='v17';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1334,11 +1334,12 @@ let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 async function pushApp(){
   if(!SB()) return; const d={}; APP_KEYS.forEach(k=>{if(data[k]!==undefined)d[k]=data[k]});
+  if(!d.key) delete d.key;
   await sbUpsert([sbRow('app','app',{updated:data.appUpdated||Date.now(),d})]); appDirty=false;
 }
 function applyApp(remote){
   const hadKey=data.key;
-  APP_KEYS.forEach(k=>{if(remote.d[k]!==undefined)data[k]=remote.d[k]});
+  APP_KEYS.forEach(k=>{if(remote.d[k]!==undefined&&!(k==='key'&&!remote.d[k]))data[k]=remote.d[k]});
   data.appUpdated=remote.updated; save({remote:true});
   if(data.key&&!hadKey){state.keyStatus='loading';gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
   renderSoft();
@@ -1354,7 +1355,7 @@ async function pullBills(){
     const ar=rows.find(r=>r.id==='app');
     if(!ar) await pushApp();
     else if(!appDirty&&!typing()&&(ar.data.updated||0)>(data.appUpdated||0)) applyApp(ar.data);
-    else if((data.appUpdated||0)>(ar.data.updated||0)) await pushApp();
+    else if((data.appUpdated||0)>(ar.data.updated||0)){if(!data.key&&ar.data.d&&ar.data.d.key){data.key=ar.data.d.key;save({remote:true});state.keyStatus='loading';gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}await pushApp()}
     if(!rows.some(r=>r.kind!=='app')&&!B.seeded){B.seeded=true;setB('saving');await pushAll();setB('live');pulling=false;return}
     B.seeded=true;
     const br=rows.find(r=>r.id==='bill'), meals=rows.filter(r=>r.kind==='meal').map(r=>r.data).sort((a,b)=>a.at-b.at);
@@ -1660,7 +1661,7 @@ function screenBillSetup(){
   ${SB()?'':`${sec('Already set up somewhere else?')}
    <form class="pcard" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><p style="font-size:14px">If the app is already connected on another screen or phone, copy its <b>trip link</b> there (Settings → Sync &amp; sharing) and paste it here.</p>
    <div class="frow"><input class="field" name="t" id="tripIn" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Connect</button></div></form>
-   ${sec('Or set it up for the first time')}`}
+   ${sec('Or connect with your Supabase details')}<p class="small" style="margin-top:-4px">If you’ve used sync before, this finds your trip and brings everything back, including your Google key.</p>`}
   ${SB()?`${sec('You’re sharing')}
     <div class="pcard"><p style="font-size:14px">Your places, spots, plan, preferences, Google key and bills all sync through your Supabase project. Use the trip link to connect another screen (the home-screen icon, Safari, another phone) or ${esc(n.b)}.</p>
       <label class="srow" style="padding-top:12px"><span>Include my Google key in the invite<br><span class="small">So ${esc(n.b)} gets opening hours, photos and bill reading. Usage bills to your Google account.</span></span><input type="checkbox" id="invKey" ${state.invKey!==false?'checked':''} onchange="state.invKey=this.checked"></label>
@@ -1682,7 +1683,7 @@ function screenBillSetup(){
    <form class="pcard" onsubmit="event.preventDefault();startSharing(this)">
      <label class="lab" for="sbUrl" style="margin-top:0">Project URL</label><input class="field" id="sbUrl" name="u" placeholder="https://xxxx.supabase.co" value="${esc(state.sbU??c.url??'')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="state.sbU=this.value">
      <label class="lab" for="sbKey">Publishable key</label><input class="field" id="sbKey" name="k" placeholder="sb_publishable_… or eyJ…" value="${esc(state.sbK??c.key??'')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="state.sbK=this.value">
-     <button class="btn block">Start shared bills</button>
+     <button class="btn block">Connect</button>
    </form>`}
   ${sec('Who’s splitting')}
   <form class="pcard" onsubmit="event.preventDefault();saveNames(this)">
@@ -1706,9 +1707,17 @@ async function startSharing(f){
   if(!/^https:\/\/[^/]+\.supabase\.co$/i.test(url)){toast('The Project URL should look like https://abcd1234.supabase.co');return}
   if(key.length<20){toast('Paste the publishable key too');return}
   if(/^sb_secret_/.test(key)){toast('That’s the secret key. Use the publishable one.');return}
-  data.sb={url,key,trip:newTripCode()};save();B.seeded=false;
-  toast('Connecting…');await pullBills();
-  if(B.status==='live'){state.sbU=state.sbK=undefined;await pushApp().catch(()=>{});toast('Sync is on');render(true)}
+  toast('Connecting…');
+  let existing=null;
+  try{
+    const h={apikey:key};if(/^eyJ/.test(key))h.Authorization='Bearer '+key;
+    const r=await fetch(url+'/rest/v1/splitter?id=eq.app&select=trip,data,updated_at&order=updated_at.desc&limit=5',{headers:h});
+    if(r.ok){const rows=await r.json();existing=(rows||[]).sort((a,b)=>((b.data&&b.data.d&&b.data.d.key)?1:0)-((a.data&&a.data.d&&a.data.d.key)?1:0))[0]||null}
+  }catch(e){}
+  if(existing){data.sb={url,key,trip:existing.trip};data.appUpdated=0;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
+  else{data.sb={url,key,trip:newTripCode()};save();B.seeded=false}
+  await pullBills();
+  if(B.status==='live'){state.sbU=state.sbK=undefined;if(!existing)await pushApp().catch(()=>{});toast(existing?'Reconnected. Your trip is back.':'Sync is on');state.stack=[];state.tab='today';render();if(data.key&&!gPromise)gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}
   else{toast('Couldn’t connect: '+B.err);data.sb={url,key,trip:''};save();render(true)}
 }
 function inviteLink(){
