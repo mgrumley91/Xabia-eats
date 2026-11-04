@@ -249,6 +249,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
+const APP_VERSION='v4';
 const TZ='Europe/Madrid', HOME={lat:38.7895,lng:0.1730}, LS='xabiaEats.v1';
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -497,7 +498,7 @@ async function syncAll(force){
   for(const p of todo){
     i++; state.sync=`Updating from Google… ${i} of ${todo.length}`; renderSync();
     try{
-      if(!p.gid){const r=await gSearch(p.query||`${p.name}, Xàbia`,1);if(!r.length){p.linkFailed=true;continue}p.gid=r[0].gid}
+      if(!p.gid){const r=await gSearch(p.query||`${p.name}, Xàbia`,1);if(!r.length){p.linkFailed=true;state.lastErr=`Google found no match for “${p.name}”`;continue}p.gid=r[0].gid}
       applyDetails(p,await gDetails(p.gid)); save(); ok++;
     }catch(e){console.warn(p.name,e);state.lastErr=String(e&&e.message||e);if(state.keyStatus==='bad')break}
   }
@@ -612,7 +613,7 @@ async function discover(cat,force){
       applyDetails(p,pl); return p;
     })};
     save();
-  }catch(e){console.warn(e)}
+  }catch(e){console.warn(e);state.lastErr=String(e&&e.message||e);toast('Google search failed: '+state.lastErr)}
   state.discBusy=null; renderSoft();
 }
 const allDisc=()=>Object.values(data.disc||{}).flatMap(c=>c.items||[]);
@@ -980,7 +981,8 @@ function screenSettings(){
     <label class="btn ghost block" for="imp">Restore from backup</label><input type="file" id="imp" accept=".json,application/json" hidden onchange="importBackup(this)">
     <button class="btn danger block" onclick="resetAll()">${state.confirmDel==='ALL'?'Tap again to erase everything':'Start over with the starter list'}</button>
   </div>
-  <p class="small" style="margin-top:14px">The starter list comes from the Guía Repsol 2026 list for Xàbia, javea.com and Nothing Familiar’s Jávea guide. Michelin badges follow the 2026 Michelin Guide Spain plus its March 2026 additions; the 2027 guide may change them, and you can edit each place’s badge. Hours, photos and ratings come from Google Maps.</p>
+  <p class="small" style="margin-top:14px">App version ${APP_VERSION}.</p>
+  <p class="small" style="margin-top:6px">The starter list comes from the Guía Repsol 2026 list for Xàbia, javea.com and Nothing Familiar’s Jávea guide. Michelin badges follow the 2026 Michelin Guide Spain plus its March 2026 additions; the 2027 guide may change them, and you can edit each place’s badge. Hours, photos and ratings come from Google Maps.</p>
   </div>`;
 }
 function saveKey(k){k=k.trim();if(k===data.key){toast('Key unchanged');return}data.key=k;save();toast(k?'Key saved. Reloading…':'Key removed');setTimeout(()=>location.reload(),600)}
