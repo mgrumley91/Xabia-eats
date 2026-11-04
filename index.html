@@ -402,7 +402,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v24';
+const APP_VERSION='v25';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1686,11 +1686,27 @@ function renderBillTrip(){
     <p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${net<0?'var(--accent-dark)':net>0?'var(--open)':'var(--ink)'}">${net===0?'All square':net<0?`${esc(weOwe())} ${mMoney(net,cur)}`:`${esc(theyOwe().replace(/^./,c=>c.toUpperCase()))} ${mMoney(net,cur)}`}</p></div>
     ${meals.length?`<div class="list" style="margin-top:12px">${[...meals].reverse().map(m=>`<div class="row" onclick="openMeal('${m.id}')"><div class="grow"><div class="rname" style="font-size:17px">${esc(m.place)}</div><div class="rmeta">${day(m.at)}${m.detail?` · ${m.hasPhoto?'📷 ':''}${m.detail.items.length} items`:''}</div></div>
       <div class="stat"><b style="color:${m.net<0?'var(--accent-dark)':'var(--open)'}">${m.net<0?'−':'+'}${mMoney(m.net,m.cur)}</b><small>${m.net<0?esc(weOwe().replace(/ owe .*/,' owe')):'owed to '+esc(NM().a==='Us'?'us':NM().a)}</small></div>
-      <button class="mini" onclick="event.stopPropagation();delMeal('${m.id}')" aria-label="Remove ${esc(m.place)}">${B.confirmDel===m.id?'✓?':'×'}</button></div>`).join('')}</div>`:'<p class="small" style="margin-top:8px">Meals you add appear here with a running balance for the trip.</p>'}`;
+      <span class="small" aria-hidden="true">›</span></div>`).join('')}</div>`:'<p class="small" style="margin-top:8px">Meals you add appear here with a running balance for the trip.</p>'}`;
 }
 function delMeal(id){
-  if(B.confirmDel!==id){B.confirmDel=id;renderBillTrip();toast('Tap ✓? again to remove it');setTimeout(()=>{if(B.confirmDel===id){B.confirmDel=null;renderBillTrip()}},3000);return}
-  const had=B.meals.find(m=>m.id===id)?.hasPhoto;B.confirmDel=null;B.meals=B.meals.filter(m=>m.id!==id);B.deleted.push(id);if(had){B.deleted.push('photo_'+id);try{localStorage.removeItem('xe.ph.'+id)}catch(_){}}renderBillTrip();saveMeals();if(state.stack.at(-1)==='meal:'+id)pop();
+  const m=B.meals.find(x=>x.id===id); if(!m) return;
+  let photo=null; try{photo=localStorage.getItem('xe.ph.'+id)}catch(_){}
+  B.meals=B.meals.filter(x=>x.id!==id); B.deleted.push(id); if(m.hasPhoto) B.deleted.push('photo_'+id);
+  B.undo={meal:m,photo}; state.mealDel=null;
+  saveMeals(); if(state.stack.at(-1)==='meal:'+id) pop(); else renderBillTrip();
+  showUndo(`Removed ${m.place} from the trip tally.`);
+}
+function showUndo(msg){
+  let bar=document.getElementById('undo'); if(!bar){bar=document.createElement('div');bar.id='undo';bar.className='upd';document.body.append(bar)}
+  bar.innerHTML=`<span>${esc(msg)}</span><button class="btn" onclick="undoMeal()">Undo</button>`; bar.hidden=false;
+  clearTimeout(showUndo.t); showUndo.t=setTimeout(()=>{bar.hidden=true;B.undo=null},10000);
+}
+function undoMeal(){
+  const u=B.undo; if(!u) return; B.undo=null; document.getElementById('undo').hidden=true;
+  B.deleted=B.deleted.filter(x=>x!==u.meal.id&&x!=='photo_'+u.meal.id);
+  B.meals.push(u.meal); B.meals.sort((a,b)=>a.at-b.at);
+  if(u.photo&&SB()) sbUpsert([sbRow('photo_'+u.meal.id,'photo',{src:u.photo})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(u.meal.id)});
+  saveMeals(); toast(`${u.meal.place} is back in the tally`); render(true);
 }
 function wireBills(){
   const $=id=>document.getElementById(id), S=B.bill;
@@ -1815,7 +1831,11 @@ function screenMeal(id){
   return head+`<div class="pad"><h1 class="pagetitle">${esc(m.place)}</h1><p class="lead">${when}</p>
     <div class="verdict" style="margin-top:14px;background:${m.net<0?'var(--accent-dark)':m.net>0?'#1f7a6c':'var(--ink)'}"><div class="vwho">This bill</div><div class="vamt">${esc(verdict)}</div></div>
     ${body}
-    <button class="btn danger block" style="margin-top:22px" onclick="delMeal('${m.id}')">${B.confirmDel===m.id?'Tap again to remove from the tally':'Remove from the trip tally'}</button></div>`;
+    ${state.mealDel===m.id?(()=>{const now=B.meals.reduce((t,x)=>t+x.net,0),after=now-m.net,bal=v=>v===0?'all square':v<0?`${We.toLowerCase()==='we'?'you':We} owe ${n.b} ${mm(-v)}`:`${n.b} owes ${us==='us'?'you':us} ${mm(v)}`;
+      return `<div class="pcard" style="margin-top:22px;border-color:#e3b5b5"><h3 style="font-size:18px">Remove this bill from the trip?</h3>
+        <p style="font-size:14px;margin-top:6px">The trip balance goes from <b>${bal(now)}</b> to <b>${bal(after)}</b>, on ${esc(n.b)}’s phone too.${m.hasPhoto?' The bill photo is deleted as well.':''}</p>
+        <div class="frow"><button class="btn ghost" style="flex:1" onclick="state.mealDel=null;render(true)">Keep it</button><button class="btn" style="flex:1;background:#a63a3a" onclick="delMeal('${m.id}')">Remove it</button></div></div>`})()
+      :`<button class="link" style="display:block;margin:26px auto 0;color:#a63a3a" onclick="state.mealDel='${m.id}';render(true);setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50)">Remove this bill from the trip…</button>`}</div>`;
 }
 async function loadMealPhoto(id){
   const el=document.getElementById('mealPh'); if(!el) return;
