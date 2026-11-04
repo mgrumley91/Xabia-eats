@@ -327,7 +327,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v15';
+const APP_VERSION='v16';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -751,7 +751,7 @@ function screenToday(){
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>
    <div class="toggles">
      <button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button>
-     <button class="chip" onclick="state.addResults=null;push('add')">＋ Add a place</button>
+     <button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button>
    </div>
    ${!data.key&&!SB()?`<div class="note"><b>Already using the app on another screen?</b> Paste its trip link to bring everything here. <button class="link" onclick="push('billsetup')">Connect →</button><br><b>New here?</b> <button class="link" onclick="push('settings')">Add your Google key →</button></div>`:''}
    ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
@@ -809,7 +809,7 @@ function renderList(){
   if(later.length) html+=`<div class="pad">${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div></div>`;
   if(unk.length) html+=`<div class="pad">${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div></div>`;
   if(closed.length) html+=`<div class="pad">${state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="link" style="display:block;margin:16px auto 0" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed place${closed.length>1?'s':''}</button>`}</div>`;
-  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;push('add')">Add one</button>, or tap a business on the Map tab.</div></div>`;
+  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div></div>`;
   html+=`<div class="pad"><p class="small" style="text-align:center;margin-top:18px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p></div>`;
   el.innerHTML=html;
   renderDiscNote();
@@ -841,7 +841,7 @@ function screenSaved(){
   return topbar()+`<div class="pad">
    <h1 class="pagetitle">Saved places</h1><p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
-   <button class="btn block" onclick="state.addResults=null;push('add')">${I.plus} Add a place</button>
+   <button class="btn block" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">${I.plus} Add a place</button>
    ${data.places.some(p=>p.seed&&!p.touched&&!data.plan.includes(p.id))?`<div class="note" style="margin-top:14px">Your list includes ${data.places.filter(p=>p.seed).length} starter places from local guides. <button class="link" onclick="removeStarters()">${state.confirmDel==='SEEDS'?'Tap again to remove them':'Remove the ones you haven’t touched'}</button></div>`:''}
    ${sec(q?'Results':'All places',`${list.length}`)}
    <div class="list">${list.map(row).join('')||'<div class="empty">No matches.</div>'}</div></div>`;
@@ -852,24 +852,89 @@ function screenAdd(relinkId){
   const rp=relinkId&&byId(relinkId), res=state.addResults;
   return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">${rp?'Find on Google':'Add a place'}</div><span style="width:42px"></span></header>
   <div class="pad">
-   ${rp?`<p class="lead" style="margin-top:8px">Pick the right Google listing for ${esc(rp.name)}.</p>`:''}
-   ${data.key?`<form class="search searchform" onsubmit="event.preventDefault();doSearch(this.q.value)" style="cursor:text">${I.search}<input name="q" id="addQ" placeholder="e.g. bakery Arenal" value="${esc(rp?rp.name:(state.lastQ||''))}" autocomplete="off"><button class="btn" style="padding:7px 14px">Search</button></form>
-     <p class="small" style="margin-top:8px">Searches around Xàbia. Hours, phone, website and photos fill in automatically.</p>`
-    :`<div class="note">Add your Google key in Settings to search Google and get live hours.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
-   ${state.addBusy?`<div class="list" style="margin-top:16px"><div class="empty">Searching…</div></div>`:res?`${sec('Results',`${res.length}`)}<div class="list">${res.length?res.map((r,i)=>{const exists=data.places.find(p=>p.gid===r.gid);
+   ${rp?`<p class="lead" style="margin-top:8px">Pick the right Google listing for ${esc(rp.name)}.</p>`
+     :`<p class="lead" style="margin-top:8px">Paste a Google Maps link to a business, or type its name. Hours, photo, phone and website fill in automatically.</p>`}
+   ${data.key?`<form class="search searchform" onsubmit="event.preventDefault();smartAdd(this.q.value,'${rp?rp.id:''}')" style="cursor:text">${rp?I.search:I.plus}<input name="q" id="addQ" placeholder="${rp?'Name of the place':'Paste a Maps link or type a name'}" value="${esc(rp?rp.name:(state.lastQ||''))}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" style="padding:7px 14px">${rp?'Search':'Add'}</button></form>
+     ${rp?'':`<button class="btn ghost block" onclick="pasteAndAdd()">Paste from clipboard</button>
+     <p class="small" style="margin-top:8px">In Google Maps: open the business → <b>Share</b> → <b>Copy</b>, then come back and paste.</p>`}`
+    :`<div class="note">Add your Google key in Settings first.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
+   ${state.addMsg?`<div class="note ${state.addMsgWarn?'warn':''}" style="margin-top:12px">${state.addMsg}</div>`:''}
+   ${state.addBusy?`<div class="list" style="margin-top:16px"><div class="empty">${esc(state.addBusy===true?'Searching…':state.addBusy)}</div></div>`:res?`${sec(rp?'Results':'Which one?',`${res.length}`)}<div class="list">${res.length?res.map((r,i)=>{const exists=data.places.find(p=>p.gid===r.gid);
      return `<div class="row result" onclick="${exists&&!rp?`openDetail('${exists.id}')`:`pickResult(${i},'${rp?rp.id:''}')`}">
        <div class="thumb">${noph({id:r.gid,name:r.name})}</div>
        <div class="grow"><div class="rname">${esc(r.name)}</div><div class="rmeta">${esc([r.type,r.addr].filter(Boolean).join(' · '))}</div></div>
        <span class="${exists&&!rp?'small':'link'}">${rp?'Use':exists?'Saved':'Add'}</span></div>`}).join(''):'<div class="empty">No results. Try another name or area.</div>'}</div>`:''}
-   ${rp?'':`${sec('Add by hand')}<form class="pcard" onsubmit="event.preventDefault();addManual(this)">
-     <label class="lab" for="mN" style="margin-top:0">Name</label><input class="field" id="mN" name="n" required placeholder="Place name">
+   ${rp?'':`<details class="pcard" style="margin-top:18px"><summary class="link" style="cursor:pointer">Can’t find it on Google? Add it by hand</summary>
+     <form onsubmit="event.preventDefault();addManual(this)">
+     <label class="lab" for="mN">Name</label><input class="field" id="mN" name="n" required placeholder="Place name">
      <label class="lab" for="mA">Area</label><select class="field" id="mA" name="a">${Object.keys(AREAS).map(a=>`<option>${a}</option>`).join('')}</select>
      <label class="lab" for="mT">Type</label><select class="field" id="mT" name="t">${ALL_TAGS.map(a=>`<option>${a}</option>`).join('')}</select>
-     <button class="btn block">Save place</button></form>`}
+     <button class="btn block">Save place</button></form></details>`}
   </div>`;
 }
+async function pasteAndAdd(){
+  try{const t=await navigator.clipboard.readText();if(t){document.getElementById('addQ').value=t;smartAdd(t,'')}else toast('Your clipboard is empty')}
+  catch(e){toast('Tap the box above and choose Paste');document.getElementById('addQ')?.focus()}
+}
+// Work out what was pasted: a Maps link (short or full), a shared message, or just a name
+function parseMapsUrl(u){
+  const out={};
+  try{u=decodeURIComponent(u.replace(/\+/g,' '))}catch(e){}
+  let m=u.match(/\/maps\/place\/([^/@?]+)/); if(m) out.name=m[1].trim();
+  m=u.match(/[?&](?:query_place_id|place_id)=([A-Za-z0-9_-]{10,})/); if(m) out.gid=m[1];
+  m=u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); if(m){out.lat=+m[1];out.lng=+m[2]}
+  if(!out.name){m=u.match(/[?&](?:q|query)=([^&]+)/); if(m&&!/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(m[1].trim())) out.name=m[1].trim()}
+  return out;
+}
+async function resolveShort(u){
+  if(!SB()) throw new Error('nosb');
+  const r=await sbFetch('rpc/resolve_link',{method:'POST',body:JSON.stringify({u})});
+  if(!r||typeof r!=='string') throw new Error('noresolve');
+  return r;
+}
+async function smartAdd(text,relinkId){
+  text=String(text||'').trim(); if(!text) return;
+  state.lastQ=text; state.addMsg=''; state.addMsgWarn=false;
+  if(relinkId) return doSearch(text);
+  const url=(text.match(/https?:\/\/\S+/)||[])[0], words=text.replace(/https?:\/\/\S+/g,' ').replace(/\s+/g,' ').trim();
+  if(!url) return doSearch(text);
+  state.addBusy='Reading the link…'; state.addResults=null; render(true);
+  let info={}, full=url;
+  try{
+    if(/maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs/i.test(url)) full=await resolveShort(url);
+    info=parseMapsUrl(full);
+  }catch(e){
+    state.addBusy=false;
+    if(words.length>=3) return doSearch(words);
+    state.addMsgWarn=true;
+    state.addMsg=e.message==='nosb'?'Short Google links need sync turned on (Settings → Sync &amp; sharing). For now, type the business name instead.'
+      :e.message==='noresolve'||/resolve_link|function|404|Could not find/i.test(e.message)?'To read short Google links, run the updated SQL in Supabase once (Settings → Sync &amp; sharing → Copy the SQL). For now, type the business name instead.'
+      :'Couldn’t read that link. Type the business name instead.';
+    return render(true);
+  }
+  try{
+    let hit=null;
+    if(info.gid){hit={gid:info.gid}}
+    else{
+      const q=info.name||words; if(!q){state.addBusy=false;state.addMsgWarn=true;state.addMsg='That link doesn’t name a business. Open the business in Google Maps and share it from there, or type its name.';return render(true)}
+      const g=await gmaps();
+      const req={textQuery:q,fields:SEARCH_FIELDS,maxResultCount:5,language:'en',region:'es',locationBias:info.lat!=null?{center:{lat:info.lat,lng:info.lng},radius:300}:{center:HOME,radius:9000}};
+      const {places}=await g.Place.searchByText(req);
+      const res=(places||[]).map(x=>({gid:x.id,name:x.displayName,addr:x.formattedAddress,type:x.primaryTypeDisplayName,lat:x.location&&x.location.lat(),lng:x.location&&x.location.lng()}));
+      if(!res.length){state.addBusy=false;state.addMsgWarn=true;state.addMsg=`Google couldn’t find “${esc(q)}”. Try typing the name a different way.`;return render(true)}
+      // with a position from the link, the nearest match is the business you shared
+      if(info.lat!=null) res.sort((a,b)=>km(info,a)-km(info,b));
+      hit=res[0]; state.addResults=res;
+    }
+    const ex=data.places.find(p=>p.gid===hit.gid);
+    if(ex){state.addBusy=false;toast(`${ex.name} is already in your places`);state.stack.pop();state.stack.push('detail:'+ex.id);return render()}
+    state.addResults=[hit,...(state.addResults||[]).filter(r=>r.gid!==hit.gid)];
+    state.addBusy=false;
+    return pickResult(0,'');
+  }catch(e){state.addBusy=false;state.addMsgWarn=true;state.addMsg='Google didn’t respond: '+esc(e.message||'');render(true)}
+}
 async function doSearch(q){
-  q=q.trim(); if(!q) return; state.lastQ=q; state.addBusy=true; render(true);
+  q=q.trim(); if(!q) return; state.lastQ=q; state.addMsg=''; state.addBusy=true; render(true);
   try{state.addResults=await gSearch(/x[aà]bia|j[aá]vea/i.test(q)?q:`${q}, Xàbia`)}catch(e){state.addResults=null;toast(e.message||'Search failed')}
   state.addBusy=false; render(true);
 }
@@ -878,11 +943,11 @@ async function pickResult(i,relinkId){
   if(relinkId){p=byId(relinkId);p.gid=r.gid;p.photo=null}
   else{
     const area=r.lat!=null?areaFor(r.lat,r.lng):'Xàbia';
-    p={id:uid(),name:r.name,area,tags:[],menu:[],note:'',lat:r.lat,lng:r.lng,approx:false,gid:r.gid,addr:r.addr,type:r.type,michelin:''};
+    p={id:uid(),name:r.name||'New place',area,tags:[],menu:[],note:'',lat:r.lat,lng:r.lng,approx:r.lat==null,gid:r.gid,addr:r.addr||'',type:r.type||'',michelin:'',touched:true};
     data.places.push(p);
   }
   save(); toast('Getting details from Google…');
-  try{applyDetails(p,await gDetails(p.gid));await resolvePhoto(p);save();toast(relinkId?'Linked to Google':`${p.name} saved`)}catch(e){toast('Saved, but Google details didn’t load')}
+  try{applyDetails(p,await gDetails(p.gid));if(!relinkId&&p.gname)p.name=p.gname;await resolvePhoto(p);save();toast(relinkId?'Linked to Google':`${p.name} saved`)}catch(e){toast('Saved, but Google details didn’t load')}
   state.stack.pop(); if(!relinkId) state.stack.push('detail:'+p.id); render();
 }
 function addManual(f){
@@ -1205,7 +1270,25 @@ alter table public.splitter enable row level security;
 drop policy if exists "trip members" on public.splitter;
 create policy "trip members" on public.splitter for all to anon
   using (length(trip) >= 20) with check (length(trip) >= 20);
-grant select, insert, update, delete on public.splitter to anon;`;
+grant select, insert, update, delete on public.splitter to anon;
+
+-- Helper: turns a short Google Maps share link into the full link
+create extension if not exists http with schema extensions;
+create or replace function public.resolve_link(u text) returns text
+language plpgsql security definer set search_path = public, extensions as $fn$
+declare cur text := u; loc text; i int := 0;
+begin
+  if cur !~* '^https://(maps\\.app\\.goo\\.gl|goo\\.gl/maps|g\\.co/kgs)/' then return null; end if;
+  while i < 4 loop
+    loc := null;
+    select h.value into loc from extensions.http_head(cur) r, unnest(r.headers) h where lower(h.field) = 'location' limit 1;
+    exit when loc is null or loc !~* '^https://([a-z0-9-]+\\.)*(google\\.[a-z.]+|goo\\.gl|g\\.co)/';
+    cur := loc; i := i + 1;
+    exit when cur ~* '/maps/(place|search|dir)|[?&](q|query)=';
+  end loop;
+  return cur;
+end $fn$;
+grant execute on function public.resolve_link(text) to anon;`;
 const SB=()=>data.sb&&data.sb.url&&data.sb.key&&data.sb.trip?data.sb:null;
 const NM=()=>Object.assign({a:'Us',b:'Wass',ha:2,hb:1},data.splitNames||{});
 const B={bill:null,meals:null,deleted:[],openId:null,editId:null,photo:null,photoUrl:null,ctl:null,dirtyBill:false,dirtyMeals:false,status:'local',err:'',seeded:false,manual:false,mMode:'items',qSide:null,tRatio:null,confirmNew:false,readMsg:'',readErr:false};
@@ -1584,6 +1667,8 @@ function screenBillSetup(){
       <button class="btn block" onclick="shareInvite()">Send trip link</button>
       <button class="btn ghost block" onclick="copyText(inviteLink(),'Trip link copied. Paste it in Settings → Sync & sharing on the other screen.')">Copy trip link</button>
       <button class="btn ghost block" onclick="pullBills().then(()=>toast(B.status==='live'?'Connected':'Couldn’t connect: '+B.err))">Test connection</button>
+      <button class="btn ghost block" onclick="copyText(SB_SQL,'SQL copied. In Supabase: SQL Editor → New query → paste → Run.')">Copy the setup SQL</button>
+      <p class="small" style="margin-top:6px">Run the setup SQL again in Supabase whenever an update needs it (it’s safe to re-run). The latest one adds reading short Google Maps links.</p>
       <button class="btn danger block" onclick="leaveTrip()">${state.confirmDel==='LEAVE'?'Tap again to stop sharing on this phone':'Stop sharing on this phone'}</button></div>`
   :`<p class="lead" style="margin-top:8px">One-off setup on your phone, about 10 minutes. ${esc(n.b)} then joins with a link and needs no account.</p>
    ${sec('1. Create a free Supabase project')}
