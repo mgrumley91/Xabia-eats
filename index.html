@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Xàbia Eats">
+<meta name="theme-color" content="#f5f3ef">
+<title>Xàbia Eats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: travel-app feed — photo cards on a warm off-white ground, serif titles, one terracotta accent, bottom bar with a round centre button */
+:root{
+  --bg:#f5f3ef; --card:#ffffff; --ink:#1d2229; --muted:#838891; --line:#ebe7e1;
+  --accent:#d4622e; --accent-dark:#b94f1f; --accent-soft:#fbeadf;
+  --open:#2c8553; --soon:#c0771a; --closed:#979ca3; --mich:#b8333a; --warn-bg:#fdf1dc; --warn:#8a5a0c;
+  --display:'DM Serif Display',Georgia,'Times New Roman',serif;
+  --body:Manrope,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:22px; --shadow:0 6px 22px rgba(40,30,20,.08);
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.phone{max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+.phone.detail{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+.pad{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}
+
+/* top */
+.top{display:flex;align-items:center;justify-content:space-between;padding-top:calc(14px + env(safe-area-inset-top));padding-bottom:6px}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.01em}
+.brand i{color:var(--accent);font-style:italic}
+.iconbtn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;cursor:pointer;flex:none}
+.iconbtn svg{width:20px;height:20px}
+.hello{padding-top:10px}
+.hello p{color:var(--muted);font-size:14px}
+h1,h2,h3{font-family:var(--display);font-weight:400;letter-spacing:.005em;text-wrap:balance}
+.hello h1{font-size:32px;line-height:1.1;margin-top:2px}
+.pagetitle{font-size:30px;line-height:1.1;padding-top:6px}
+.lead{color:var(--muted);font-size:14px;margin-top:4px}
+
+.search{display:flex;align-items:center;gap:10px;width:100%;margin-top:16px;padding:13px 16px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;text-align:left}
+.search svg{width:18px;height:18px;flex:none}
+.search input{border:0;outline:0;background:transparent;flex:1;min-width:0;color:var(--ink)}
+
+.when{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px 14px 8px}
+.when .r{display:flex;align-items:center;gap:8px}
+.when svg{width:18px;height:18px;color:var(--accent);flex:none}
+.when select{border:0;background:transparent;font-weight:600;cursor:pointer;max-width:55%}
+.when .t{font-weight:600;font-variant-numeric:tabular-nums}
+.when .now{margin-left:auto;border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:3px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.when .now.on{background:var(--accent);border-color:var(--accent);color:#fff}
+input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px max(18px,env(safe-area-inset-right)) 4px max(18px,env(safe-area-inset-left));scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips.wrap{flex-wrap:wrap;overflow:visible;padding:0}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:7px 15px;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.x{padding-right:8px;display:inline-flex;align-items:center;gap:4px;cursor:default}
+.chip.x button{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 4px}
+
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+.cat{display:flex;flex-direction:column;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:18px;padding:12px 4px 10px;cursor:pointer;font-size:12px;font-weight:600;line-height:1.2;text-align:center}
+.cat i{font-style:normal;font-size:24px;width:44px;height:44px;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+.cat.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cat.on i{background:rgba(255,255,255,.22)}
+.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.toggles .chip{font-size:13px;padding:6px 13px}
+#recmap{height:260px;border-radius:var(--r);overflow:hidden;background:var(--line);box-shadow:var(--shadow);margin-top:16px}
+.lg::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.lg.pick::before{background:var(--accent)}.lg.wait::before{background:var(--soon)}
+.hero-card{width:100%;max-width:none;cursor:pointer}
+.hero-card .ph{height:190px}
+.hero-card.pick{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
+.hero-card.wait{box-shadow:0 0 0 2px #e3b46f,var(--shadow)}
+.hero-card.wait .ph{height:140px}
+.pickbadge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:4px 11px}
+.pickbadge svg{width:13px;height:13px}
+.pickbadge.wait{background:var(--warn-bg);color:var(--warn)}
+.why{font-size:13px;color:#4b5059}
+.newtag{font-size:11px;font-weight:700;color:#2f6f86;background:#e2eef3;border-radius:6px;padding:1px 6px}
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin-top:24px;margin-bottom:12px}
+.sec h2{font-size:23px}
+.sec span{color:var(--muted);font-size:13px}
+
+/* big photo cards in a horizontal rail */
+.rail{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px max(18px,env(safe-area-inset-right)) 10px max(18px,env(safe-area-inset-left));scroll-padding:0 18px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.card{flex:none;width:78%;max-width:340px;scroll-snap-align:start;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.rail .card:only-child{width:100%;max-width:none}
+.ph{position:relative;height:170px;margin:8px 8px 0;border-radius:16px;overflow:hidden}
+.ph img,.noph{width:100%;height:100%;object-fit:cover;display:block}
+.noph{display:grid;place-items:center;background:linear-gradient(135deg,var(--t1),var(--t2));color:rgba(29,34,41,.55);font-family:var(--display);font-size:46px}
+.loc{position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;gap:5px;background:rgba(29,34,41,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:12px;font-weight:600;padding:5px 10px 5px 8px;border-radius:99px}
+.loc svg{width:13px;height:13px}
+.fav{position:absolute;right:10px;top:10px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.92);display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.fav svg{width:18px;height:18px}
+.fav.on{background:var(--accent);color:#fff}
+.cb{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.ct{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.ct h3{font-size:20px;line-height:1.15;min-width:0;overflow-wrap:anywhere}
+.stat{text-align:right;flex:none;line-height:1.15}
+.stat b{display:block;font-size:14px}
+.stat small{color:var(--muted);font-size:12px}
+.s-open b,.s-open .dotc{color:var(--open)}.s-soon b,.s-soon .dotc{color:var(--soon)}.s-closed b,.s-unknown b{color:var(--closed)}
+.facts{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:13px;align-items:center}
+.facts span{display:inline-flex;align-items:center;gap:4px}
+.facts svg{width:14px;height:14px}
+.star{color:#e0a526}
+.match{color:var(--accent-dark);font-size:13px;font-weight:600}
+.mich{display:inline-flex;align-items:center;gap:3px;background:var(--mich);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap;letter-spacing:.01em}
+.flag{display:inline-block;font-size:12px;font-weight:600;border-radius:7px;padding:2px 8px}
+.flag.ok{background:#e3f1e8;color:var(--open)}.flag.warn{background:var(--warn-bg);color:var(--warn)}
+
+/* compact rows */
+.list{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:4px 14px}
+.row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border:0}
+.thumb{width:58px;height:58px;border-radius:14px;overflow:hidden;flex:none}
+.thumb img,.thumb .noph{width:100%;height:100%;object-fit:cover;font-size:24px}
+.grow{flex:1;min-width:0}
+.rname{font-family:var(--display);font-size:18px;line-height:1.15;overflow-wrap:anywhere}
+.rmeta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;margin-top:2px}
+.dotc::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}
+.s-closed .dotc,.s-unknown .dotc{color:var(--closed)}
+.add{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;cursor:pointer;flex:none}
+.add svg{width:17px;height:17px}
+.add.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty{color:var(--muted);text-align:center;padding:18px 8px;font-size:14px}
+
+.note{border-radius:18px;padding:14px 16px;margin-top:14px;font-size:14px;line-height:1.45;background:var(--accent-soft)}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.note b{font-weight:700}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:99px;background:var(--accent);color:#fff;font-weight:700;padding:13px 22px;cursor:pointer;text-decoration:none;font-size:15px}
+.btn svg{width:18px;height:18px}
+.btn.block{display:flex;width:100%;margin-top:12px}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:var(--card);color:#a63a3a;border:1px solid var(--line)}
+.btn[disabled],.btn[aria-disabled=true]{opacity:.4;pointer-events:none}
+.link{background:none;border:0;color:var(--accent-dark);font-weight:600;cursor:pointer;padding:6px 0;text-decoration:none}
+
+/* detail */
+.hero{position:relative;height:340px;background:var(--line)}
+.gal{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.gal::-webkit-scrollbar{display:none}
+.gal>*{flex:none;width:100%;height:100%;scroll-snap-align:start;position:relative}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
+.gal .noph{font-size:90px}
+.credit{position:absolute;left:12px;bottom:34px;color:#fff;font-size:11px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.credit a{color:#fff}
+.round{position:absolute;top:calc(14px + env(safe-area-inset-top));width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.94);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.round svg{width:20px;height:20px}
+.round.l{left:max(16px,env(safe-area-inset-left))}.round.r{right:max(16px,env(safe-area-inset-right))}
+.round.r2{right:calc(max(16px,env(safe-area-inset-right)) + 54px)}
+.round.on{background:var(--accent);color:#fff}
+.dots{position:absolute;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:5px}
+.dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55)}
+.dots i.on{background:#fff;width:16px;border-radius:4px}
+.sheet{position:relative;margin-top:-22px;background:var(--bg);border-radius:26px 26px 0 0;padding-top:22px}
+.kicker{display:inline-flex;align-items:center;gap:5px;color:var(--accent-dark);font-size:13px;font-weight:600}
+.kicker svg{width:14px;height:14px}
+.dtitle{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
+.dtitle h1{font-size:30px;line-height:1.1;min-width:0;overflow-wrap:anywhere}
+.dtitle .stat b{font-size:16px}
+.desc{color:#4b5059;margin-top:12px;font-size:15px}
+.feat{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px;padding:16px 6px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow)}
+.feat a,.feat button{display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;font-size:12px;font-weight:600;background:none;border:0;cursor:pointer;text-align:center}
+.feat i{width:48px;height:48px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);display:grid;place-items:center}
+.feat svg{width:21px;height:21px}
+.feat .off{opacity:.3;pointer-events:none}
+.panel{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:6px 16px}
+.hr{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.hr:last-child{border:0}
+.hr span:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#4b5059}
+.hr.sel{font-weight:700}.hr.sel span:last-child{color:var(--ink)}
+.small{font-size:12px;color:var(--muted)}
+.strip{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.strip::-webkit-scrollbar{display:none}
+.strip figure{flex:none;width:118px;height:118px;border-radius:16px;overflow:hidden;position:relative}
+.strip img{width:100%;height:100%;object-fit:cover}
+.strip figure button{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,.92);cursor:pointer;font-size:15px;line-height:1}
+.strip label{flex:none;width:118px;height:118px;border-radius:16px;border:1.5px dashed #d6d0c7;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;background:var(--card)}
+.field{width:100%;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:11px 14px;outline:none}
+.field:focus{border-color:var(--accent)}
+textarea.field{resize:vertical;min-height:84px}
+.frow{display:flex;gap:8px;margin-top:10px}
+.frow .field{flex:1;min-width:0}
+.frow .btn{padding:11px 18px;flex:none}
+.lab{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+select.field{appearance:auto}
+.cta{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(18px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));z-index:6}
+.cta .stat{text-align:left}
+.cta .stat b{font-family:var(--display);font-weight:400;font-size:22px}
+
+/* plan */
+.pitem{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.pitem:last-child{border:0}
+.num{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:14px;display:grid;place-items:center;flex:none;border:0;cursor:pointer}
+.num.done{background:#cfe7d8;color:var(--open)}
+.pitem.done .rname{text-decoration:line-through;opacity:.5}
+.mini{border:0;background:none;color:var(--muted);width:30px;height:30px;font-size:17px;cursor:pointer;flex:none}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px;gap:4px}
+.seg button{border:0;background:none;border-radius:99px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff}
+.steps{counter-reset:s;list-style:none;margin-top:6px}
+.steps li{counter-increment:s;display:flex;gap:10px;padding:6px 0;font-size:14px}
+.steps li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);font-weight:700;font-size:12px;display:grid;place-items:center}
+
+/* prefs & settings */
+.pcard{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+.pcard h3{font-size:19px;display:flex;align-items:center;gap:10px}
+.pcard h3 i{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-style:normal;font-size:17px}
+.pcard .small{margin:2px 0 10px 44px}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.srow:last-child{border:0}
+.ks{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px}
+.ks.ok{background:#e3f1e8;color:var(--open)}.ks.bad{background:#f8dddd;color:#a63a3a}.ks.none{background:var(--bg);color:var(--muted)}
+#gmap{height:calc(100vh - 250px);min-height:380px;border-radius:var(--r);overflow:hidden;background:var(--line);box-shadow:var(--shadow);margin-top:14px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:13px;color:var(--muted);margin-top:10px}
+
+/* bottom bar */
+.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);align-items:end;padding:8px max(6px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));z-index:5}
+.tab{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;position:relative}
+.tab svg{width:23px;height:23px}
+.tab.on{color:var(--accent)}
+.tab.mid i{width:58px;height:58px;margin-top:-30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 8px 20px rgba(212,98,46,.38);border:4px solid var(--card)}
+.tab.mid.on i{background:var(--accent-dark)}
+.badge{position:absolute;top:-30px;right:calc(50% - 32px);background:var(--ink);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;font-style:normal;border:2px solid var(--card)}
+.toast{position:fixed;left:50%;bottom:calc(108px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.sync{font-size:12px;color:var(--muted);text-align:center}
+.sync:not(:empty){padding-top:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div id="app"></div>
+  <nav class="tabs" id="tabs"></nav>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ================= constants ================= */
+const TZ='Europe/Madrid', HOME={lat:38.7895,lng:0.1730}, LS='xabiaEats.v1';
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FILTERS=['All','For you','Michelin','Bakery','Breakfast','Lunch','Dinner','Tapas','Seafood','Rice','Sea view','Drinks','Dessert'];
+const ALL_TAGS=FILTERS.slice(3);
+// Michelin Guide distinctions for Xàbia: 2026 Spain guide plus its March 2026 additions (Xàbia has no Bib Gourmands)
+const MICH={'3':'★★★ 3 stars','2':'★★ 2 stars','1':'★ 1 star','bib':'Bib Gourmand','rec':'Michelin Guide'};
+const MICH_SEED={'BonAmb':'2','Restaurante Tula':'1','La Perla de Jávea':'rec','Volta i Volta':'rec','Restaurante Tosca':'rec','Ca Aleix':'rec'};
+const PREF_CATS=['Any venue','Bakery','Breakfast','Lunch','Dinner','Tapas','Seafood','Rice','Drinks','Dessert'];
+const PREF_ICON={'Any venue':'⭐',Bakery:'🥐',Breakfast:'☕',Lunch:'🥗',Dinner:'🍽️',Tapas:'🫒',Seafood:'🦐',Rice:'🥘',Drinks:'🍹',Dessert:'🍨'};
+const PREF_HINT={'Any venue':'vegetarian',Bakery:'cinnamon roll',Breakfast:'eggs',Lunch:'menú del día',Dinner:'red prawns',Tapas:'croquetas',Seafood:'octopus',Rice:'arroz a banda',Drinks:'mojito',Dessert:'tiramisu'};
+const TINTS=[['#f6dccb','#efc2a6'],['#d9e8ee','#b9d3df'],['#e6e1d3','#d3cab2'],['#dfe9dc','#c3d8bd'],['#ece0ea','#d9c6d6']];
+const PRICE={FREE:'Free',INEXPENSIVE:'€',MODERATE:'€€',EXPENSIVE:'€€€',VERY_EXPENSIVE:'€€€€'};
+const COL={open:'#2c8553',soon:'#c0771a',closed:'#979ca3',unknown:'#979ca3'};
+const AREAS={'Old Town':[38.7899,0.1655],'Port':[38.7962,0.1846],'Duanes':[38.7935,0.1828],'Arenal':[38.7772,0.1905],'Cala Blanca':[38.7866,0.1885],'Granadella':[38.7322,0.1985],'Inland':[38.7790,0.1640],'Xàbia':[38.7890,0.1740]};
+const GOOGLE_KW=[[/coffee|caf[eé]|cortado|espresso|flat white/i,'coffee'],[/breakfast|desayuno/i,'breakfast'],[/brunch/i,'brunch'],[/wine|vino/i,'wine'],[/beer|cerveza|ca[ñn]a/i,'beer'],[/cocktail|mojito|gin/i,'cocktails'],[/dessert|postre|cake|pastel/i,'dessert'],[/vegetarian|vegan|veggie/i,'vegetarian'],[/terrace|terraza|outdoor/i,'outdoor']];
+const SEARCH_FIELDS=['id','displayName','formattedAddress','location','primaryTypeDisplayName'];
+const CORE_FIELDS=['id','displayName','formattedAddress','location','regularOpeningHours','currentOpeningHours','googleMapsURI','websiteURI','nationalPhoneNumber','internationalPhoneNumber','rating','userRatingCount','priceLevel','primaryTypeDisplayName','types','businessStatus','photos'];
+const DETAIL_FIELDS=CORE_FIELDS.concat(['servesBreakfast','servesBrunch','servesLunch','servesDinner','servesCoffee','servesBeer','servesWine','servesCocktails','servesDessert','servesVegetarianFood','hasOutdoorSeating']);
+
+/* Starter list: real Xàbia places from local guides (Guía Repsol 2026, Michelin 2026, javea.com, Nothing Familiar).
+   Hours, phone, exact location and photos come from Google once a key is added. */
+const SEEDS=[
+ ['Austriaco Café Wien','Arenal',['Bakery','Breakfast','Dessert'],[],'Austrian bakery-café; a local favourite for pastries, breakfast, and coffee and cake in the afternoon.'],
+ ['Caramel et Chocolat','Xàbia',['Bakery','Dessert'],[],'French-style pâtisserie. Check which croissants they have on the day.'],
+ ['Nostro Coffee Roasters','Xàbia',['Breakfast'],[],'Speciality coffee roaster.'],
+ ["Cafetería L'Encant",'Old Town',['Breakfast','Bakery'],['Caracoles pastries','Bocadillos'],'Coffee and bocadillos opposite the Thursday market.'],
+ ['Mira Luna','Port',['Breakfast','Sea view'],['Brunch'],'Port favourite for coffee and brunch with a beach view.'],
+ ['Olivo y Laurel','Old Town',['Breakfast'],['Inferno bocadillo (chorizo)'],'Breakfast bocadillos.'],
+ ['La Perla de Jávea','Arenal',['Lunch','Dinner','Rice','Sea view'],['Paella','Fideuà','Rice dishes'],'Rice specialists on the Arenal promenade. In the Michelin Guide; 1 Sol Repsol.'],
+ ['Restaurante Tula','Arenal',['Lunch','Dinner'],[],'One Michelin star since 2019; 2 Soles Repsol. Book well ahead.'],
+ ['BonAmb','Inland',['Dinner'],[],'Two Michelin stars, tasting menus. Special-occasion booking.'],
+ ['La Cantina de Jávea','Port',['Lunch','Dinner','Seafood','Rice'],['Paella'],'Next to the fish market. Order paella a few days ahead in summer and at weekends.'],
+ ['Cala Bandida','Port',['Lunch','Dinner','Seafood','Sea view'],[],'On the fishing wharf. Solete Repsol.'],
+ ['The Beach House Jávea','Port',['Lunch','Dinner','Sea view'],[],'On the fishing wharf. Solete Repsol.'],
+ ['Restaurante Trinquet','Old Town',['Lunch','Dinner','Seafood','Tapas'],[],'Seafood and Mediterranean; drinks and tapas in the afternoon. Solete Repsol.'],
+ ['Casa Grau','Old Town',['Lunch','Tapas','Rice'],['Pulpo','Paella'],'Tapas, octopus and paella.'],
+ ['Bar Mercat Xàbia','Old Town',['Lunch','Tapas'],[],'Inside the indoor market by San Bartolomé church. Solete Repsol.'],
+ ['La Trastienda Wine Bar','Old Town',['Drinks','Tapas'],['Wine'],'Wine bar. Solete Repsol.'],
+ ['Taberna Andares Ibéricos','Port',['Tapas','Dinner'],['Jamón ibérico'],'Jamón legs hanging from the ceiling.'],
+ ['Descortxe','Duanes',['Dinner','Drinks'],['Wine'],'Solete Repsol.'],
+ ['Volta i Volta','Old Town',['Dinner'],[],'In the historic centre. In the Michelin Guide since 2022; also Repsol-recommended.'],
+ ['Restaurante Tosca','Arenal',['Lunch','Dinner','Sea view'],[],'On the Arenal opposite the Parador. In the Michelin Guide since 2021.'],
+ ['Ca Aleix','Inland',['Lunch','Dinner','Tapas','Rice'],['Mejillón tigre','Rice dishes'],'In the Art al Camp sculpture garden on Camí Cabanes. Modern Mediterranean tapas and rice; added to the Michelin Guide in March 2026.'],
+ ['La Bandideta','Granadella',['Lunch','Sea view'],[],'Above Granadella cove. Solete Repsol. Parking fills early in summer.'],
+ ['Chiringuito La Caleta','Cala Blanca',['Lunch','Drinks','Sea view'],[],'Beach bar at Cala Blanca. Solete Repsol.'],
+ ['La Siesta Jávea','Arenal',['Lunch','Drinks','Sea view'],['Cocktails'],'Award-winning beach bar between the Arenal and the port.'],
+ ['La Bambula','Arenal',['Drinks','Sea view'],['Cocktails'],'Sunset drinks and live music.'],
+];
+
+/* ================= icons ================= */
+const sv=(d,extra='')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
+const I={
+ pin:sv('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+ search:sv('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+ clock:sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+ gear:sv('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+ back:sv('<path d="M15 5l-7 7 7 7"/>'),
+ bookmark:sv('<path d="M6 4h12v17l-6-4-6 4z"/>'),
+ bookmarkOn:sv('<path d="M6 4h12v17l-6-4-6 4z" fill="currentColor"/>'),
+ plus:sv('<path d="M12 5v14M5 12h14"/>'),
+ check:sv('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+ nav:sv('<path d="M3 11l18-8-8 18-2-8z"/>'),
+ phone:sv('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
+ globe:sv('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
+ camera:sv('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
+ map:sv('<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>'),
+ home:sv('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
+ heart:sv('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'),
+ route:sv('<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>'),
+ sliders:sv('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
+ star:sv('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor" stroke="none"/>'),
+ arrow:sv('<path d="M5 12h14M13 6l6 6-6 6"/>'),
+};
+
+/* ================= helpers ================= */
+const pad=n=>String(n).padStart(2,'0');
+const fmt=m=>{m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(m%60)};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toUTC=d=>{const[y,m,dd]=d.split('-').map(Number);return Date.UTC(y,m-1,dd)};
+const dowOf=d=>new Date(toUTC(d)).getUTCDay();
+const addDays=(d,n)=>new Date(toUTC(d)+n*864e5).toISOString().slice(0,10);
+const dayDiff=(a,b)=>Math.round((toUTC(b)-toUTC(a))/864e5);
+const pretty=d=>{const[,m,dd]=d.split('-').map(Number);return `${DAYS[dowOf(d)]} ${dd} ${MONTHS[m-1]}`};
+function madridNow(){
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(x=>[x.type,x.value]));
+  return {date:`${p.year}-${p.month}-${p.day}`,min:(+p.hour%24)*60+ +p.minute};
+}
+const uid=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const hash=s=>[...s].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7);
+function isoOf(d){
+  if(!d) return null;
+  if(d instanceof Date) return (d.getUTCHours()===0&&d.getUTCMinutes()===0)?d.toISOString().slice(0,10):`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  if(typeof d==='string') return d.slice(0,10);
+  if(d.year) return `${d.year}-${pad(d.month)}-${pad(d.day)}`;
+  if(d.date) return isoOf(d.date);
+  return null;
+}
+function defaultHolidays(){
+  const y=+madridNow().date.slice(0,4), out=[];
+  const fixed=[['01-01','New Year’s Day'],['01-06','Epiphany (Reyes)'],['05-01','Labour Day'],['08-15','Assumption'],['10-09','Valencian Community Day'],['10-12','National Day of Spain'],['11-01','All Saints’ Day'],['12-06','Constitution Day'],['12-08','Immaculate Conception'],['12-25','Christmas Day']];
+  [y,y+1].forEach(yr=>fixed.forEach(([md,n])=>out.push({date:`${yr}-${md}`,name:n})));
+  return out;
+}
+function seedPlaces(){
+  return SEEDS.map(([name,area,tags,menu,note],i)=>{const[lat,lng]=AREAS[area]||AREAS['Xàbia'];
+    return {id:'s'+(i+1),name,area,query:`${name}, Xàbia, Alicante`,tags:[...tags],menu:[...menu],note,lat,lng,approx:true,seed:true,michelin:MICH_SEED[name]||''};});
+}
+function defaultData(){
+  return {v:3,key:'',showPhotos:true,only4:true,discover:true,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
+    prefs:{'Any venue':[],Bakery:['Pistachio croissant','Almond croissant','Coffee'],Breakfast:['Coffee'],Lunch:[],Dinner:[],Tapas:[],Seafood:[],Rice:[],Drinks:[],Dessert:[]},
+    places:seedPlaces(),plan:[],done:[],travel:'walking'};
+}
+
+/* ================= storage ================= */
+let data;
+function load(){
+  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});return}}catch(e){}
+  data=defaultData();
+}
+function save(){try{localStorage.setItem(LS,JSON.stringify(data));return true}catch(e){toast('Couldn’t save on this device');return false}}
+load();
+
+const state={tab:'today',stack:[],when:null,cat:null,showClosed:false,discBusy:null,recPins:[],filter:'All',q:'',sync:'',keyStatus:data.key?'loading':'none',confirmDel:null,addResults:null,addBusy:false};
+const when=()=>state.when||madridNow();
+const byId=id=>data.places.find(p=>p.id===id)||(id&&id.startsWith('g_')?allDisc().find(p=>p.id===id):null);
+
+/* ================= opening hours ================= */
+function weekly(periods){
+  if(!periods) return null;
+  return periods.map(p=>{
+    if(!p.close) return [0,20160];
+    const s=p.open.day*1440+p.open.hour*60+p.open.minute;
+    let e=p.close.day*1440+p.close.hour*60+p.close.minute; if(e<=s) e+=10080; return [s,e];
+  });
+}
+function hoursFor(p,D){
+  if(p.cur&&p.curFrom){const k=dayDiff(p.curFrom,D);if(k>=0&&k<7) return {w:p.cur,src:'current',special:(p.special||[]).includes(D)}}
+  if(p.reg) return {w:p.reg,src:'regular',special:false};
+  return null;
+}
+function dayRanges(w,dow){
+  const a=dow*1440,b=a+1440,out=[];
+  for(const[s,e]of w){
+    if(e-s>=10080){out.push([0,1440]);continue}
+    for(const off of [0,10080,-10080]){const ss=s+off,ee=e+off;if(ss<b&&ee>a&&ss>=a-1440) out.push([Math.max(ss,a)-a,Math.min(ee,b+600)-a])}
+  }
+  const seen=new Set();return out.filter(([s,e])=>{const k=s+'-'+e;if(seen.has(k)||s>=1440||s<0)return false;seen.add(k);return true}).sort((x,y)=>x[0]-y[0]);
+}
+const holidayOn=D=>data.holidays.find(h=>h.date===D);
+// returns {s, big, small, txt}
+function status(p,D,m){
+  if(!D){({date:D,min:m}=when())}
+  if((p.closedOn||[]).includes(D)) return {s:'closed',big:'Closed',small:'your note',txt:'Closed (your note)'};
+  if(p.biz==='CLOSED_PERMANENTLY') return {s:'closed',big:'Closed',small:'permanently',txt:'Permanently closed'};
+  if(p.biz==='CLOSED_TEMPORARILY') return {s:'closed',big:'Closed',small:'temporarily',txt:'Temporarily closed'};
+  const h=hoursFor(p,D);
+  if(!h) return {s:'unknown',big:'Hours',small:p.gid?'not listed':'not loaded',txt:p.gid?'No hours on Google':(data.key?'Hours loading…':'Hours need Google')};
+  const t=dowOf(D)*1440+m;
+  for(const[s,e]of h.w) for(const tt of [t,t+10080]) if(tt>=s&&tt<e){const all=e-s>=10080;return {s:'open',left:e-tt,big:'Open',small:all?'24 hours':`until ${fmt(e)}`,txt:all?'Open 24 hours':`Open until ${fmt(e)}`,h}}
+  const dayEnd=(dowOf(D)+1)*1440; let next=null;
+  for(const[s]of h.w) if(s>t&&s<dayEnd&&(next===null||s<next)) next=s;
+  if(next!==null) return {s:'soon',wait:next-t,big:'Opens',small:`at ${fmt(next)}`,txt:`Opens at ${fmt(next)}`,h};
+  const any=dayRanges(h.w,dowOf(D)).length;
+  return {s:'closed',big:'Closed',small:any?'for the day':'all day',txt:any?'Closed for the day':'Closed all day',h};
+}
+function flagsFor(p,D){
+  const hol=holidayOn(D), h=hoursFor(p,D);
+  if(h&&h.special) return `<span class="flag ok">✓ ${hol?'Holiday':'Special'} hours confirmed</span>`;
+  if(hol&&p.gid&&h&&h.src==='current') return `<span class="flag ok">✓ Checked for ${esc(hol.name)}</span>`;
+  if(hol) return `<span class="flag warn">Holiday · call ahead</span>`;
+  return '';
+}
+
+/* ================= preferences ================= */
+function matches(p){
+  const out=[],seen=new Set(),hay=[...(p.menu||[]),p.note||'',p.name,p.type||''].join(' | ').toLowerCase();
+  ['Any venue',...p.tags].forEach(c=>(data.prefs[c]||[]).forEach(pref=>{
+    const k=pref.toLowerCase().trim(); if(!k||seen.has(k)) return;
+    let hit=(p.menu||[]).find(x=>x.toLowerCase().includes(k))||(hay.includes(k)||p.tags.some(t=>t.toLowerCase()===k)?pref:null);
+    if(!hit){const g=GOOGLE_KW.find(([re,f])=>re.test(k)&&p.serves&&p.serves[f]);if(g) hit=pref}
+    if(hit){seen.add(k);out.push(hit)}
+  }));
+  return out;
+}
+
+/* ================= Google ================= */
+let gPromise=null;
+function gmaps(){
+  if(gPromise) return gPromise;
+  if(!data.key) return Promise.reject(new Error('No Google key yet. Add one in Settings.'));
+  gPromise=new Promise((res,rej)=>{
+    window.__gmInit=async()=>{try{
+      const [pl,mp,mk]=await Promise.all([window.google.maps.importLibrary('places'),window.google.maps.importLibrary('maps'),window.google.maps.importLibrary('marker')]);
+      state.keyStatus='ok';res({Place:pl.Place,Map:mp.Map,Marker:mk.AdvancedMarkerElement,Pin:mk.PinElement});
+    }catch(e){state.keyStatus='bad';rej(e)}};
+    window.gm_authFailure=()=>{state.keyStatus='bad';toast('Google rejected the API key. Check it in Settings.');renderSoft()};
+    const s=document.createElement('script');
+    s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(data.key)}&v=weekly&loading=async&callback=__gmInit&language=en&region=ES`;
+    s.async=true;s.onerror=()=>{state.keyStatus='bad';rej(new Error('Couldn’t reach Google. Are you online?'))};
+    document.head.append(s);
+  });
+  gPromise.catch(()=>renderSoft());
+  return gPromise;
+}
+async function gSearch(q,max=8){
+  const g=await gmaps();
+  const {places}=await g.Place.searchByText({textQuery:q,fields:SEARCH_FIELDS,locationBias:{center:HOME,radius:9000},maxResultCount:max,language:'en',region:'es'});
+  return (places||[]).map(x=>({gid:x.id,name:x.displayName,addr:x.formattedAddress,type:x.primaryTypeDisplayName,lat:x.location&&x.location.lat(),lng:x.location&&x.location.lng()}));
+}
+async function gDetails(gid){
+  const g=await gmaps(), pl=new g.Place({id:gid});
+  try{await pl.fetchFields({fields:DETAIL_FIELDS})}catch(e){await pl.fetchFields({fields:CORE_FIELDS})}
+  return pl;
+}
+function applyDetails(p,pl){
+  p.gid=pl.id; p.gname=pl.displayName||p.gname;
+  p.addr=pl.formattedAddress||p.addr||'';
+  if(pl.location){p.lat=pl.location.lat();p.lng=pl.location.lng();p.approx=false}
+  p.phone=pl.internationalPhoneNumber||pl.nationalPhoneNumber||p.phone||'';
+  p.web=pl.websiteURI||p.web||''; p.maps=pl.googleMapsURI||p.maps||'';
+  p.rating=pl.rating??null; p.ratingCount=pl.userRatingCount??null;
+  p.price=PRICE[String(pl.priceLevel||'').toUpperCase()]||'';
+  p.type=pl.primaryTypeDisplayName||p.type||''; p.biz=String(pl.businessStatus||'').toUpperCase();
+  const ro=pl.regularOpeningHours, co=pl.currentOpeningHours;
+  p.reg=ro&&ro.periods?weekly(ro.periods):null;
+  if(co&&co.periods){p.cur=weekly(co.periods);p.curFrom=madridNow().date;p.special=(co.specialDays||[]).map(isoOf).filter(Boolean)}else{p.cur=null;p.curFrom=null;p.special=[]}
+  if(pl.photos) p.gphotos=pl.photos.slice(0,6).map(ph=>({src:ph.getURI({maxWidth:900,maxHeight:900}),by:(ph.authorAttributions||[]).map(a=>({name:a.displayName,uri:a.uri}))}));
+  p.serves={coffee:pl.servesCoffee,breakfast:pl.servesBreakfast,brunch:pl.servesBrunch,lunch:pl.servesLunch,dinner:pl.servesDinner,beer:pl.servesBeer,wine:pl.servesWine,cocktails:pl.servesCocktails,dessert:pl.servesDessert,vegetarian:pl.servesVegetarianFood,outdoor:pl.hasOutdoorSeating};
+  if(!p.autoTagged){
+    const s=p.serves,types=pl.types||[],add=t=>{if(!p.tags.includes(t))p.tags.push(t)};
+    if(s.breakfast||s.brunch)add('Breakfast'); if(s.lunch)add('Lunch'); if(s.dinner)add('Dinner');
+    if(s.cocktails)add('Drinks'); if(s.dessert)add('Dessert');
+    if(types.includes('bakery'))add('Bakery'); if(types.includes('seafood_restaurant'))add('Seafood');
+    p.autoTagged=true;
+  }
+  p.updated=Date.now(); p.linkFailed=false;
+}
+let syncing=false;
+async function syncAll(force){
+  if(!data.key||syncing) return; syncing=true;
+  const today=madridNow().date;
+  const todo=data.places.filter(p=>force||!p.gid||!p.updated||p.curFrom!==today||Date.now()-p.updated>12*36e5).filter(p=>force||!p.linkFailed);
+  let i=0,ok=0;
+  for(const p of todo){
+    i++; state.sync=`Updating from Google… ${i} of ${todo.length}`; renderSync();
+    try{
+      if(!p.gid){const r=await gSearch(p.query||`${p.name}, Xàbia`,1);if(!r.length){p.linkFailed=true;continue}p.gid=r[0].gid}
+      applyDetails(p,await gDetails(p.gid)); save(); ok++;
+    }catch(e){console.warn(p.name,e);if(state.keyStatus==='bad')break}
+  }
+  syncing=false; state.sync=state.keyStatus==='bad'?'':(todo.length?`Updated ${ok} of ${todo.length} places from Google`:''); save(); renderSoft();
+  setTimeout(()=>{state.sync='';renderSync()},4000);
+}
+
+/* ================= links & exports ================= */
+const qName=p=>`${p.name}, Xàbia`;
+const mapsLink=p=>p.maps||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(qName(p))}${p.gid?'&query_place_id='+p.gid:''}`;
+const dirLink=p=>`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(qName(p))}${p.gid?'&destination_place_id='+p.gid:''}&travelmode=${data.travel}`;
+const igLink=h=>`https://www.instagram.com/${encodeURIComponent(h.replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/\/.*$/,''))}/`;
+function routeUrl(list){
+  const d=list[list.length-1],w=list.slice(0,-1);
+  let u=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(qName(d))}`;
+  if(d.gid)u+=`&destination_place_id=${d.gid}`;
+  if(w.length){u+='&waypoints='+encodeURIComponent(w.map(qName).join('|'));if(w.every(p=>p.gid))u+='&waypoint_place_ids='+encodeURIComponent(w.map(p=>p.gid).join('|'))}
+  return u+'&travelmode='+data.travel;
+}
+function kml(list){
+  const x=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Xàbia Eats</name>\n${list.filter(p=>p.lat!=null).map(p=>`<Placemark><name>${x(p.name)}</name><description>${x([p.tags.join(', '),p.addr,p.note,mapsLink(p)].filter(Boolean).join(' — '))}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join('\n')}\n</Document></kml>`;
+}
+function download(name,text,type){
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast(`${name} saved`)}
+  catch(e){toast('Download isn’t available here')}
+}
+const csvRow=a=>a.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',');
+function exportCSV(){download('xabia-eats.csv',csvRow(['Name','Tags','Michelin','Address','Latitude','Longitude','Phone','Website','Google Maps','Notes'])+'\n'+data.places.map(p=>csvRow([p.name,p.tags.join('; '),p.michelin?MICH[p.michelin]:'',p.addr,p.lat,p.lng,p.phone,p.web,mapsLink(p),p.note])).join('\n'),'text/csv')}
+function exportBackup(){download(`xabia-eats-backup-${madridNow().date}.json`,JSON.stringify({...data,key:''},null,1),'application/json')}
+function importBackup(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  f.text().then(t=>{const d=JSON.parse(t);if(!Array.isArray(d.places))throw 0;const key=data.key;data=Object.assign(defaultData(),d,{key:d.key||key});save();toast(`Restored ${data.places.length} places`);render()}).catch(()=>toast('That file isn’t a Xàbia Eats backup'));
+}
+async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(msg)}catch(e){toast('Copy isn’t available here')}}
+
+/* ================= UI pieces ================= */
+function photoOf(p){
+  if(p.myPhotos&&p.myPhotos.length) return p.myPhotos[0].src;
+  if(data.showPhotos!==false&&p.gphotos&&p.gphotos.length) return p.gphotos[0].src;
+  return null;
+}
+function noph(p){const[t1,t2]=TINTS[Math.abs(hash(p.id))%TINTS.length];return `<div class="noph" style="--t1:${t1};--t2:${t2}">${esc(p.name.replace(/^(Restaurante|Cafetería|Chiringuito|Bar|La|El|The|Ca)\s+/i,'').charAt(0))}</div>`}
+const img=(p,cls='')=>{const s=photoOf(p);return s?`<img src="${esc(s)}" alt="" loading="lazy" class="${cls}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noph',textContent:''}))">`:noph(p)};
+const mich=p=>p.michelin&&MICH[p.michelin]?`<span class="mich">${MICH[p.michelin]}</span>`:'';
+const areaOf=p=>p.area&&p.area!=='Xàbia'?p.area:'Xàbia';
+function facts(p){
+  return [p.rating?`<span><span class="star">${I.star}</span>${p.rating.toFixed(1)}</span>`:'',p.price?`<span>${p.price}</span>`:'',p.type?`<span>${esc(p.type)}</span>`:`<span>${esc(p.tags.slice(0,2).join(' · '))}</span>`,mich(p)].filter(Boolean).join('');
+}
+function bigCard(p){
+  const st=status(p), m=matches(p), inPlan=data.plan.includes(p.id);
+  return `<article class="card" onclick="openDetail('${p.id}')">
+    <div class="ph">${img(p)}<span class="loc">${I.pin}${esc(areaOf(p))}</span>
+      <button class="fav ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>
+    <div class="cb"><div class="ct"><h3>${esc(p.name)}</h3><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div></div>
+      <div class="facts">${facts(p)}</div>
+      ${m.length?`<div class="match">♥ ${esc(m.slice(0,3).join(' · '))}</div>`:''}
+      ${flagsFor(p,when().date)}</div></article>`;
+}
+function row(p){
+  const st=status(p), m=matches(p), inPlan=data.plan.includes(p.id);
+  return `<div class="row" onclick="openDetail('${p.id}')">
+    <div class="thumb">${img(p)}</div>
+    <div class="grow"><div class="rname">${esc(p.name)}</div>
+      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
+      ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
+    <button class="add ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.check:I.plus}</button></div>`;
+}
+const topbar=()=>`<header class="top pad"><div class="brand">Xàbia <i>Eats</i></div><button class="iconbtn gear" onclick="push('settings')" aria-label="Settings">${I.gear}</button></header><div class="sync" id="sync">${esc(state.sync)}</div>`;
+const sec=(title,right='')=>`<div class="sec"><h2>${title}</h2><span>${right}</span></div>`;
+
+/* ---------- HOME ---------- */
+function dayOptions(){
+  const today=madridNow().date, set=new Set();
+  for(let i=0;i<7;i++) set.add(addDays(today,i));
+  const {from,to}=data.trip;
+  if(from&&to&&dayDiff(from,to)>=0&&dayDiff(from,to)<45) for(let d=from;dayDiff(d,to)>=0;d=addDays(d,1)) if(dayDiff(today,d)>=0) set.add(d);
+  set.add(when().date);
+  return [...set].sort();
+}
+// Each craving maps to saved-place tags and to a Google search for top-rated places nearby
+const CATS=[
+ {k:'breakfast',label:'Coffee & breakfast',icon:'☕',tags:['Breakfast'],q:'breakfast café coffee'},
+ {k:'bakery',label:'Bakery',icon:'🥐',tags:['Bakery'],q:'bakery pastry shop croissants'},
+ {k:'lunch',label:'Lunch',icon:'🥗',tags:['Lunch'],q:'restaurant lunch menú del día'},
+ {k:'seafood',label:'Paella & seafood',icon:'🥘',tags:['Seafood','Rice'],q:'paella seafood restaurant'},
+ {k:'tapas',label:'Tapas',icon:'🫒',tags:['Tapas'],q:'tapas bar'},
+ {k:'drinks',label:'Drinks',icon:'🍹',tags:['Drinks'],q:'cocktail bar sunset drinks'},
+ {k:'dessert',label:'Ice cream & sweets',icon:'🍨',tags:['Dessert'],q:'ice cream gelato heladería'},
+ {k:'dinner',label:'Dinner',icon:'🍽️',tags:['Dinner'],q:'restaurant dinner'},
+];
+const DISC_FIELDS=['id','displayName','formattedAddress','location','rating','userRatingCount','priceLevel','primaryTypeDisplayName','types','regularOpeningHours','currentOpeningHours','googleMapsURI','websiteURI','nationalPhoneNumber','businessStatus','photos'];
+const MICH_BONUS={'3':.8,'2':.6,'1':.4,bib:.25,rec:.15};
+function defaultCat(min){return min<660?'breakfast':min<750?'bakery':min<990?'lunch':min<1170?'drinks':'dinner'}
+const catOf=()=>CATS.find(c=>c.k===(state.cat||defaultCat(when().min)));
+function score(p){
+  const r=p.rating??4.0, c=p.ratingCount||0;
+  return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05);
+}
+async function discover(cat,force){
+  if(!data.key||!data.discover) return;
+  const today=madridNow().date, c=data.disc[cat.k];
+  if(!force&&c&&c.date===today&&Date.now()-c.at<6*36e5) return;
+  if(state.discBusy===cat.k) return;
+  state.discBusy=cat.k; renderDiscNote();
+  try{
+    const g=await gmaps();
+    const {places}=await g.Place.searchByText({textQuery:`${cat.q} in Xàbia, Alicante`,fields:DISC_FIELDS,locationBias:{center:HOME,radius:7000},maxResultCount:20,language:'en',region:'es'});
+    data.disc[cat.k]={at:Date.now(),date:today,items:(places||[]).map(pl=>{
+      const area=Object.keys(AREAS).find(a=>(pl.formattedAddress||'').toLowerCase().includes(a.toLowerCase()))||'Xàbia';
+      const p={id:'g_'+pl.id,name:pl.displayName,area,tags:[...cat.tags],menu:[],note:'',disc:true,michelin:''};
+      applyDetails(p,pl); return p;
+    })};
+    save();
+  }catch(e){console.warn(e)}
+  state.discBusy=null; renderSoft();
+}
+const allDisc=()=>Object.values(data.disc||{}).flatMap(c=>c.items||[]);
+function candidates(cat){
+  const saved=data.places.filter(p=>cat.tags.some(t=>p.tags.includes(t)));
+  const gids=new Set(data.places.map(p=>p.gid).filter(Boolean));
+  const disc=data.discover&&data.disc[cat.k]?data.disc[cat.k].items.filter(p=>!gids.has(p.gid)&&(p.ratingCount||0)>=15):[];
+  let all=[...saved,...disc];
+  if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4);
+  return all;
+}
+function screenToday(){
+  const w=when(), h=Math.floor(w.min/60), isNow=!state.when, today=madridNow().date, cat=catOf();
+  const greet=!isNow?'Planning ahead':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  const {from,to}=data.trip;
+  let trip='';
+  if(from&&to){const k=dayDiff(today,from);trip=k>0?` · ${k} day${k>1?'s':''} to go`:dayDiff(today,to)>=0?` · day ${dayDiff(from,today)+1} of ${dayDiff(from,to)+1}`:''}
+  const hol=holidayOn(w.date);
+  if(data.key) discover(cat);
+  return topbar()+`<div class="pad">
+   <div class="hello"><p>${greet}${trip}</p><h1>What are you looking for?</h1></div></div>
+   <div class="cats pad">${CATS.map(c=>`<button class="cat ${c.k===cat.k?'on':''}" onclick="state.cat='${c.k}';state.showClosed=false;render(true)"><i>${c.icon}</i><span>${c.label}</span></button>`).join('')}</div>
+   <div class="pad">
+   <div class="when"><div class="r">${I.clock}
+     <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
+     <span class="t" id="tm">${fmt(w.min)}</span>
+     <button class="now ${isNow?'on':''}" onclick="state.when=null;render(true)">Now</button></div>
+     <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>
+   <div class="toggles">
+     <button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button>
+     ${data.key?`<button class="chip ${data.discover?'on':''}" onclick="data.discover=!data.discover;save();render(true)">Include places I haven’t saved</button>`:''}
+   </div>
+   ${!data.key?`<div class="note"><b>Connect Google</b> to see what’s open, ratings, photos, and top-rated places you haven’t saved yet.<br><button class="link" onclick="push('settings')">Set it up →</button></div>`:''}
+   ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
+   ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
+   <div id="discnote" class="small" style="text-align:center;margin-top:10px"></div>
+   </div>
+   <div id="list"></div>`;
+}
+function renderDiscNote(){const el=document.getElementById('discnote');if(el)el.textContent=state.discBusy?`Looking on Google for top-rated ${catOf().label.toLowerCase()}…`:''}
+function setWhen(date,min,light){
+  const w=when(); state.when={date:date||w.date,min:min??w.min};
+  if(light){document.getElementById('tm').textContent=fmt(state.when.min);document.querySelector('.when .now')?.classList.remove('on');renderList()}else render(true);
+}
+function why(p,st){
+  const m=matches(p);
+  return [p.rating?`★ ${p.rating.toFixed(1)}${p.ratingCount?` from ${p.ratingCount.toLocaleString('en-GB')} reviews`:''}`:'',st.txt,m.length?`♥ ${m.slice(0,2).join(', ')}`:'',p.disc?'found on Google':'in your places'].filter(Boolean).join(' · ');
+}
+function heroCard(p,kind,st){
+  const inPlan=data.plan.includes(p.id);
+  const label=kind==='pick'?`<span class="pickbadge">${I.star} Our pick ${state.when?'for '+fmt(when().min):'right now'}</span>`:`<span class="pickbadge wait">${I.clock} Worth the wait · opens in ${st.wait<60?st.wait+' min':Math.floor(st.wait/60)+' h '+(st.wait%60?st.wait%60+' min':'')}</span>`;
+  return `<article class="card hero-card ${kind}" onclick="openDetail('${p.id}')">
+    <div class="ph">${img(p)}<span class="loc">${I.pin}${esc(areaOf(p))}</span>
+      <button class="fav ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>
+    <div class="cb">${label}
+      <div class="ct"><h3>${esc(p.name)}</h3><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div></div>
+      <div class="facts">${facts(p)}</div>
+      <p class="why">${esc(why(p,st))}</p>${flagsFor(p,when().date)}</div></article>`;
+}
+function renderList(){
+  const el=document.getElementById('list'); if(!el) return;
+  const cat=catOf(), list=candidates(cat);
+  const S=new Map(list.map(p=>[p.id,status(p)])), SC=new Map(list.map(p=>[p.id,score(p)]));
+  const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>SC.get(b.id)-SC.get(a.id));
+  const open=by('open'), soon=by('soon'), closed=by('closed'), unk=by('unknown');
+  const pick=open[0]||null;
+  const waitPool=soon.filter(p=>S.get(p.id).wait<=150);
+  // 'much better' = Google rating at least 0.3 higher, or clearly higher overall score
+  const wait=waitPool.find(p=>!pick||(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null;
+  const rest=open.slice(1), later=soon.filter(p=>p!==wait);
+  state.recPins=[...(pick?[[pick,'pick']]:[]),...(wait?[[wait,'wait']]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
+  const label=state.when?`at ${fmt(when().min)}`:'now';
+  let html='';
+  if(data.key) html+=`<div class="pad"><div id="recmap"><div class="empty" style="padding-top:110px">Loading map…</div></div>
+     <div class="legend"><span class="lg pick">Our pick</span><span class="lg wait">Worth the wait</span><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Later</span></span></div></div>`;
+  if(pick) html+=`<div class="pad" style="margin-top:16px">${heroCard(pick,'pick',S.get(pick.id))}</div>`;
+  else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.</div></div>`;
+  if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,'wait',S.get(wait.id))}</div>`;
+  if(rest.length) html+=`<div class="pad">${sec(`Also open ${label}`,`${rest.length}`)}<div class="list">${rest.map(row).join('')}</div></div>`;
+  if(later.length) html+=`<div class="pad">${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div></div>`;
+  if(unk.length) html+=`<div class="pad">${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div></div>`;
+  if(closed.length) html+=`<div class="pad">${state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="link" style="display:block;margin:16px auto 0" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed place${closed.length>1?'s':''}</button>`}</div>`;
+  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">No ${esc(cat.label.toLowerCase())} places yet${data.only4?' rated 4★ or more':''}. ${data.key?'':'Connect Google to find some, or '}add one from Saved.</div></div>`;
+  html+=`<div class="pad"><p class="small" style="text-align:center;margin-top:18px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p></div>`;
+  el.innerHTML=html;
+  renderDiscNote();
+  drawRecMap();
+}
+async function drawRecMap(){
+  const el=document.getElementById('recmap'); if(!el) return;
+  try{
+    const g=await gmaps(); if(!document.body.contains(el)) return;
+    el.innerHTML='';
+    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});
+    const b=new window.google.maps.LatLngBounds(); let n=0;
+    const style={pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#e3b46f',sc:.8}};
+    [...(state.recPins||[])].reverse().forEach(([p,k])=>{
+      if(p.lat==null||p.approx) return;
+      const s=style[k], pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(s.gl?{glyph:s.gl}:{})});
+      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='pick'?99:k==='wait'?98:1});
+      mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
+    });
+    if(n>1) map.fitBounds(b,36); else if(n===1) map.setCenter(b.getCenter?b.getCenter():HOME);
+    if(!n) el.innerHTML='<div class="empty" style="padding-top:110px">Nothing to show on the map yet.</div>';
+  }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
+}
+
+/* ---------- SAVED ---------- */
+function screenSaved(){
+  const q=state.q.toLowerCase();
+  const list=data.places.filter(p=>!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+  return topbar()+`<div class="pad">
+   <h1 class="pagetitle">Saved places</h1><p class="lead">${data.places.length} places in Xàbia</p>
+   <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
+   <button class="btn block" onclick="state.addResults=null;push('add')">${I.plus} Add a place</button>
+   ${sec(q?'Results':'All places',`${list.length}`)}
+   <div class="list">${list.map(row).join('')||'<div class="empty">No matches.</div>'}</div></div>`;
+}
+
+/* ---------- ADD / RELINK ---------- */
+function screenAdd(relinkId){
+  const rp=relinkId&&byId(relinkId), res=state.addResults;
+  return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">${rp?'Find on Google':'Add a place'}</div><span style="width:42px"></span></header>
+  <div class="pad">
+   ${rp?`<p class="lead" style="margin-top:8px">Pick the right Google listing for ${esc(rp.name)}.</p>`:''}
+   ${data.key?`<form class="search searchform" onsubmit="event.preventDefault();doSearch(this.q.value)" style="cursor:text">${I.search}<input name="q" id="addQ" placeholder="e.g. bakery Arenal" value="${esc(rp?rp.name:(state.lastQ||''))}" autocomplete="off"><button class="btn" style="padding:7px 14px">Search</button></form>
+     <p class="small" style="margin-top:8px">Searches around Xàbia. Hours, phone, website and photos fill in automatically.</p>`
+    :`<div class="note">Add your Google key in Settings to search Google and get live hours.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
+   ${state.addBusy?`<div class="list" style="margin-top:16px"><div class="empty">Searching…</div></div>`:res?`${sec('Results',`${res.length}`)}<div class="list">${res.length?res.map((r,i)=>{const exists=data.places.find(p=>p.gid===r.gid);
+     return `<div class="row result" onclick="${exists&&!rp?`openDetail('${exists.id}')`:`pickResult(${i},'${rp?rp.id:''}')`}">
+       <div class="thumb">${noph({id:r.gid,name:r.name})}</div>
+       <div class="grow"><div class="rname">${esc(r.name)}</div><div class="rmeta">${esc([r.type,r.addr].filter(Boolean).join(' · '))}</div></div>
+       <span class="${exists&&!rp?'small':'link'}">${rp?'Use':exists?'Saved':'Add'}</span></div>`}).join(''):'<div class="empty">No results. Try another name or area.</div>'}</div>`:''}
+   ${rp?'':`${sec('Add by hand')}<form class="pcard" onsubmit="event.preventDefault();addManual(this)">
+     <label class="lab" for="mN" style="margin-top:0">Name</label><input class="field" id="mN" name="n" required placeholder="Place name">
+     <label class="lab" for="mA">Area</label><select class="field" id="mA" name="a">${Object.keys(AREAS).map(a=>`<option>${a}</option>`).join('')}</select>
+     <label class="lab" for="mT">Type</label><select class="field" id="mT" name="t">${ALL_TAGS.map(a=>`<option>${a}</option>`).join('')}</select>
+     <button class="btn block">Save place</button></form>`}
+  </div>`;
+}
+async function doSearch(q){
+  q=q.trim(); if(!q) return; state.lastQ=q; state.addBusy=true; render(true);
+  try{state.addResults=await gSearch(/x[aà]bia|j[aá]vea/i.test(q)?q:`${q}, Xàbia`)}catch(e){state.addResults=null;toast(e.message||'Search failed')}
+  state.addBusy=false; render(true);
+}
+async function pickResult(i,relinkId){
+  const r=state.addResults[i]; let p;
+  if(relinkId){p=byId(relinkId);p.gid=r.gid;p.gphotos=null}
+  else{
+    const area=Object.keys(AREAS).find(a=>(r.addr||'').toLowerCase().includes(a.toLowerCase()))||'Xàbia';
+    p={id:uid(),name:r.name,area,tags:[],menu:[],note:'',lat:r.lat,lng:r.lng,approx:false,gid:r.gid,addr:r.addr,type:r.type,michelin:''};
+    data.places.push(p);
+  }
+  save(); toast('Getting details from Google…');
+  try{applyDetails(p,await gDetails(p.gid));save();toast(relinkId?'Linked to Google':`${p.name} saved`)}catch(e){toast('Saved, but Google details didn’t load')}
+  state.stack.pop(); if(!relinkId) state.stack.push('detail:'+p.id); render();
+}
+function addManual(f){
+  const n=f.n.value.trim(); if(!n) return; const a=f.a.value; const[lat,lng]=AREAS[a];
+  const p={id:uid(),name:n,area:a,query:`${n}, Xàbia, Alicante`,tags:[f.t.value],menu:[],note:'',lat,lng,approx:true,michelin:''};
+  data.places.push(p); save(); toast(`${n} saved`);
+  state.stack.pop(); state.stack.push('detail:'+p.id); render();
+  if(data.key) syncAll();
+}
+
+/* ---------- DETAIL ---------- */
+function hoursList(p){
+  const D0=when().date, rows=[];
+  for(let i=0;i<7;i++){
+    const D=addDays(D0,i), h=hoursFor(p,D), hol=holidayOn(D);
+    let txt='Not known';
+    if((p.closedOn||[]).includes(D)) txt='Closed (your note)';
+    else if(h){const r=dayRanges(h.w,dowOf(D));txt=r.length?r.map(([s,e])=>e-s>=1440?'24 hours':`${fmt(s)}–${fmt(e)}`).join(', '):'Closed'}
+    rows.push(`<div class="hr ${i===0?'sel':''}"><span>${i===0&&!state.when?'Today':pretty(D)}${h&&h.special?' <span class="flag ok">special</span>':hol?' <span class="flag warn">holiday</span>':''}</span><span>${txt}</span></div>`);
+  }
+  return rows.join('');
+}
+function screenDetail(id){
+  const p=byId(id); if(!p) return `<div class="pad"><button class="link" onclick="pop()">‹ Back</button><div class="empty">This place was deleted.</div></div>`;
+  const st=status(p), inPlan=data.plan.includes(id), m=matches(p), D=when().date, closedD=(p.closedOn||[]).includes(D);
+  const gp=p.gphotos||[], mine=p.myPhotos||[];
+  const slides=[...mine.map(x=>({src:x.src,by:[]})),...gp];
+  const s=p.serves||{}, serv=[['coffee','Coffee'],['breakfast','Breakfast'],['brunch','Brunch'],['lunch','Lunch'],['dinner','Dinner'],['wine','Wine'],['beer','Beer'],['cocktails','Cocktails'],['dessert','Dessert'],['vegetarian','Vegetarian'],['outdoor','Outdoor seating']].filter(([k])=>s[k]).map(([,l])=>l);
+  const credit=x=>x.by&&x.by.length?`<div class="credit">Photo: ${x.by.map(a=>a.uri?`<a href="${esc(a.uri)}" target="_blank" rel="noopener">${esc(a.name)}</a>`:esc(a.name)).join(', ')}</div>`:'';
+  return `<div class="hero">
+    <div class="gal" id="gal" onscroll="galDots(this)">${slides.length?slides.map(x=>`<div><img src="${esc(x.src)}" alt="Photo of ${esc(p.name)}">${credit(x)}</div>`).join(''):`<div>${noph(p)}</div>`}</div>
+    <button class="round l" onclick="pop()" aria-label="Back">${I.back}</button>
+    <button class="round r ${inPlan?'on':''}" onclick="togglePlan('${id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button>
+    ${slides.length>1?`<div class="dots" id="dots">${slides.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:''}
+  </div>
+  <section class="sheet pad">
+    <div class="kicker">${I.pin}${esc(areaOf(p))}${p.type?` · ${esc(p.type)}`:''}</div>
+    <div class="dtitle"><h1>${esc(p.name)}</h1></div>
+    <div class="facts" style="margin-top:8px">${p.rating?`<span><span class="star">${I.star}</span><b style="color:var(--ink)">${p.rating.toFixed(1)}</b>&nbsp;(${(p.ratingCount||0).toLocaleString('en-GB')} reviews)</span>`:''}${p.price?`<span>${p.price}</span>`:''}${mich(p)}</div>
+    <div style="margin-top:8px">${flagsFor(p,D)}</div>
+    ${p.note?`<p class="desc">${esc(p.note)}</p>`:''}
+    ${m.length?`<div class="chips wrap" style="margin-top:12px">${m.map(x=>`<span class="chip" style="background:var(--accent-soft);border-color:transparent;color:var(--accent-dark);cursor:default">♥ ${esc(x)}</span>`).join('')}</div>`:''}
+    <div class="feat">
+      <a href="${esc(dirLink(p))}" target="_blank" rel="noopener"><i>${I.nav}</i>Directions</a>
+      <a class="${p.phone?'':'off'}" href="tel:${esc((p.phone||'').replace(/\s/g,''))}"><i>${I.phone}</i>Call</a>
+      <a class="${p.web?'':'off'}" href="${esc(p.web||'#')}" target="_blank" rel="noopener"><i>${I.globe}</i>Website</a>
+      ${p.ig?`<a href="${esc(igLink(p.ig))}" target="_blank" rel="noopener"><i>${I.camera}</i>Instagram</a>`:`<a href="${esc(mapsLink(p))}" target="_blank" rel="noopener"><i>${I.map}</i>Maps</a>`}
+    </div>
+    ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)}</p>`:''}
+
+    ${sec('Opening hours',p.gid&&p.updated?`updated ${new Date(p.updated).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'')}
+    <div class="panel">${hoursList(p)}</div>
+    <p class="small" style="margin-top:8px">${p.gid?'From Google. The next 7 days include any holiday hours the owner has set.':'Connect Google in Settings to load hours.'}</p>
+    <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
+
+    ${sec('Gallery',`${slides.length} photo${slides.length===1?'':'s'}`)}
+    <div class="strip">${mine.map((x,i)=>`<figure><img src="${x.src}" alt="Your photo"><button onclick="rmPhoto('${id}',${i})" aria-label="Remove photo">×</button></figure>`).join('')}${gp.map(x=>`<figure><img src="${esc(x.src)}" alt="" loading="lazy"></figure>`).join('')}
+      ${p.disc?'':`<label for="addPh">+ Add<br>your photo</label>`}<input type="file" id="addPh" accept="image/*" multiple hidden onchange="addPhotos('${id}',this)"></div>
+    ${gp.length?'<p class="small" style="margin-top:6px">Google photos come from Google Maps.</p>':''}
+
+    ${p.disc?'':sec('On the menu')}
+    ${p.disc?'':`<div class="chips wrap">${(p.menu||[]).map((x,i)=>`<span class="chip x">${esc(x)}<button onclick="rmMenu('${id}',${i})" aria-label="Remove ${esc(x)}">×</button></span>`).join('')||'<span class="small">Add dishes you spot, like pistachio croissant. Your preferences match against these.</span>'}</div>`}
+    ${p.disc?'':`<form class="frow" onsubmit="event.preventDefault();addMenu('${id}',this.q)"><input class="field" name="q" id="menuAdd" placeholder="Add a dish or drink"><button class="btn">Add</button></form>`}
+    ${serv.length?`<p class="small" style="margin-top:8px">Google says it serves: ${serv.join(', ')}</p>`:''}
+
+    ${p.disc?`${sec('Not saved yet')}<div class="pcard"><p style="font-size:14px">Found on Google for “${esc(catOf().label)}”. Save it to add notes, your photos and menu items.</p><button class="btn block" onclick="savePlace('${id}')">${I.plus} Save to my places</button></div></section>
+  <div class="cta"><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div><a class="btn" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></div>`:`
+    ${sec('About this place')}
+    <div class="pcard">
+      <span class="lab" style="margin-top:0">Type</span>
+      <div class="chips wrap">${ALL_TAGS.map(t=>`<button class="chip ${p.tags.includes(t)?'on':''}" onclick="toggleTag('${id}','${t}')">${t}</button>`).join('')}</div>
+      <label class="lab" for="michSel">Michelin Guide</label>
+      <select class="field" id="michSel" onchange="setField('${id}','michelin',this.value);render(true)"><option value="">Not in the guide</option>${Object.entries(MICH).map(([k,v])=>`<option value="${k}" ${p.michelin===k?'selected':''}>${v}</option>`).join('')}</select>
+      <label class="lab" for="igBox">Instagram</label>
+      <input class="field" id="igBox" placeholder="@handle" value="${esc(p.ig||'')}" onchange="setField('${id}','ig',this.value.trim());render(true)">
+      <label class="lab" for="noteBox">Notes</label>
+      <textarea class="field" id="noteBox" placeholder="Booking tips, what to order…" onchange="setField('${id}','note',this.value)">${esc(p.note)}</textarea>
+    </div>
+
+    ${sec('Google listing')}
+    <div class="pcard">
+      <p style="font-size:14px">${p.gid?`Linked to <b>${esc(p.gname||p.name)}</b>${p.addr?`<br><span class="small">${esc(p.addr)}</span>`:''}`:p.linkFailed?'Google couldn’t find this place automatically.':data.key?'Not linked yet.':'Add a Google key in Settings to link this place.'}</p>
+      ${data.key?`<button class="btn ghost block" onclick="state.addResults=null;push('relink:${id}')">${p.gid?'Wrong place? Pick another':'Find it on Google'}</button>${p.gid?`<button class="btn ghost block" onclick="refreshOne('${id}')">Refresh hours now</button>`:''}`:''}
+      <button class="btn danger block" onclick="delPlace('${id}')">${state.confirmDel===id?'Tap again to delete':'Delete this place'}</button>
+    </div>
+  </section>
+  <div class="cta"><div class="stat s-${st.s}"><b>${st.big}</b><small>${st.small}</small></div>
+    <a class="btn" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></div>`}`;
+}
+function galDots(el){const d=document.getElementById('dots');if(!d)return;const i=Math.round(el.scrollLeft/el.clientWidth);[...d.children].forEach((x,j)=>x.classList.toggle('on',i===j))}
+function setField(id,k,v){const p=byId(id);p[k]=v;save();toast('Saved')}
+function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);(p.menu=p.menu||[]).push(v);save();render(true);document.getElementById('menuAdd')?.focus()}
+function rmMenu(id,i){byId(id).menu.splice(i,1);save();render(true)}
+function toggleTag(id,t){const p=byId(id),i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
+function toggleClosed(id){const p=byId(id),D=when().date;p.closedOn=p.closedOn||[];const i=p.closedOn.indexOf(D);i>=0?p.closedOn.splice(i,1):p.closedOn.push(D);save();render(true)}
+async function refreshOne(id){const p=byId(id);toast('Refreshing…');try{applyDetails(p,await gDetails(p.gid));save();toast('Hours updated');render(true)}catch(e){toast('Google didn’t respond')}}
+function delPlace(id){
+  if(state.confirmDel!==id){state.confirmDel=id;render(true);setTimeout(()=>{if(state.confirmDel===id){state.confirmDel=null;renderSoft()}},4000);return}
+  const p=byId(id);data.places=data.places.filter(x=>x.id!==id);data.plan=data.plan.filter(x=>x!==id);state.confirmDel=null;save();toast(`${p.name} deleted`);pop();
+}
+// Shrinks photos to ~800px JPEGs so they fit in the phone's storage
+function shrink(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.72))};im.onerror=rej;im.src=u})}
+async function addPhotos(id,input){
+  const p=byId(id);p.myPhotos=p.myPhotos||[];const files=[...input.files].slice(0,6);let n=0;
+  for(const f of files){try{p.myPhotos.push({src:await shrink(f)});n++}catch(e){toast('That image couldn’t be read')}}
+  try{localStorage.setItem(LS,JSON.stringify(data));toast(n>1?`${n} photos saved`:'Photo saved')}catch(e){p.myPhotos.splice(-n,n);save();toast('Phone storage is full. Remove some photos first.')}
+  render(true);
+}
+function rmPhoto(id,i){byId(id).myPhotos.splice(i,1);save();render(true)}
+
+/* ---------- MAP ---------- */
+function screenMap(){
+  const w=when();
+  return topbar()+`<div class="pad"><h1 class="pagetitle">Map</h1><p class="lead">${state.when?pretty(w.date)+', ':''}${fmt(w.min)} · tap a pin for details</p>
+  ${data.key?`<div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
+    <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
+   :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
+  <a class="btn ghost block" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('restaurants Xàbia')}" target="_blank" rel="noopener">Open Xàbia in Google Maps</a></div>`;
+}
+async function drawMap(){
+  const el=document.getElementById('gmap'); if(!el) return;
+  try{
+    const g=await gmaps(); if(!document.body.contains(el)) return;
+    el.innerHTML='';
+    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+    const b=new window.google.maps.LatLngBounds(); let n=0;
+    data.places.forEach(p=>{
+      if(p.lat==null||p.approx) return;
+      const st=status(p), big=data.plan.includes(p.id);
+      const pin=new g.Pin({background:big?'#d4622e':COL[st.s],borderColor:'#ffffff',glyphColor:'#ffffff',scale:big?1.25:1});
+      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
+      mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
+    });
+    if(n>1) map.fitBounds(b,40);
+  }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
+}
+
+/* ---------- PLAN ---------- */
+function screenPlan(){
+  const plan=data.plan.map(byId).filter(Boolean);
+  return topbar()+`<div class="pad"><h1 class="pagetitle">Your plan</h1><p class="lead">${plan.length?`${plan.length} stop${plan.length>1?'s':''}, in order`:'Tap the bookmark on any place to add it here.'}</p>
+   ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=data.done.includes(p.id),st=status(p);return `<div class="pitem ${d?'done':''}">
+      <button class="num ${d?'done':''}" onclick="toggleDone('${p.id}')" aria-label="${d?'Mark not done':'Mark done'}">${d?'✓':i+1}</button>
+      <div class="grow" onclick="openDetail('${p.id}')" style="cursor:pointer"><div class="rname">${esc(p.name)}</div><div class="rmeta s-${st.s}"><span class="dotc">${esc(st.txt)}</span></div></div>
+      <button class="mini" onclick="movePlan(${i},-1)" aria-label="Move up" ${i?'':'disabled style="opacity:.2"'}>↑</button>
+      <button class="mini" onclick="movePlan(${i},1)" aria-label="Move down" ${i<plan.length-1?'':'disabled style="opacity:.2"'}>↓</button>
+      <button class="mini" onclick="togglePlan('${p.id}')" aria-label="Remove">×</button></div>`}).join('')}</div>
+      ${data.done.length?`<button class="link" onclick="clearDone()">Clear ticked-off stops</button>`:''}`:''}
+   ${sec('Getting there')}
+   <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
+   <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start route in Google Maps</a>
+   ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
+   <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(data.plan.map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy plan as text</button>
+   ${sec('Export everything')}
+   <div class="pcard">
+     <button class="btn ghost block" style="margin-top:0" onclick="download('xabia-eats.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Download KML for Google My Maps</button>
+     <button class="btn ghost block" onclick="exportCSV()">Download CSV</button>
+     <ol class="steps" style="margin-top:12px"><li>Download the KML.</li><li>On a computer, open <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a>, create a map and choose Import.</li><li>In the Google Maps app it appears under You → Maps.</li></ol>
+   </div></div>`;
+}
+function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
+function toggleDone(id){const i=data.done.indexOf(id);i>=0?data.done.splice(i,1):data.done.push(id);save();render(true)}
+function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[];save();render(true)}
+
+/* ---------- PREFS ---------- */
+function screenPrefs(){
+  return topbar()+`<div class="pad"><h1 class="pagetitle">Food preferences</h1><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
+  <div style="margin-top:18px">${PREF_CATS.map((c,ci)=>{const items=data.prefs[c]||[];const n=c==='Any venue'?'Checked at every place':`${data.places.filter(p=>p.tags.includes(c)).length} saved places`;
+   return `<div class="pcard"><h3><i>${PREF_ICON[c]}</i>${c}</h3><p class="small">${n}</p>
+     <div class="chips wrap">${items.map((v,i)=>`<span class="chip x">${esc(v)}<button onclick="rmPref(${ci},${i})" aria-label="Remove ${esc(v)}">×</button></span>`).join('')}</div>
+     <form class="frow" onsubmit="event.preventDefault();addPref(${ci},this.q)"><input class="field" name="q" id="pref${ci}" placeholder="Add, e.g. ${PREF_HINT[c]}"><button class="btn">Add</button></form></div>`}).join('')}</div>
+  <p class="small" style="margin-top:6px">Preferences are checked against each place’s menu list, your notes and its type. Google also confirms general things like coffee, breakfast, wine, cocktails, vegetarian food and outdoor seating. It doesn’t know specific items like pistachio croissants, so add those to a place’s menu when you find them.</p></div>`;
+}
+function addPref(ci,inp){const v=inp.value.trim();if(!v)return;const c=PREF_CATS[ci];(data.prefs[c]=data.prefs[c]||[]).push(v);save();toast(`Looking for ${v}`);render(true);document.getElementById('pref'+ci)?.focus()}
+function rmPref(ci,i){data.prefs[PREF_CATS[ci]].splice(i,1);save();render(true)}
+
+/* ---------- SETTINGS ---------- */
+function screenSettings(){
+  const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
+  const {from,to}=data.trip;
+  const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
+  return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Settings</div><span style="width:42px"></span></header>
+  <div class="pad">
+  ${sec('Google Maps')}
+  <form class="pcard" onsubmit="event.preventDefault();saveKey(this.k.value)">
+    <div class="srow" style="padding-top:0"><span>API key</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
+    <input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Paste your key (starts AIza…)" value="${esc(data.key)}">
+    <button class="btn block">Save key</button>
+    ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Refresh all hours now</button>`:''}
+    <div class="srow" style="margin-top:6px"><label for="phT">Show Google photos in lists</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
+    <p class="small">The key is stored only on this device. Each Google photo shown counts toward Google’s free monthly allowance.</p>
+  </form>
+  ${sec('Your trip')}
+  <div class="pcard">
+    <label class="lab" for="tripFrom" style="margin-top:0">From</label><input class="field" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)">
+    <label class="lab" for="tripTo">To</label><input class="field" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)">
+    ${from&&to&&dayDiff(from,to)>=0?`<p class="small" style="margin-top:8px">${dayDiff(from,to)+1} days</p>`:''}
+  </div>
+  ${sec('Public holidays')}
+  <div class="pcard">
+    <p class="small" style="margin:0 0 6px">On these days the app tells you to call ahead unless Google has holiday hours. Spain’s fixed national and Valencian holidays are filled in. Add local fiestas and Easter yourself.</p>
+    ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} ${h.date.slice(0,4)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
+    <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form>
+  </div>
+  ${sec('Your data')}
+  <div class="pcard">
+    <p class="small" style="margin:0">Everything is saved on this device. Use a backup to move it to another phone or computer.</p>
+    <button class="btn ghost block" onclick="exportBackup()">Download backup</button>
+    <label class="btn ghost block" for="imp">Restore from backup</label><input type="file" id="imp" accept=".json,application/json" hidden onchange="importBackup(this)">
+    <button class="btn danger block" onclick="resetAll()">${state.confirmDel==='ALL'?'Tap again to erase everything':'Start over with the starter list'}</button>
+  </div>
+  <p class="small" style="margin-top:14px">The starter list comes from the Guía Repsol 2026 list for Xàbia, javea.com and Nothing Familiar’s Jávea guide. Michelin badges follow the 2026 Michelin Guide Spain plus its March 2026 additions; the 2027 guide may change them, and you can edit each place’s badge. Hours, photos and ratings come from Google Maps.</p>
+  </div>`;
+}
+function saveKey(k){k=k.trim();if(k===data.key){toast('Key unchanged');return}data.key=k;save();toast(k?'Key saved. Reloading…':'Key removed');setTimeout(()=>location.reload(),600)}
+function addHol(f){if(!f.d.value)return;data.holidays.push({date:f.d.value,name:f.n.value.trim()||'Holiday'});save();render(true)}
+function rmHol(d){const i=data.holidays.findIndex(h=>h.date===d);if(i>=0)data.holidays.splice(i,1);save();render(true)}
+function resetAll(){
+  if(state.confirmDel!=='ALL'){state.confirmDel='ALL';render(true);return}
+  const key=data.key;data=defaultData();data.key=key;state.confirmDel=null;save();toast('Starter list restored');render();syncAll();
+}
+
+/* ================= nav & render ================= */
+function saveDisc(id){
+  const d=byId(id); if(!d||!d.disc) return id;
+  const ex=data.places.find(p=>p.gid===d.gid); if(ex) return ex.id;
+  const p=JSON.parse(JSON.stringify(d)); p.id=uid(); delete p.disc; data.places.push(p); save();
+  const top=state.stack.at(-1); if(top==='detail:'+id) state.stack[state.stack.length-1]='detail:'+p.id;
+  return p.id;
+}
+function savePlace(id){const nid=saveDisc(id);toast(`${byId(nid).name} saved to your places`);render(true)}
+function togglePlan(id){
+  if(byId(id)?.disc) id=saveDisc(id);
+  const i=data.plan.indexOf(id), p=byId(id);
+  if(i>=0){data.plan.splice(i,1);data.done=data.done.filter(x=>x!==id);toast('Removed from your plan')}else{data.plan.push(id);toast(`${p.name} added to your plan`)}
+  save(); render(true);
+}
+let toastT;
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2000)}
+function push(s){state.confirmDel=null;state.stack.push(s);render()}
+function pop(){state.confirmDel=null;state.stack.pop();render()}
+function openDetail(id){push('detail:'+id)}
+
+const TABS=[['today','Home',I.home],['saved','Saved',I.heart],['plan','Plan',I.route],['map','Map',I.map],['prefs','Prefs',I.sliders]];
+function renderTabs(){
+  const top=state.stack.at(-1), hide=top&&top.startsWith('detail:');
+  document.getElementById('phone').classList.toggle('detail',!!hide);
+  const t=document.getElementById('tabs'); t.hidden=!!hide; if(hide) return;
+  t.innerHTML=TABS.map(([k,l,ic])=>{const on=state.tab===k&&!state.stack.length;
+    return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${data.plan.length?`<em class="badge">${data.plan.length}</em>`:''}</button>`
+      :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}</button>`}).join('');
+}
+function go(k){state.tab=k;state.stack=[];state.confirmDel=null;render()}
+function renderSync(){const el=document.getElementById('sync');if(el)el.textContent=state.sync}
+// re-render after background work, but never while someone is typing
+function renderSoft(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return renderSync();if(state.tab==='map'&&!state.stack.length)return renderSync();render(true)}
+function render(keepScroll){
+  const app=document.getElementById('app'), top=state.stack.at(-1);
+  let html;
+  if(top==='add') html=screenAdd();
+  else if(top==='settings') html=screenSettings();
+  else if(top&&top.startsWith('relink:')) html=screenAdd(top.slice(7));
+  else if(top&&top.startsWith('detail:')) html=screenDetail(top.slice(7));
+  else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,prefs:screenPrefs}[state.tab]();
+  const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
+  const rails=[...document.querySelectorAll('.rail')].map(r=>r.scrollLeft);
+  app.innerHTML=html;
+  document.querySelectorAll('.rail').forEach((r,i)=>{if(keepScroll&&rails[i])r.scrollLeft=rails[i]});
+  if(!top&&state.tab==='today') {renderList();document.querySelectorAll('.rail').forEach((r,i)=>{if(keepScroll&&rails[i])r.scrollLeft=rails[i]})}
+  if(!top&&state.tab==='map') drawMap();
+  if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
+  window.scrollTo(0,keepScroll?y:0);
+  renderTabs();
+}
+render();
+if(data.key) gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{});
+setInterval(()=>{if(!state.when&&!state.stack.length&&state.tab==='today'){const t=document.getElementById('tm');if(t)t.textContent=fmt(madridNow().min);renderList()}},60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&data.key&&state.keyStatus==='ok')syncAll()});
+</script>
+</body>
+</html>
