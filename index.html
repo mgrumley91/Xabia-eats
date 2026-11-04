@@ -250,7 +250,13 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v6';
+const APP_VERSION='v7';
+// Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
+const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
+const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
+ {place:'Bohemians',at:1793539233217,net:4044},{place:'Cala Bandida',at:1793612563596,net:-5790},{place:'Sorbos Cafe',at:1793624505112,net:1304},
+ {place:'Terra',at:1793624588927,net:1640},{place:'Doble',at:1793634337010,net:1319},{place:'Geographic',at:1793730971838,net:795},
+ {place:'Geographic',at:1793731041979,net:-3000},{place:'Bastai Lounge Bar Restaurante',at:1793731110689,net:-8573}]};
 const TZ='Europe/Madrid', HOME={lat:38.7895,lng:0.1730}, LS='xabiaEats.v1';
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -324,6 +330,8 @@ const I={
  sliders:sv('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
  star:sv('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor" stroke="none"/>'),
  arrow:sv('<path d="M5 12h14M13 6l6 6-6 6"/>'),
+ receipt:sv('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>'),
+ ext:sv('<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>'),
 };
 
 /* ================= helpers ================= */
@@ -1031,9 +1039,27 @@ function saveSpot(){
   save();state.spotDraft=null;toast(`${s.name} added to the map`);pop();
 }
 
+/* ---------- BILLS (opens the shared Wass Bill Splitter) ---------- */
+function screenBills(){
+  const meals=[...TRIP_SNAPSHOT.meals].sort((a,b)=>a.at-b.at), net=meals.reduce((t,m)=>t+m.net,0);
+  const eur=c=>'€'+(Math.abs(c)/100).toFixed(2);
+  const day=ms=>new Date(ms).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'});
+  return topbar()+`<div class="pad"><h1 class="pagetitle">Bills with Wass</h1><p class="lead">Split each bill in your shared splitter. It reads the bill photo for you and stays in sync with Wass’s phone.</p>
+   <a class="btn block" href="${SPLITTER_URL}" target="_blank" rel="noopener">${I.receipt} Split a new bill ${I.ext}</a>
+   ${sec('Trip summary',`${meals.length} meals`)}
+   <div class="pcard" style="background:${net<0?'#fbeadf':'#e3f1e8'}">
+     <p class="small" style="margin:0">Trip balance</p>
+     <p style="font-family:var(--display);font-size:30px;line-height:1.1;margin-top:2px;color:${net<0?'var(--accent-dark)':'var(--open)'}">${net===0?'All square':net<0?`We owe Wass ${eur(net)}`:`Wass owes us ${eur(net)}`}</p>
+   </div>
+   <div class="list" style="margin-top:12px">${meals.map(m=>`<div class="row" style="cursor:default"><div class="grow"><div class="rname" style="font-size:17px">${esc(m.place)}</div><div class="rmeta">${day(m.at)}</div></div>
+     <div class="stat ${m.net<0?'':'s-open'}"><b style="color:${m.net<0?'var(--accent-dark)':'var(--open)'}">${m.net<0?'−':'+'}${eur(m.net)}</b><small>${m.net<0?'we owe':'Wass owes'}</small></div></div>`).join('')}</div>
+   <p class="small" style="margin-top:10px">Snapshot of your splitter’s tally, taken ${TRIP_SNAPSHOT.taken}. The live tally is always in the splitter. Ask Claude to refresh this summary any time.</p>
+  </div>`;
+}
 /* ---------- PREFS ---------- */
 function screenPrefs(){
-  return topbar()+`<div class="pad"><h1 class="pagetitle">Food preferences</h1><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
+  const hdr=state.stack.at(-1)==='prefs'?`<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Settings</div><span style="width:42px"></span></header>`:topbar();
+  return hdr+`<div class="pad"><h1 class="pagetitle">Food preferences</h1><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
   <div style="margin-top:18px">${PREF_CATS.map((c,ci)=>{const items=data.prefs[c]||[];const n=c==='Any venue'?'Checked at every place':`${data.places.filter(p=>p.tags.includes(c)).length} saved places`;
    return `<div class="pcard"><h3><i>${PREF_ICON[c]}</i>${c}</h3><p class="small">${n}</p>
      <div class="chips wrap">${items.map((v,i)=>`<span class="chip x">${esc(v)}<button onclick="rmPref(${ci},${i})" aria-label="Remove ${esc(v)}">×</button></span>`).join('')}</div>
@@ -1050,6 +1076,11 @@ function screenSettings(){
   const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
   return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Settings</div><span style="width:42px"></span></header>
   <div class="pad">
+  ${sec('Food preferences')}
+  <div class="pcard" style="cursor:pointer" onclick="push('prefs')">
+    ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span>${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
+    <button class="btn ghost block">Edit food preferences</button>
+  </div>
   ${sec('Google Maps')}
   <form class="pcard" onsubmit="event.preventDefault();saveKey(this.k.value)">
     <div class="srow" style="padding-top:0"><span>API key</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
@@ -1113,7 +1144,7 @@ function push(s){state.confirmDel=null;state.stack.push(s);render()}
 function pop(){state.confirmDel=null;state.stack.pop();render()}
 function openDetail(id){push('detail:'+id)}
 
-const TABS=[['today','Home',I.home],['saved','Saved',I.heart],['plan','Plan',I.route],['map','Map',I.map],['prefs','Prefs',I.sliders]];
+const TABS=[['today','Home',I.home],['saved','Saved',I.heart],['plan','Plan',I.route],['map','Map',I.map],['bills','Bills',I.receipt]];
 function renderTabs(){
   const top=state.stack.at(-1), hide=top&&top.startsWith('detail:');
   document.getElementById('phone').classList.toggle('detail',!!hide);
@@ -1134,7 +1165,8 @@ function render(keepScroll){
   else if(top==='spot') html=screenSpot();
   else if(top&&top.startsWith('relink:')) html=screenAdd(top.slice(7));
   else if(top&&top.startsWith('detail:')) html=screenDetail(top.slice(7));
-  else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,prefs:screenPrefs}[state.tab]();
+  else if(top==='prefs') html=screenPrefs();
+  else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
   const rails=[...document.querySelectorAll('.rail')].map(r=>r.scrollLeft);
   app.innerHTML=html;
