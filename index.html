@@ -223,7 +223,7 @@ select.field{appearance:auto}
 .srow:last-child{border:0}
 .ks{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px}
 .ks.ok{background:#e3f1e8;color:var(--open)}.ks.bad{background:#f8dddd;color:#a63a3a}.ks.none{background:var(--bg);color:var(--muted)}
-#gmap{height:calc(100vh - 250px);min-height:380px;border-radius:var(--r);overflow:hidden;background:var(--line);box-shadow:var(--shadow);margin-top:14px}
+#gmap{height:58vh;min-height:340px;border-radius:var(--r);overflow:hidden;background:var(--line);box-shadow:var(--shadow);margin-top:14px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:13px;color:var(--muted);margin-top:10px}
 
 /* bottom bar */
@@ -250,7 +250,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v5';
+const APP_VERSION='v6';
 const TZ='Europe/Madrid', HOME={lat:38.7895,lng:0.1730}, LS='xabiaEats.v1';
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -360,7 +360,7 @@ function seedPlaces(){
     return {id:'s'+(i+1),name,area,query:`${name}, Xàbia, Alicante`,tags:[...tags],menu:[...menu],note,lat,lng,approx:true,seed:true,michelin:MICH_SEED[name]||''};});
 }
 function defaultData(){
-  return {v:3,key:'',showPhotos:true,only4:true,discover:true,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
+  return {v:4,spots:[],base:null,fromBase:false,key:'',showPhotos:true,only4:true,discover:true,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
     prefs:{'Any venue':[],Bakery:['Pistachio croissant','Almond croissant','Coffee'],Breakfast:['Coffee'],Lunch:[],Dinner:[],Tapas:[],Seafood:[],Rice:[],Drinks:[],Dessert:[]},
     places:seedPlaces(),plan:[],done:[],travel:'walking'};
 }
@@ -368,13 +368,13 @@ function defaultData(){
 /* ================= storage ================= */
 let data;
 function load(){
-  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});return}}catch(e){}
+  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});data.spots=data.spots||[];return}}catch(e){}
   data=defaultData();
 }
 function save(){try{localStorage.setItem(LS,JSON.stringify(data));return true}catch(e){toast('Couldn’t save on this device');return false}}
 load();
 
-const state={tab:'today',stack:[],when:null,cat:null,showClosed:false,discBusy:null,recPins:[],filter:'All',q:'',sync:'',keyStatus:data.key?'loading':'none',confirmDel:null,addResults:null,addBusy:false};
+const state={spotDraft:null,spotResults:null,spotBusy:false,tab:'today',stack:[],when:null,cat:null,showClosed:false,discBusy:null,recPins:[],filter:'All',q:'',sync:'',keyStatus:data.key?'loading':'none',confirmDel:null,addResults:null,addBusy:false};
 const when=()=>state.when||madridNow();
 const byId=id=>data.places.find(p=>p.id===id)||(id&&id.startsWith('g_')?allDisc().find(p=>p.id===id):null);
 
@@ -517,6 +517,7 @@ function routeUrl(list){
   let u=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(qName(d))}`;
   if(d.gid)u+=`&destination_place_id=${d.gid}`;
   if(w.length){u+='&waypoints='+encodeURIComponent(w.map(qName).join('|'));if(w.every(p=>p.gid))u+='&waypoint_place_ids='+encodeURIComponent(w.map(p=>p.gid).join('|'))}
+  const bs=baseSpot(); if(data.fromBase&&bs) u+=`&origin=${bs.lat},${bs.lng}`;
   return u+'&travelmode='+data.travel;
 }
 function kml(list){
@@ -564,7 +565,7 @@ function row(p){
   return `<div class="row" onclick="openDetail('${p.id}')">
     <div class="thumb">${p.myPhotos&&p.myPhotos.length||data.showPhotos===true&&data.rowPhotos?img(p):noph(p)}</div>
     <div class="grow"><div class="rname">${esc(p.name)}</div>
-      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
+      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
       ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
     <button class="add ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.check:I.plus}</button></div>`;
 }
@@ -661,7 +662,8 @@ function setWhen(date,min,light){
 }
 function why(p,st){
   const m=matches(p);
-  return [p.rating?`★ ${p.rating.toFixed(1)}${p.ratingCount?` from ${p.ratingCount.toLocaleString('en-GB')} reviews`:''}`:'',st.txt,m.length?`♥ ${m.slice(0,2).join(', ')}`:'',p.disc?'found on Google':'in your places'].filter(Boolean).join(' · ');
+  const dt=distTxt(p);
+  return [p.rating?`★ ${p.rating.toFixed(1)}${p.ratingCount?` from ${p.ratingCount.toLocaleString('en-GB')} reviews`:''}`:'',st.txt,dt?`${dt} from ${baseSpot().name}`:'',m.length?`♥ ${m.slice(0,2).join(', ')}`:'',p.disc?'found on Google':'in your places'].filter(Boolean).join(' · ');
 }
 function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id);
@@ -689,7 +691,7 @@ function renderList(){
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
   if(data.key) html+=`<div class="pad"><div id="recmap"><div class="empty" style="padding-top:110px">Loading map…</div></div>
-     <div class="legend"><span class="lg pick">Our pick</span><span class="lg wait">Worth the wait</span><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Later</span></span></div></div>`;
+     <div class="legend"><span class="lg pick">Our pick</span><span class="lg wait">Worth the wait</span><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Later</span></span>${data.spots.length?'<span>⌂ ☺ Your spots</span>':''}</div></div>`;
   if(pick) html+=`<div class="pad" style="margin-top:16px">${heroCard(pick,'pick',S.get(pick.id))}</div>`;
   else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.</div></div>`;
   if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,'wait',S.get(wait.id))}</div>`;
@@ -717,6 +719,7 @@ async function drawRecMap(){
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='pick'?99:k==='wait'?98:1});
       mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
     });
+    const bs=baseSpot(); if(n&&bs){addSpotMarkers(g,map,null);b.extend({lat:bs.lat,lng:bs.lng})}else addSpotMarkers(g,map,null);
     if(n>1) map.fitBounds(b,36); else if(n===1) map.setCenter(b.getCenter?b.getCenter():HOME);
     if(!n) el.innerHTML='<div class="empty" style="padding-top:110px">Nothing to show on the map yet.</div>';
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
@@ -806,7 +809,7 @@ function screenDetail(id){
     ${slides.length>1?`<div class="dots" id="dots">${slides.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:''}
   </div>
   <section class="sheet pad">
-    <div class="kicker">${I.pin}${esc(areaOf(p))}${p.type?` · ${esc(p.type)}`:''}</div>
+    <div class="kicker">${I.pin}${esc(areaOf(p))}${p.type?` · ${esc(p.type)}`:''}${distTxt(p)?` · ${distTxt(p)} from ${esc(baseSpot().name)}`:''}</div>
     <div class="dtitle"><h1>${esc(p.name)}</h1></div>
     <div class="facts" style="margin-top:8px">${p.rating?`<span><span class="star">${I.star}</span><b style="color:var(--ink)">${p.rating.toFixed(1)}</b>&nbsp;(${(p.ratingCount||0).toLocaleString('en-GB')} reviews)</span>`:''}${p.price?`<span>${p.price}</span>`:''}${mich(p)}</div>
     <div style="margin-top:8px">${flagsFor(p,D)}</div>
@@ -887,6 +890,7 @@ function screenMap(){
   ${data.key?`<div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
    :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
+  ${spotsSection()}
   <a class="btn ghost block" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('restaurants Xàbia')}" target="_blank" rel="noopener">Open Xàbia in Google Maps</a></div>`;
 }
 async function drawMap(){
@@ -903,6 +907,7 @@ async function drawMap(){
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
       mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
     });
+    n+=addSpotMarkers(g,map,b);
     if(n>1) map.fitBounds(b,40);
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
@@ -920,6 +925,7 @@ function screenPlan(){
       ${data.done.length?`<button class="link" onclick="clearDone()">Clear ticked-off stops</button>`:''}`:''}
    ${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
+ ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
    <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
    <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(data.plan.map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy plan as text</button>
@@ -933,6 +939,97 @@ function screenPlan(){
 function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
 function toggleDone(id){const i=data.done.indexOf(id);i>=0?data.done.splice(i,1):data.done.push(id);save();render(true)}
 function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[];save();render(true)}
+
+/* ---------- YOUR SPOTS (accommodation, friends) ---------- */
+const SPOT_KINDS=[{k:'home',label:'Where we’re staying',glyph:'⌂',col:'#5b4bb7'},{k:'friends',label:'Friends',glyph:'☺',col:'#2f6f86'},{k:'other',label:'Other',glyph:'★',col:'#6b6f76'}];
+const kindOf=s=>SPOT_KINDS.find(k=>k.k===s.kind)||SPOT_KINDS[2];
+const baseSpot=()=>data.spots.find(s=>s.id===data.base)||null;
+function km(a,b){const R=6371,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dn=r(b.lng-a.lng);const h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function distTxt(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
+function addSpotMarkers(g,map,bounds){
+  data.spots.forEach(s=>{const k=kindOf(s);
+    const pin=new g.Pin({background:k.col,borderColor:'#ffffff',glyphColor:'#ffffff',glyph:k.glyph,scale:1.15});
+    new g.Marker({map,position:{lat:s.lat,lng:s.lng},title:s.name,content:pin.element||pin,zIndex:200});
+    if(bounds) bounds.extend({lat:s.lat,lng:s.lng});
+  });
+  return data.spots.length;
+}
+function spotsSection(){
+  const b=baseSpot();
+  return `${sec('Your spots',data.spots.length?`${data.spots.length}`:'')}
+  <div class="list">${data.spots.map(s=>{const k=kindOf(s),isBase=s.id===data.base;return `<div class="row" style="cursor:default">
+    <div class="thumb" style="background:${k.col};color:#fff;display:grid;place-items:center;font-size:26px">${k.glyph}</div>
+    <div class="grow"><div class="rname">${esc(s.name)}</div><div class="rmeta"><span>${k.label}</span>${isBase?'<span class="newtag" style="color:#5b4bb7;background:#ebe8f7">Distances from here</span>':''}</div>
+      <div class="rmeta" style="gap:14px;margin-top:4px"><a class="link" style="padding:0" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=${data.travel}" target="_blank" rel="noopener">Directions</a>${isBase?'':`<button class="link" style="padding:0" onclick="data.base='${s.id}';save();render(true)">Measure from here</button>`}<button class="link" style="padding:0;color:#a63a3a" onclick="delSpot('${s.id}')">${state.confirmDel==='spot:'+s.id?'Tap again to delete':'Delete'}</button></div></div></div>`}).join('')||'<div class="empty">Add where you’re staying and where friends are, so they show on the map.</div>'}</div>
+  <button class="btn block" onclick="state.spotDraft=null;state.spotResults=null;push('spot')">${I.plus} Add a spot</button>`;
+}
+function delSpot(id){
+  if(state.confirmDel!=='spot:'+id){state.confirmDel='spot:'+id;render(true);return}
+  data.spots=data.spots.filter(s=>s.id!==id);if(data.base===id)data.base=(data.spots.find(s=>s.kind==='home')||{}).id||null;state.confirmDel=null;save();toast('Spot deleted');render(true);
+}
+function screenSpot(){
+  const d=state.spotDraft||(state.spotDraft={name:'',kind:data.spots.some(s=>s.kind==='home')?'friends':'home',lat:null,lng:null,addr:''});
+  const res=state.spotResults;
+  return `<header class="top pad"><button class="iconbtn" onclick="state.spotDraft=null;pop()" aria-label="Back">${I.back}</button><div class="brand">Add a spot</div><span style="width:42px"></span></header>
+  <div class="pad">
+   <label class="lab" for="spName">Name</label>
+   <input class="field" id="spName" value="${esc(d.name)}" placeholder="e.g. Our villa, Sam & Jo’s apartment" oninput="state.spotDraft.name=this.value">
+   <span class="lab">What is it?</span>
+   <div class="chips wrap">${SPOT_KINDS.map(k=>`<button class="chip ${d.kind===k.k?'on':''}" onclick="state.spotDraft.kind='${k.k}';render(true)">${k.glyph} ${k.label}</button>`).join('')}</div>
+   <span class="lab">Where is it?</span>
+   ${data.key?`<form class="search searchform" style="margin-top:0" onsubmit="event.preventDefault();spotSearch(this.q.value)">${I.search}<input name="q" id="spQ" placeholder="Address, villa or hotel name" autocomplete="off"><button class="btn" style="padding:7px 14px">Find</button></form>`:''}
+   ${state.spotBusy?'<div class="empty">Searching…</div>':res?`<div class="list" style="margin-top:10px">${res.length?res.map((r,i)=>`<div class="row" onclick="spotPick(${i})"><div class="grow"><div class="rname" style="font-size:16px">${esc(r.name)}</div><div class="rmeta">${esc(r.addr||'')}</div></div><span class="link">Use</span></div>`).join(''):'<div class="empty">No results. Try the street address.</div>'}</div>`:''}
+   <button class="btn ghost block" onclick="spotHere()">${I.pin} Use where I am now</button>
+   <form class="frow" onsubmit="event.preventDefault();spotLink(this.u.value)"><input class="field" name="u" id="spLink" placeholder="Or paste a Google Maps link"><button class="btn">Use</button></form>
+   ${data.key?`<p class="small" style="margin-top:12px">Or tap the map to drop the pin exactly.</p><div id="spotmap" style="height:300px;border-radius:var(--r);overflow:hidden;background:var(--line);margin-top:8px"></div>`:''}
+   <p class="small" id="spotStatus" style="margin-top:10px">${spotStatusTxt()}</p>
+   <button class="btn block" id="spotSave" ${d.lat==null?'disabled':''} onclick="saveSpot()">Save spot</button>
+  </div>`;
+}
+function spotStatusTxt(){const d=state.spotDraft;return d&&d.lat!=null?`📍 Pin set${d.addr?': '+esc(d.addr):''} (${d.lat.toFixed(5)}, ${d.lng.toFixed(5)})`:'No location set yet.'}
+let spotMarker=null, spotMapObj=null;
+function setSpotPos(lat,lng,addr,pan){
+  const d=state.spotDraft;d.lat=lat;d.lng=lng;if(addr!==undefined)d.addr=addr;
+  const st=document.getElementById('spotStatus');if(st)st.innerHTML=spotStatusTxt();
+  const sv=document.getElementById('spotSave');if(sv)sv.disabled=false;
+  if(spotMapObj&&window.google){if(spotMarker)spotMarker.position={lat,lng};if(pan){spotMapObj.setCenter({lat,lng});spotMapObj.setZoom(16)}}
+}
+async function drawSpotMap(){
+  const el=document.getElementById('spotmap'); if(!el) return;
+  try{
+    const g=await gmaps(); if(!document.body.contains(el)) return;
+    const d=state.spotDraft, start=d.lat!=null?{lat:d.lat,lng:d.lng}:HOME;
+    spotMapObj=new g.Map(el,{center:start,zoom:d.lat!=null?16:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+    const k=kindOf(d), pin=new g.Pin({background:k.col,borderColor:'#ffffff',glyphColor:'#ffffff',glyph:k.glyph,scale:1.2});
+    spotMarker=new g.Marker({map:spotMapObj,position:d.lat!=null?start:null,content:pin.element||pin,gmpDraggable:true});
+    spotMarker.addListener('dragend',()=>{const p=spotMarker.position;setSpotPos(typeof p.lat==='function'?p.lat():p.lat,typeof p.lng==='function'?p.lng():p.lng,'')});
+    spotMapObj.addListener('click',e=>{if(!e.latLng)return;if(!spotMarker.position)spotMarker.map=spotMapObj;setSpotPos(e.latLng.lat(),e.latLng.lng(),'')});
+  }catch(e){el.innerHTML=`<div class="empty" style="padding-top:120px">The map couldn’t load.</div>`}
+}
+async function spotSearch(q){
+  q=q.trim();if(!q)return;state.spotBusy=true;render(true);
+  try{state.spotResults=await gSearch(/x[aà]bia|j[aá]vea|alicante/i.test(q)?q:`${q}, Xàbia`,6)}catch(e){state.spotResults=null;toast(e.message||'Search failed')}
+  state.spotBusy=false;render(true);
+}
+function spotPick(i){const r=state.spotResults[i];if(!state.spotDraft.name)state.spotDraft.name=r.name;state.spotResults=null;state.spotDraft.lat=r.lat;state.spotDraft.lng=r.lng;state.spotDraft.addr=r.addr||r.name;render(true)}
+function spotHere(){
+  if(!navigator.geolocation){toast('Location isn’t available on this device');return}
+  toast('Finding where you are…');
+  navigator.geolocation.getCurrentPosition(p=>{setSpotPos(p.coords.latitude,p.coords.longitude,'where you were standing',true);render(true)},
+    e=>toast(e.code===1?'Location permission was declined. Allow it in your browser settings.':'Couldn’t get your location. Try again outside.'),{enableHighAccuracy:true,timeout:15000});
+}
+function spotLink(u){
+  u=decodeURIComponent((u||'').trim());
+  const m=u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||u.match(/[?&](?:q|query|ll|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/)||u.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/);
+  if(m){setSpotPos(+m[1],+m[2],'from your link',true);render(true);return}
+  toast(/goo\.gl|maps\.app/.test(u)?'Short links can’t be read. Open it, then copy the full link from the address bar.':'That link has no location in it. Try sharing the pin from Google Maps.');
+}
+function saveSpot(){
+  const d=state.spotDraft;if(d.lat==null){toast('Set a location first');return}
+  const s={id:uid(),name:d.name.trim()||kindOf(d).label,kind:d.kind,lat:d.lat,lng:d.lng,addr:d.addr||''};
+  data.spots.push(s);if(!data.base&&s.kind==='home')data.base=s.id;
+  save();state.spotDraft=null;toast(`${s.name} added to the map`);pop();
+}
 
 /* ---------- PREFS ---------- */
 function screenPrefs(){
@@ -964,6 +1061,7 @@ function screenSettings(){
     <p class="small">The key is stored only on this device. Each Google photo shown counts toward Google’s free allowance of 1,000 a month, so lists show initials instead of photos.</p>
   </form>
   ${sec('Your trip')}
+  <div class="pcard" style="margin-bottom:12px"><div class="srow" style="padding:0"><span>Where you’re staying and friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div></div>
   <div class="pcard">
     <label class="lab" for="tripFrom" style="margin-top:0">From</label><input class="field" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)">
     <label class="lab" for="tripTo">To</label><input class="field" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)">
@@ -1033,6 +1131,7 @@ function render(keepScroll){
   let html;
   if(top==='add') html=screenAdd();
   else if(top==='settings') html=screenSettings();
+  else if(top==='spot') html=screenSpot();
   else if(top&&top.startsWith('relink:')) html=screenAdd(top.slice(7));
   else if(top&&top.startsWith('detail:')) html=screenDetail(top.slice(7));
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,prefs:screenPrefs}[state.tab]();
@@ -1042,6 +1141,7 @@ function render(keepScroll){
   document.querySelectorAll('.rail').forEach((r,i)=>{if(keepScroll&&rails[i])r.scrollLeft=rails[i]});
   if(!top&&state.tab==='today') {renderList();document.querySelectorAll('.rail').forEach((r,i)=>{if(keepScroll&&rails[i])r.scrollLeft=rails[i]})}
   if(!top&&state.tab==='map') drawMap();
+  if(top==='spot') drawSpotMap();
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
