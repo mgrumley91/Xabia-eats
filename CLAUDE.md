@@ -15,7 +15,8 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
   - `places`: saved restaurants, cafés and bakeries (name, area, tags, note, menu, michelin, rating, addr, lat, lng, ig)
     plus `fav` (favourite) and `ours`, our own 1–5 rating: 5 definitely go back, 4 good if in the area,
     3 only if desperate, 1–2 not going back. (`rating` is Google's.)
-  - `plan`: place ids in order · `visits`: where we went (name, placeId, at, how) · `prefs`: food preferences
+  - `plan`: the whole-trip plan, place ids in order · `dayPlans`: today's plan by date (`{"2026-11-04": {ids, done}}`)
+  - sport places use tags Sport, Golf, Tennis, Padel, Gym, Watersports · `visits`: where we went (name, placeId, at, how) · `prefs`: food preferences
   - `trip` dates and `holidays`
 - `kind = 'meal'` rows: bills in the trip tally. `data` has place, at, cur and `net` in cents
   (negative = we owed Wass, positive = Wass owed us), plus `detail` with items

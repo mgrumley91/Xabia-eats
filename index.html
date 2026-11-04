@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v32';
+const APP_VERSION='v34';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -460,7 +460,7 @@ const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
 const TZ='Europe/Madrid', HOME={lat:38.7895,lng:0.1730}, LS='xabiaEats.v1';
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const FILTERS=['All','For you','Michelin','Bakery','Breakfast','Lunch','Dinner','Tapas','Seafood','Rice','Sea view','Drinks','Dessert'];
+const FILTERS=['All','For you','Michelin','Bakery','Breakfast','Lunch','Dinner','Tapas','Seafood','Rice','Sea view','Drinks','Dessert','Sport','Golf','Tennis','Padel','Gym','Watersports'];
 const ALL_TAGS=FILTERS.slice(3);
 // Michelin Guide distinctions for Xàbia: 2026 Spain guide plus its March 2026 additions (Xàbia has no Bib Gourmands)
 const MICH={'3':'★★★ 3 stars','2':'★★ 2 stars','1':'★ 1 star','bib':'Bib Gourmand','rec':'Michelin Guide'};
@@ -700,6 +700,10 @@ function applyDetails(p,pl){
     if(s.breakfast||s.brunch)add('Breakfast'); if(s.lunch)add('Lunch'); if(s.dinner)add('Dinner');
     if(s.cocktails)add('Drinks'); if(s.dessert)add('Dessert');
     if(types.includes('bakery'))add('Bakery'); if(types.includes('seafood_restaurant'))add('Seafood');
+    const nm=String(pl.displayName||p.name||'').toLowerCase(), ty=types.join(' ');
+    if(/golf/.test(ty+' '+nm))add('Golf'); if(/tennis/.test(ty+' '+nm))add('Tennis'); if(/p[aá]del/.test(nm))add('Padel');
+    if(/gym|fitness/.test(ty+' '+nm))add('Gym'); if(/kayak|paddle|\bsup\b|diving|buceo|surf|vela|sailing|snorkel|marina|water ?sport|n[aá]utic/.test(ty+' '+nm))add('Watersports');
+    if(['Golf','Tennis','Padel','Gym','Watersports'].some(t=>p.tags.includes(t))||/sports_|stadium|athletic/.test(ty)){add('Sport');p.tags=p.tags.filter(t=>!(['Breakfast','Lunch','Dinner','Dessert'].includes(t)&&!s.lunch&&!s.dinner&&!s.breakfast))}
     p.autoTagged=true;
   }
   p.updated=Date.now(); p.linkFailed=false;
@@ -823,11 +827,18 @@ const CATS=[
  {k:'drinks',label:'Drinks',icon:'🍹',tags:['Drinks'],q:'cocktail bar sunset drinks'},
  {k:'dessert',label:'Ice cream & sweets',icon:'🍨',tags:['Dessert'],q:'ice cream gelato heladería'},
  {k:'dinner',label:'Dinner',icon:'🍽️',tags:['Dinner'],q:'restaurant dinner'},
+ {k:'sport',label:'Sport',icon:'⛳',tags:['Sport','Golf','Tennis','Padel','Gym','Watersports'],q:'golf tennis padel sports club',subs:[
+   {k:'golf',label:'Golf',tags:['Golf'],q:'golf course golf club'},
+   {k:'tennis',label:'Tennis',tags:['Tennis'],q:'tennis club tennis courts'},
+   {k:'padel',label:'Padel',tags:['Padel'],q:'padel club padel courts'},
+   {k:'gym',label:'Gym',tags:['Gym'],q:'gym fitness centre'},
+   {k:'water',label:'Water sports',tags:['Watersports'],q:'kayak paddle board diving water sports'}]},
 ];
 const DISC_FIELDS=['id','displayName','formattedAddress','location','rating','userRatingCount','priceLevel','primaryTypeDisplayName','types','regularOpeningHours','currentOpeningHours','googleMapsURI','websiteURI','nationalPhoneNumber','businessStatus','photos'];
 const MICH_BONUS={'3':.8,'2':.6,'1':.4,bib:.25,rec:.15};
 function defaultCat(min){return min<660?'breakfast':min<750?'bakery':min<990?'lunch':min<1170?'drinks':'dinner'}
-const catOf=()=>CATS.find(c=>c.k===(state.cat||defaultCat(when().min)));
+const catOf=()=>{const c=CATS.find(x=>x.k===(state.cat||defaultCat(when().min)))||CATS[0];
+  const sb=c.subs&&state.sub&&c.subs.find(x=>x.k===state.sub);return sb?{...sb,k:c.k+'_'+sb.k,parent:c.k}:c};
 function score(p){
   const r=p.rating??4.0, c=p.ratingCount||0;
   return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05)+({5:1,4:.15,3:-.8}[p.ours]||0);
@@ -843,7 +854,7 @@ async function discover(cat,force){
     const {places}=await g.Place.searchByText({textQuery:`${cat.q} in Xàbia, Alicante`,fields:DISC_FIELDS,locationBias:{center:HOME,radius:7000},maxResultCount:20,language:'en',region:'es'});
     data.disc[cat.k]={at:Date.now(),date:today,items:(places||[]).map(pl=>{
       const area='Xàbia';
-      const p={id:'g_'+pl.id,name:pl.displayName,area,tags:[...cat.tags],menu:[],note:'',disc:true,michelin:''};
+      const p={id:'g_'+pl.id,name:pl.displayName,area,tags:cat.subs?['Sport']:[...cat.tags],menu:[],note:'',disc:true,michelin:''};
       applyDetails(p,pl); return p;
     })};
     save();
@@ -859,7 +870,7 @@ function candidates(cat){
   if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4||p.ours>=4);
   return all.filter(p=>!(p.ours&&p.ours<=2));
 }
-const CAT_SHORT={breakfast:'Coffee',bakery:'Bakery',lunch:'Lunch',seafood:'Paella',tapas:'Tapas',drinks:'Drinks',dessert:'Sweets',dinner:'Dinner'};
+const CAT_SHORT={sport:'⛳ Sport',breakfast:'Coffee',bakery:'Bakery',lunch:'Lunch',seafood:'Paella',tapas:'Tapas',drinks:'Drinks',dessert:'Sweets',dinner:'Dinner'};
 function screenToday(){
   const w=when(), isNow=!state.when, today=madridNow().date, cat=catOf();
   const hol=holidayOn(w.date);
@@ -875,7 +886,8 @@ function screenToday(){
      <span class="t" id="tm">${fmt(w.min)}</span>
      <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
-    <div class="chipsA">${CATS.map(c=>`<button class="${c.k===cat.k?'on':''}" onclick="state.cat='${c.k}';state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    <div class="chipsA">${CATS.map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    ${(()=>{const pc=CATS.find(c=>c.k===(cat.parent||cat.k));return pc&&pc.subs?`<div class="chips wrap" style="margin-top:8px">${[{k:'',label:'All '+pc.label.toLowerCase()},...pc.subs].map(sb=>`<button class="chip ${(state.sub||'')===sb.k?'on':''}" onclick="state.sub='${sb.k}'||null;state.showMore=false;render(true)">${sb.label}</button>`).join('')}</div>`:''})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
       <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
       <p class="small" style="margin-top:8px">Your friend gets it in ⚙ → Sync &amp; sharing → Send trip link. Starting your own trip instead? <button class="link" onclick="push('settings')">Add a Google key</button></p></div>`:''}
@@ -935,7 +947,7 @@ function renderList(){
   let html='';
   if(pick) html+=heroCard(pick,fav?'fav':'pick',S.get(pick.id));
   if(alt) html+=heroCard(alt,'alt',S.get(alt.id));
-  else if(list.length&&!unk.length) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div>`;
+  if(!pick&&list.length&&!unk.length) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div>`;
   if(wait) html+=heroCard(wait,waitKind,S.get(wait.id));
   const more=rest.length+later.length;
   if(more&&!state.showMore) html+=`<button class="morebtn" onclick="state.showMore=true;renderList()">${rest.length?`${rest.length} more open nearby`:''}${rest.length&&later.length?' · ':''}${later.length?`${later.length} opening later`:''} ›</button>`;
@@ -1132,6 +1144,7 @@ function screenDetail(id){
     <h1 style="font-size:32px;line-height:1.05;margin-top:6px">${esc(p.name)}</h1>
     <div class="pills"><span class="pill ${st.s}">${esc(st.txt)}</span>${p.michelin?`<span class="pill m">${MICH[p.michelin]}</span>`:''}${p.rating?`<span class="pill">★ ${p.rating.toFixed(1)}${p.ratingCount?` · ${p.ratingCount.toLocaleString('en-GB')}`:''}</span>`:''}${p.price?`<span class="pill">${p.price}</span>`:''}</div>
     <div style="margin-top:6px">${flagsFor(p,D)}</div>
+    <div class="chips wrap" style="margin-top:10px"><button class="chip ${inToday(id)?'on':''}" onclick="toggleToday('${id}')">${inToday(id)?'✓ In today’s plan':'＋ Today’s plan'}</button><button class="chip ${inPlan?'on':''}" onclick="togglePlan('${id}')">${inPlan?'✓ In trip plan':'＋ Trip plan'}</button></div>
     ${m.length?`<div class="chips wrap" style="margin-top:10px">${m.map(x=>`<span class="chip" style="background:var(--accent-soft);border-color:transparent;color:var(--accent-dark);cursor:default">♥ ${esc(x)}</span>`).join('')}</div>`:''}
     <div class="acts4">
       <a href="${esc(dirLink(p))}" target="_blank" rel="noopener">${I.nav}Go</a>
@@ -1192,8 +1205,8 @@ async function checkHours(id){
   try{applyDetails(p,await gDetails(p.gid));save();const st=status(p,madridNow().date,madridNow().min);toast(`${p.name}: ${st.txt}`);render(true)}
   catch(e){toast('Couldn’t check right now: '+(e.message||'no response'))}
 }
-async function checkPlanHours(){
-  const plan=data.plan.map(byId).filter(p=>p&&p.gid); if(!plan.length) return;
+async function checkPlanHours(v){
+  const plan=PLIST(v).map(byId).filter(p=>p&&p.gid); if(!plan.length) return;
   toast(`Checking ${plan.length} stop${plan.length>1?'s':''}…`); let n=0;
   for(const p of plan){try{applyDetails(p,await gDetails(p.gid));n++}catch(e){}}
   save(); toast(`Checked ${n} of ${plan.length} stops`); render(true);
@@ -1265,23 +1278,44 @@ async function drawMap(){
 }
 
 /* ---------- PLAN ---------- */
+// Two plans: today's (a fresh list each day, kept by date) and the whole trip
+const todayKey=()=>madridNow().date;
+const TPr=()=>(data.dayPlans||{})[todayKey()]||{ids:[],done:[]};
+function TPw(){data.dayPlans=data.dayPlans||{};const k=todayKey();
+  for(const d of Object.keys(data.dayPlans))if(dayDiff(d,k)>14)delete data.dayPlans[d];
+  return data.dayPlans[k]||(data.dayPlans[k]={ids:[],done:[]})}
+const inToday=id=>TPr().ids.includes(id);
+function toggleToday(id){
+  if(byId(id)?.disc) id=saveDisc(id);
+  const t=TPw(),i=t.ids.indexOf(id),p=byId(id);
+  if(i>=0){t.ids.splice(i,1);t.done=t.done.filter(x=>x!==id);toast('Removed from today’s plan')}else{t.ids.push(id);toast(`${p.name} added to today’s plan`)}
+  save();render(true);
+}
+const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
+const PLIST=v=>v==='today'?TPr().ids:data.plan, PDONE=v=>v==='today'?TPr().done:data.done;
 function screenPlan(){
-  const plan=data.plan.map(byId).filter(Boolean);
-  return topbar('Plan')+`<div class="pad"><p class="lead">${plan.length?`${plan.length} stop${plan.length>1?'s':''}, in order`:'Tap the bookmark on any place to add it here.'}</p>
-   ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=data.done.includes(p.id),st=status(p);return `<div class="pitem ${d?'done':''}">
-      <button class="num ${d?'done':''}" onclick="toggleDone('${p.id}')" aria-label="${d?'Mark not done':'Mark done'}">${d?'✓':i+1}</button>
-      <div class="grow" onclick="openDetail('${p.id}')" style="cursor:pointer"><div class="rname">${esc(p.name)}</div><div class="rmeta s-${st.s}"><span class="dotc">${esc(st.txt)}</span></div></div>
-      <button class="mini" onclick="movePlan(${i},-1)" aria-label="Move up" ${i?'':'disabled style="opacity:.2"'}>↑</button>
-      <button class="mini" onclick="movePlan(${i},1)" aria-label="Move down" ${i<plan.length-1?'':'disabled style="opacity:.2"'}>↓</button>
-      <button class="mini" onclick="togglePlan('${p.id}')" aria-label="Remove">×</button></div>`}).join('')}</div>
-      ${data.done.length?`<button class="link" onclick="clearDone()">Clear ticked-off stops</button>`:''}`:''}
-   ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours()">${I.clock} Check hours for my plan</button>`:''}
+  const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.length, nP=data.plan.length;
+  const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
+  return topbar('Plan')+`<div class="pad">
+   <div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>
+   <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
+     :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
+   ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem ${d?'done':''}">
+      <button class="num ${d?'done':''}" onclick="toggleDone('${p.id}','${v}')" aria-label="${d?'Mark not done':'Mark done'}">${d?'✓':i+1}</button>
+      <div class="grow" onclick="openDetail('${p.id}')" style="cursor:pointer"><div class="rname">${esc(p.name)}</div><div class="rmeta s-${st.s}"><span class="dotc">${esc(st.txt)}</span>${oursTag(p)}</div></div>
+      ${v==='trip'?`<button class="mini ${tdy?'on':''}" style="width:auto;padding:0 10px;font-size:12px;font-weight:700" onclick="toggleToday('${p.id}')" aria-label="${tdy?'Remove from':'Add to'} today">${tdy?'✓ Today':'+ Today'}</button>`:''}
+      <button class="mini" onclick="movePlan(${i},-1,'${v}')" aria-label="Move up" ${i?'':'disabled style="opacity:.2"'}>↑</button>
+      <button class="mini" onclick="movePlan(${i},1,'${v}')" aria-label="Move down" ${i<plan.length-1?'':'disabled style="opacity:.2"'}>↓</button>
+      <button class="mini" onclick="${v==='today'?`toggleToday('${p.id}')`:`togglePlan('${p.id}')`}" aria-label="Remove">×</button></div>`}).join('')}</div>
+      ${done.length?`<button class="link" onclick="clearDone('${v}')">Clear ticked-off stops</button>`:''}`:''}
+   ${extra.length?`${sec('Add from your trip list',`${extra.length}`)}<div class="chips wrap">${extra.map(p=>`<button class="chip" onclick="toggleToday('${p.id}')">＋ ${esc(p.name)}</button>`).join('')}</div>`:''}
+   ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours('${v}')">${I.clock} Check hours for ${v==='today'?'today’s':'my'} plan</button>`:''}
    ${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
  ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
-   <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start route in Google Maps</a>
+   <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan.filter(p=>!done.includes(p.id)).length?plan.filter(p=>!done.includes(p.id)):plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start ${v==='today'?'today’s ':''}route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
-   <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(data.plan.map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy plan as text</button>
+   <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(PLIST('${v}').map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy ${v==='today'?'today’s ':''}plan as text</button>
    ${sec('Where we’ve been',`${(data.visits||[]).length}`)}
    ${historyHtml()}
    ${sec('Export everything')}
@@ -1320,9 +1354,9 @@ function rateAsk(){
 }
 function skipRate(vid){const v=(data.visits||[]).find(x=>x.id===vid);if(v){v.noRate=true;save();render(true)}}
 function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
-function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
-function toggleDone(id){const i=data.done.indexOf(id);if(i>=0)data.done.splice(i,1);else{data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
-function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[];save();render(true)}
+function movePlan(i,d,v){const a=v==='today'?TPw().ids:data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
+function toggleDone(id,v){const D=v==='today'?TPw().done:data.done,i=D.indexOf(id);if(i>=0)D.splice(i,1);else{D.push(id);if(v==='today'&&!data.done.includes(id))data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
+function clearDone(v){if(v==='today'){const t=TPw();t.ids=t.ids.filter(id=>!t.done.includes(id));t.done=[]}else{data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[]}save();render(true)}
 
 /* ---------- YOUR SPOTS (accommodation, friends) ---------- */
 const SPOT_KINDS=[{k:'home',label:'Where we’re staying',glyph:'⌂',col:'#5b4bb7'},{k:'friends',label:'Friends',glyph:'☺',col:'#2f6f86'},{k:'other',label:'Other',glyph:'★',col:'#6b6f76'}];
@@ -1522,7 +1556,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 async function pushApp(){
@@ -2447,7 +2481,7 @@ function renderTabs(){
   document.getElementById('phone').classList.toggle('detail',!!hide);
   const t=document.getElementById('tabs'); t.hidden=!!hide; if(hide) return;
   t.innerHTML=TABS.map(([k,l,ic])=>{const on=state.tab===k&&!state.stack.length;
-    return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${data.plan.length?`<em class="badge">${data.plan.length}</em>`:''}</button>`
+    return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${(TPr().ids.length||data.plan.length)?`<em class="badge">${TPr().ids.length||data.plan.length}</em>`:''}</button>`
       :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}${k==='bills'&&needsMyPick()?'<em class="bdot" aria-label="Your picks are needed"></em>':''}</button>`}).join('');
 }
 function go(k){state.tab=k;state.stack=[];state.confirmDel=null;render()}
