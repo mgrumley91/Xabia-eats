@@ -191,6 +191,10 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .chipsA button{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .chipsA button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .pickA{display:flex;gap:14px;align-items:center;padding:12px;border-radius:18px;background:var(--accent-soft);border:1.5px solid var(--accent);margin-top:14px;cursor:pointer;position:relative}
+.pickA.k-alt{background:var(--card);border-color:var(--line);margin-top:10px}
+.pickA.k-alt .lbl{color:var(--muted)}
+.add.heartbtn{color:var(--accent)}.add.heartbtn.on{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+.row .add+.add{margin-left:-4px}
 .pickA .th{width:76px;height:76px;border-radius:14px;overflow:hidden;flex:none}
 .pickA .th img,.pickA .th .noph{width:100%;height:100%;object-fit:cover;font-size:30px}
 .pickA .tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
@@ -221,6 +225,20 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .ctaA{display:flex;gap:10px;align-items:center}
 .ctaA .btn{padding:14px 16px}
 .ctaA .go{flex:1}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:10px auto 0}
+.top{align-items:center}
+.ptitle{font-size:28px;line-height:1.1;margin:0}
+.ptitle.sub{font-size:20px;flex:1;text-align:center}
+.top .sqbtn{box-shadow:none;border:1.5px solid var(--line)}
+.list,.pcard,.panel,.receipt,.side,#gmap,.feat{box-shadow:none!important;border:1.5px solid var(--line);border-radius:18px}
+.btn{border-radius:14px}
+.chip,.chips .chip{border-radius:10px}
+.search{border-radius:14px}
+.when,.note{border-radius:14px}
+.seg{border-radius:12px}.seg button{border-radius:9px}
+.verdict{border-radius:18px}
+.thumb{border-radius:12px}
+.pickA,.waitA{border-radius:18px}
 .sec{display:flex;align-items:baseline;justify-content:space-between;margin-top:24px;margin-bottom:12px}
 .sec h2{font-size:23px}
 .sec span{color:var(--muted);font-size:13px}
@@ -345,8 +363,8 @@ select.field{appearance:auto}
 .seg button{border:0;background:none;border-radius:99px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer}
 .seg button.on{background:var(--ink);color:#fff}
 .steps{counter-reset:s;list-style:none;margin-top:6px}
-.steps li{overflow-wrap:anywhere;min-width:0;counter-increment:s;display:flex;gap:10px;padding:6px 0;font-size:14px}
-.steps li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);font-weight:700;font-size:12px;display:grid;place-items:center}
+.steps li{overflow-wrap:anywhere;min-width:0;counter-increment:s;display:block;position:relative;padding:6px 0 6px 32px;font-size:14px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:5px;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dark);font-weight:700;font-size:12px;display:grid;place-items:center}
 
 /* prefs & settings */
 .pcard{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
@@ -384,7 +402,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v22';
+const APP_VERSION='v24';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -460,6 +478,7 @@ const I={
  map:sv('<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>'),
  home:sv('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
  heart:sv('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'),
+ heartOn:sv('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/>'),
  route:sv('<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>'),
  sliders:sv('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
  star:sv('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor" stroke="none"/>'),
@@ -729,9 +748,12 @@ function row(p){
     <div class="grow"><div class="rname">${esc(p.name)}</div>
       <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
       ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
+    <button class="add heartbtn ${p.fav?'on':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" aria-label="${p.fav?'Remove from':'Add to'} favourites">${p.fav?I.heartOn:I.heart}</button>
     <button class="add ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.check:I.plus}</button></div>`;
 }
-const topbar=()=>`<header class="top pad"><div class="brand">Xàbia <i>Eats</i></div><button class="iconbtn gear" onclick="push('settings')" aria-label="Settings">${I.gear}</button></header><div class="sync" id="sync">${esc(state.sync)}</div>`;
+const topbar=(t)=>`<header class="top pad"><h1 class="ptitle">${t||''}</h1><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></header><div class="sync" id="sync">${esc(state.sync)}</div>`;
+// inner pages: back button + title, same shapes
+const subbar=(t,back='pop()')=>`<header class="top pad"><button class="sqbtn" onclick="${back}" aria-label="Back">${I.back}</button><h1 class="ptitle sub">${t}</h1><span style="width:44px"></span></header>`;
 const sec=(title,right='')=>`<div class="sec"><h2>${title}</h2><span>${right}</span></div>`;
 
 /* ---------- HOME ---------- */
@@ -796,8 +818,8 @@ function screenToday(){
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">Add your Google key in Settings to see your places on the map.</div>`}
-    <div class="hfloat"><div class="bpill"><i></i>Xàbia Eats</div><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
-  <div class="sheetA"><div class="tile"></div><div class="pad">
+    <div class="hfloat"><span></span><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+  <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
@@ -829,9 +851,9 @@ function why(p,st){
 function walkMin(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return null;return Math.max(1,Math.round(km(b,p)*1.3/4.8*60))}
 function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id), m=matches(p), dt=distTxt(p);
-  if(kind==='pick') return `<div class="pickA" onclick="openDetail('${p.id}')" role="link" tabindex="0">
+  if(kind==='pick'||kind==='fav'||kind==='alt') return `<div class="pickA k-${kind}" onclick="openDetail('${p.id}')" role="link" tabindex="0">
     <div class="th">${img(p)}</div>
-    <div class="tx"><span class="lbl">Our pick${state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
+    <div class="tx"><span class="lbl">${kind==='fav'?'♥ Your favourite':kind==='alt'?'Or try something new':'Our pick'}${kind!=='alt'&&state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
       <span class="pmeta"><span>${esc(st.txt)}</span><span>${esc(areaOf(p))}</span>${dt?`<span>${dt}</span>`:''}${mich(p)}</span>
       ${m.length?`<span class="match">♥ ${esc(m.slice(0,2).join(' · '))}</span>`:''}${flagsFor(p,when().date)}</div>
     <button class="favA ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>`;
@@ -845,18 +867,21 @@ function renderList(){
   const S=new Map(list.map(p=>[p.id,status(p)])), SC=new Map(list.map(p=>[p.id,score(p)]));
   const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>SC.get(b.id)-SC.get(a.id));
   const open=by('open'), soon=by('soon'), closed=by('closed'), unk=by('unknown');
-  const pick=open[0]||null;
+  const favOpen=open.filter(p=>p.fav), fav=favOpen[0]||null;
+  const alt=fav?(open.find(p=>!p.fav)||null):null;
+  const pick=fav||open[0]||null;
   const waitPool=soon.filter(p=>S.get(p.id).wait<=150);
   // 'much better' = Google rating at least 0.3 higher, or clearly higher overall score
   const wait=pick?(waitPool.find(p=>(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null)
     :([...soon].sort((a,b)=>S.get(a.id).wait-S.get(b.id).wait||SC.get(b.id)-SC.get(a.id))[0]||null);
   const waitKind=pick?'wait':'first';
-  const rest=open.slice(1), later=soon.filter(p=>p!==wait);
+  const rest=open.filter(p=>p!==pick&&p!==alt), later=soon.filter(p=>p!==wait);
   [pick,wait].forEach(x=>{if(x&&x.photo&&!x.photo.resolved&&!x.photo.tried)resolvePhoto(x).then(ok=>{if(ok)renderList()})});
-  state.recPins=[...(pick?[[pick,'pick']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
+  state.recPins=[...(pick?[[pick,fav?'fav':'pick']]:[]),...(alt?[[alt,'alt']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
-  if(pick) html+=heroCard(pick,'pick',S.get(pick.id));
+  if(pick) html+=heroCard(pick,fav?'fav':'pick',S.get(pick.id));
+  if(alt) html+=heroCard(alt,'alt',S.get(alt.id));
   else if(list.length&&!unk.length) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div>`;
   if(wait) html+=heroCard(wait,waitKind,S.get(wait.id));
   const more=rest.length+later.length;
@@ -881,7 +906,7 @@ async function drawRecMap(){
     el.innerHTML='';
     const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});
     const b=new window.google.maps.LatLngBounds(); let n=0;
-    const style={pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
+    const style={fav:{bg:'#d4622e',sc:1.45,gl:'♥'},alt:{bg:'#b94f1f',sc:1.15,gl:'★'},pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
     [...(state.recPins||[])].reverse().forEach(([p,k])=>{
       if(p.lat==null||p.approx) return;
       const s=style[k], pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(s.gl?{glyph:s.gl}:{})});
@@ -897,20 +922,22 @@ async function drawRecMap(){
 /* ---------- SAVED ---------- */
 function screenSaved(){
   const q=state.q.toLowerCase();
-  const list=data.places.filter(p=>!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
-  return topbar()+`<div class="pad">
-   <h1 class="pagetitle">Saved places</h1><p class="lead">${data.places.length} places in Xàbia</p>
+  const nf=data.places.filter(p=>p.fav).length;
+  const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||a.name.localeCompare(b.name));
+  return topbar('Saved')+`<div class="pad">
+   <p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
    <button class="btn block" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">${I.plus} Add a place</button>
    ${data.places.some(p=>p.seed&&!p.touched&&!data.plan.includes(p.id))?`<div class="note" style="margin-top:14px">Your list includes ${data.places.filter(p=>p.seed).length} starter places from local guides. <button class="link" onclick="removeStarters()">${state.confirmDel==='SEEDS'?'Tap again to remove them':'Remove the ones you haven’t touched'}</button></div>`:''}
-   ${sec(q?'Results':'All places',`${list.length}`)}
-   <div class="list">${list.map(row).join('')||'<div class="empty">No matches.</div>'}</div></div>`;
+   <div class="seg" style="grid-template-columns:1fr 1fr;margin-top:18px"><button class="${state.favOnly?'':'on'}" onclick="state.favOnly=false;render(true)">All · ${data.places.length}</button><button class="${state.favOnly?'on':''}" onclick="state.favOnly=true;render(true)">♥ Favourites · ${nf}</button></div>
+   ${sec(q?'Results':state.favOnly?'Favourites':'All places',`${list.length}`)}
+   <div class="list">${list.map(row).join('')||`<div class="empty">${state.favOnly?'No favourites yet. Tap ♥ on a place you love.':'No matches.'}</div>`}</div></div>`;
 }
 
 /* ---------- ADD / RELINK ---------- */
 function screenAdd(relinkId){
   const rp=relinkId&&byId(relinkId), res=state.addResults;
-  return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">${rp?'Find on Google':'Add a place'}</div><span style="width:42px"></span></header>
+  return `${subbar('${rp?\'Find on Google\':\'Add a place\'}','pop()')}
   <div class="pad">
    ${rp?`<p class="lead" style="margin-top:8px">Pick the right Google listing for ${esc(rp.name)}.</p>`
      :`<p class="lead" style="margin-top:8px">Paste a Google Maps link to a business, or type its name. Hours, photo, phone and website fill in automatically.</p>`}
@@ -1041,10 +1068,10 @@ function screenDetail(id){
   return `<div class="hero">
     <div class="gal" id="gal" onscroll="galDots(this)">${slides.length?slides.map(x=>`<div><img src="${esc(x.src)}" alt="Photo of ${esc(p.name)}">${credit(x)}</div>`).join(''):`<div>${noph(p)}</div>`}</div>
     <button class="round l" onclick="pop()" aria-label="Back">${I.back}</button>
+    <button class="round r2 ${p.fav?'on':''}" onclick="toggleFav('${id}')" aria-label="${p.fav?'Remove from':'Add to'} favourites">${p.fav?I.heartOn:I.heart}</button>
     <button class="round r ${inPlan?'on':''}" onclick="togglePlan('${id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button>
     ${slides.length>1?`<div class="dots" id="dots">${slides.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:''}
   </div>
-  <div class="tile"></div>
   <section class="sheet pad">
     <div class="kickA">${esc([p.type,areaOf(p),distTxt(p)].filter(Boolean).join(' · '))}</div>
     <h1 style="font-size:32px;line-height:1.05;margin-top:6px">${esc(p.name)}</h1>
@@ -1132,7 +1159,7 @@ function rmPhoto(id,i){byId(id).myPhotos.splice(i,1);save();render(true)}
 /* ---------- MAP ---------- */
 function screenMap(){
   const w=when();
-  return topbar()+`<div class="pad"><h1 class="pagetitle">Map</h1><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
+  return topbar('Map')+`<div class="pad"><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
   ${data.key?`<div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
    :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
@@ -1183,7 +1210,7 @@ async function drawMap(){
 /* ---------- PLAN ---------- */
 function screenPlan(){
   const plan=data.plan.map(byId).filter(Boolean);
-  return topbar()+`<div class="pad"><h1 class="pagetitle">Your plan</h1><p class="lead">${plan.length?`${plan.length} stop${plan.length>1?'s':''}, in order`:'Tap the bookmark on any place to add it here.'}</p>
+  return topbar('Plan')+`<div class="pad"><p class="lead">${plan.length?`${plan.length} stop${plan.length>1?'s':''}, in order`:'Tap the bookmark on any place to add it here.'}</p>
    ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=data.done.includes(p.id),st=status(p);return `<div class="pitem ${d?'done':''}">
       <button class="num ${d?'done':''}" onclick="toggleDone('${p.id}')" aria-label="${d?'Mark not done':'Mark done'}">${d?'✓':i+1}</button>
       <div class="grow" onclick="openDetail('${p.id}')" style="cursor:pointer"><div class="rname">${esc(p.name)}</div><div class="rmeta s-${st.s}"><span class="dotc">${esc(st.txt)}</span></div></div>
@@ -1221,6 +1248,7 @@ function historyHtml(){
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
   return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
 }
+function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
 function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
 function toggleDone(id){const i=data.done.indexOf(id);if(i>=0)data.done.splice(i,1);else{data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
 function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[];save();render(true)}
@@ -1261,7 +1289,7 @@ function delSpot(id){
 function screenSpot(){
   const d=state.spotDraft||(state.spotDraft={name:'',kind:data.spots.some(s=>s.kind==='home')?'friends':'home',lat:null,lng:null,addr:''});
   const res=state.spotResults;
-  return `<header class="top pad"><button class="iconbtn" onclick="state.spotDraft=null;pop()" aria-label="Back">${I.back}</button><div class="brand">Add a spot</div><span style="width:42px"></span></header>
+  return `${subbar('Add a spot','state.spotDraft=null;pop()')}
   <div class="pad">
    <label class="lab" for="spName">Name</label>
    <input class="field" id="spName" value="${esc(d.name)}" placeholder="e.g. Our villa, Sam & Jo’s apartment" oninput="state.spotDraft.name=this.value">
@@ -1496,7 +1524,7 @@ const theyOwe=()=>{const n=NM();return n.a==='Us'?`${n.b} owes us`:`${n.b} owes 
 /* --- screen --- */
 function screenBills(){
   const n=NM();
-  return topbar()+`<div class="pad bills"><h1 class="pagetitle">Bills</h1>
+  return topbar('Bills')+`<div class="pad bills">
    <p class="lead">Snap the bill, swipe each line left for ${esc(n.a.toLowerCase()==='us'?'us':n.a)} or right for ${esc(n.b)}, and see who owes what.</p>
    ${bSyncHtml()}
    ${!SB()?`<div class="note">Bills are only on this phone. <button class="link" onclick="push('billsetup')">Set up sharing with ${esc(n.b)} →</button></div>`:''}
@@ -1760,7 +1788,7 @@ async function readBill(){
 function openMeal(id){push('meal:'+id)}
 function screenMeal(id){
   const m=B.meals.find(x=>x.id===id);
-  const head=`<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Bill</div><span style="width:42px"></span></header>`;
+  const head=`${subbar('Bill','pop()')}`;
   if(!m) return head+'<div class="pad"><div class="empty">This meal was removed.</div></div>';
   const d=m.detail, n=(d&&d.names)||NM(), cur=m.cur||'€', mm=c=>(c<0?'−':'')+cur+(Math.abs(c)/100).toFixed(2);
   const when=new Date(m.at).toLocaleString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
@@ -1799,7 +1827,7 @@ async function loadMealPhoto(id){
 /* --- set up sharing --- */
 function screenBillSetup(){
   const n=NM(),c=data.sb||{};
-  return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Sync &amp; sharing</div><span style="width:42px"></span></header>
+  return `${subbar('Sync &amp; sharing','pop()')}
   <div class="pad">
   ${SB()?'':`${sec('Already set up somewhere else?')}
    <form class="pcard" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><p style="font-size:14px">If the app is already connected on another screen or phone, copy its <b>trip link</b> there (Settings → Sync &amp; sharing) and paste it here.</p>
@@ -1903,8 +1931,8 @@ async function pasteTrip(text){
 
 /* ---------- PREFS ---------- */
 function screenPrefs(){
-  const hdr=state.stack.at(-1)==='prefs'?`<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Settings</div><span style="width:42px"></span></header>`:topbar();
-  return hdr+`<div class="pad"><h1 class="pagetitle">Food preferences</h1><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
+  const hdr=state.stack.at(-1)==='prefs'?subbar('Food preferences'):topbar('Food preferences');
+  return hdr+`<div class="pad"><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
   <div style="margin-top:18px">${PREF_CATS.map((c,ci)=>{const items=data.prefs[c]||[];const n=c==='Any venue'?'Checked at every place':`${data.places.filter(p=>p.tags.includes(c)).length} saved places`;
    return `<div class="pcard"><h3><i>${PREF_ICON[c]}</i>${c}</h3><p class="small">${n}</p>
      <div class="chips wrap">${items.map((v,i)=>`<span class="chip x">${esc(v)}<button onclick="rmPref(${ci},${i})" aria-label="Remove ${esc(v)}">×</button></span>`).join('')}</div>
@@ -1919,11 +1947,11 @@ function screenSettings(){
   const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
   const {from,to}=data.trip;
   const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
-  return `<header class="top pad"><button class="iconbtn" onclick="pop()" aria-label="Back">${I.back}</button><div class="brand">Settings</div><span style="width:42px"></span></header>
+  return `${subbar('Settings','pop()')}
   <div class="pad">
   ${sec('Food preferences')}
   <div class="pcard" style="cursor:pointer" onclick="push('prefs')">
-    ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span>${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
+    ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
     <button class="btn ghost block">Edit food preferences</button>
   </div>
   ${sec('Sync & sharing')}
