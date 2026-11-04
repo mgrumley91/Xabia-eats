@@ -76,12 +76,12 @@ input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
 .toggles .chip{font-size:13px;padding:6px 13px}
 #recmap{height:260px;border-radius:var(--r);overflow:hidden;background:var(--line);box-shadow:var(--shadow);margin-top:16px}
 .lg::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
-.lg.pick::before{background:var(--accent)}.lg.wait::before{background:var(--soon)}
-.hero-card{width:100%;max-width:none;cursor:pointer}
+.lg.pick::before{background:var(--accent)}.lg.later::before{background:#a7adb4}.lg.wait::before{background:var(--soon)}
+.card.hero-card{width:100%;max-width:none;cursor:pointer}
 .hero-card .ph{height:190px}
 .hero-card.pick{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
-.hero-card.wait{box-shadow:0 0 0 2px #e3b46f,var(--shadow)}
-.hero-card.wait .ph{height:140px}
+.hero-card.wait,.hero-card.first{box-shadow:0 0 0 2px #e3b46f,var(--shadow)}
+.hero-card.wait .ph,.hero-card.first .ph{height:150px}
 .pickbadge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:4px 11px}
 .pickbadge svg{width:13px;height:13px}
 .pickbadge.wait{background:var(--warn-bg);color:var(--warn)}
@@ -155,6 +155,9 @@ li.item{position:relative;overflow:hidden;border-bottom:1px dotted var(--line)}
 .verdict.pending{background:var(--card);color:var(--muted);border:1.5px dashed #d6d0c7}
 .verdict.pending .vamt{font-size:20px;color:var(--ink)}
 pre.sql{background:#1d2229;color:#f5f3ef;border-radius:14px;padding:12px;font-size:11px;overflow-x:auto;white-space:pre;margin-top:8px}
+.poi{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:456px;z-index:8}
+.poi .pcard{box-shadow:0 10px 40px rgba(0,0,0,.18)}
+.poi .pcard h3 i{display:none}
 .sec{display:flex;align-items:baseline;justify-content:space-between;margin-top:24px;margin-bottom:12px}
 .sec h2{font-size:23px}
 .sec span{color:var(--muted);font-size:13px}
@@ -318,7 +321,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v11';
+const APP_VERSION='v12';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -436,7 +439,7 @@ function seedPlaces(){
     return {id:'s'+(i+1),name,area,query:`${name}, Xàbia, Alicante`,tags:[...tags],menu:[...menu],note,lat,lng,approx:true,seed:true,michelin:MICH_SEED[name]||''};});
 }
 function defaultData(){
-  return {v:4,spots:[],base:null,fromBase:false,key:'',showPhotos:true,only4:true,discover:true,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
+  return {v:5,spots:[],base:null,fromBase:false,key:'',showPhotos:true,only4:true,discover:false,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
     prefs:{'Any venue':[],Bakery:['Pistachio croissant','Almond croissant','Coffee'],Breakfast:['Coffee'],Lunch:[],Dinner:[],Tapas:[],Seafood:[],Rice:[],Drinks:[],Dessert:[]},
     places:seedPlaces(),plan:[],done:[],travel:'walking'};
 }
@@ -444,7 +447,7 @@ function defaultData(){
 /* ================= storage ================= */
 let data;
 function load(){
-  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});data.spots=data.spots||[];return}}catch(e){}
+  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});data.spots=data.spots||[];if((d.v||0)<5){data.discover=false;data.v=5}return}}catch(e){}
   data=defaultData();
 }
 function save(){try{localStorage.setItem(LS,JSON.stringify(data));return true}catch(e){toast('Couldn’t save on this device');return false}}
@@ -545,7 +548,7 @@ async function gDetails(gid){
 function applyDetails(p,pl){
   p.gid=pl.id; p.gname=pl.displayName||p.gname;
   p.addr=pl.formattedAddress||p.addr||'';
-  if(pl.location){p.lat=pl.location.lat();p.lng=pl.location.lng();p.approx=false}
+  if(pl.location){p.lat=pl.location.lat();p.lng=pl.location.lng();p.approx=false;p.area=areaFor(p.lat,p.lng,p.area==='Inland'?'Inland':'Xàbia')}
   p.phone=pl.internationalPhoneNumber||pl.nationalPhoneNumber||p.phone||'';
   p.web=pl.websiteURI||p.web||''; p.maps=pl.googleMapsURI||p.maps||'';
   p.rating=pl.rating??null; p.ratingCount=pl.userRatingCount??null;
@@ -701,7 +704,7 @@ async function discover(cat,force){
     const g=await gmaps();
     const {places}=await g.Place.searchByText({textQuery:`${cat.q} in Xàbia, Alicante`,fields:DISC_FIELDS,locationBias:{center:HOME,radius:7000},maxResultCount:20,language:'en',region:'es'});
     data.disc[cat.k]={at:Date.now(),date:today,items:(places||[]).map(pl=>{
-      const area=Object.keys(AREAS).find(a=>(pl.formattedAddress||'').toLowerCase().includes(a.toLowerCase()))||'Xàbia';
+      const area='Xàbia';
       const p={id:'g_'+pl.id,name:pl.displayName,area,tags:[...cat.tags],menu:[],note:'',disc:true,michelin:''};
       applyDetails(p,pl); return p;
     })};
@@ -737,7 +740,7 @@ function screenToday(){
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>
    <div class="toggles">
      <button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button>
-     ${data.key?`<button class="chip ${data.discover?'on':''}" onclick="data.discover=!data.discover;save();render(true)">Include places I haven’t saved</button>`:''}
+     <button class="chip" onclick="state.addResults=null;push('add')">＋ Add a place</button>
    </div>
    ${!data.key?`<div class="note"><b>Connect Google</b> to see what’s open, ratings, photos, and top-rated places you haven’t saved yet.<br><button class="link" onclick="push('settings')">Set it up →</button></div>`:''}
    ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
@@ -759,7 +762,8 @@ function why(p,st){
 }
 function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id);
-  const label=kind==='pick'?`<span class="pickbadge">${I.star} Our pick ${state.when?'for '+fmt(when().min):'right now'}</span>`:`<span class="pickbadge wait">${I.clock} Worth the wait · opens in ${st.wait<60?st.wait+' min':Math.floor(st.wait/60)+' h '+(st.wait%60?st.wait%60+' min':'')}</span>`;
+  const inT=st.wait<60?st.wait+' min':Math.floor(st.wait/60)+' h'+(st.wait%60?' '+st.wait%60+' min':'');
+  const label=kind==='pick'?`<span class="pickbadge">${I.star} Our pick ${state.when?'for '+fmt(when().min):'right now'}</span>`:`<span class="pickbadge wait">${I.clock} ${kind==='first'?'Opens first':'Worth the wait'} · in ${inT}</span>`;
   return `<article class="card hero-card ${kind}" onclick="openDetail('${p.id}')">
     <div class="ph">${img(p)}<span class="loc">${I.pin}${esc(areaOf(p))}</span>
       <button class="fav ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>
@@ -777,22 +781,24 @@ function renderList(){
   const pick=open[0]||null;
   const waitPool=soon.filter(p=>S.get(p.id).wait<=150);
   // 'much better' = Google rating at least 0.3 higher, or clearly higher overall score
-  const wait=waitPool.find(p=>!pick||(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null;
+  const wait=pick?(waitPool.find(p=>(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null)
+    :([...soon].sort((a,b)=>S.get(a.id).wait-S.get(b.id).wait||SC.get(b.id)-SC.get(a.id))[0]||null);
+  const waitKind=pick?'wait':'first';
   const rest=open.slice(1), later=soon.filter(p=>p!==wait);
   [pick,wait].forEach(x=>{if(x&&x.photo&&!x.photo.resolved&&!x.photo.tried)resolvePhoto(x).then(ok=>{if(ok)renderList()})});
-  state.recPins=[...(pick?[[pick,'pick']]:[]),...(wait?[[wait,'wait']]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
+  state.recPins=[...(pick?[[pick,'pick']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
   if(data.key) html+=`<div class="pad"><div id="recmap"><div class="empty" style="padding-top:110px">Loading map…</div></div>
-     <div class="legend"><span class="lg pick">Our pick</span><span class="lg wait">Worth the wait</span><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Later</span></span>${data.spots.length?'<span>⌂ ☺ Your spots</span>':''}</div></div>`;
+     <div class="legend">${pick?'<span class="lg pick">Our pick</span>':''}${wait?`<span class="lg wait">${waitKind==='first'?'Opens first':'Worth the wait'}</span>`:''}${rest.length?'<span class="s-open"><span class="dotc">Open</span></span>':''}${later.length?'<span class="lg later">Opens later</span>':''}${data.spots.length?'<span>⌂ ☺ Your spots</span>':''}</div></div>`;
   if(pick) html+=`<div class="pad" style="margin-top:16px">${heroCard(pick,'pick',S.get(pick.id))}</div>`;
-  else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.</div></div>`;
-  if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,'wait',S.get(wait.id))}</div>`;
+  else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div></div>`;
+  if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,waitKind,S.get(wait.id))}</div>`;
   if(rest.length) html+=`<div class="pad">${sec(`Also open ${label}`,`${rest.length}`)}<div class="list">${rest.map(row).join('')}</div></div>`;
   if(later.length) html+=`<div class="pad">${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div></div>`;
   if(unk.length) html+=`<div class="pad">${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div></div>`;
   if(closed.length) html+=`<div class="pad">${state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="link" style="display:block;margin:16px auto 0" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed place${closed.length>1?'s':''}</button>`}</div>`;
-  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">No ${esc(cat.label.toLowerCase())} places yet${data.only4?' rated 4★ or more':''}. ${data.key?'':'Connect Google to find some, or '}add one from Saved.</div></div>`;
+  if(!list.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;push('add')">Add one</button>, or tap a business on the Map tab.</div></div>`;
   html+=`<div class="pad"><p class="small" style="text-align:center;margin-top:18px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p></div>`;
   el.innerHTML=html;
   renderDiscNote();
@@ -805,12 +811,12 @@ async function drawRecMap(){
     el.innerHTML='';
     const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});
     const b=new window.google.maps.LatLngBounds(); let n=0;
-    const style={pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#e3b46f',sc:.8}};
+    const style={pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
     [...(state.recPins||[])].reverse().forEach(([p,k])=>{
       if(p.lat==null||p.approx) return;
       const s=style[k], pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(s.gl?{glyph:s.gl}:{})});
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='pick'?99:k==='wait'?98:1});
-      mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
+      mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
     const bs=baseSpot(); if(n&&bs){addSpotMarkers(g,map,null);b.extend({lat:bs.lat,lng:bs.lng})}else addSpotMarkers(g,map,null);
     if(n>1) map.fitBounds(b,36); else if(n===1) map.setCenter(b.getCenter?b.getCenter():HOME);
@@ -826,6 +832,7 @@ function screenSaved(){
    <h1 class="pagetitle">Saved places</h1><p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
    <button class="btn block" onclick="state.addResults=null;push('add')">${I.plus} Add a place</button>
+   ${data.places.some(p=>p.seed&&!p.touched&&!data.plan.includes(p.id))?`<div class="note" style="margin-top:14px">Your list includes ${data.places.filter(p=>p.seed).length} starter places from local guides. <button class="link" onclick="removeStarters()">${state.confirmDel==='SEEDS'?'Tap again to remove them':'Remove the ones you haven’t touched'}</button></div>`:''}
    ${sec(q?'Results':'All places',`${list.length}`)}
    <div class="list">${list.map(row).join('')||'<div class="empty">No matches.</div>'}</div></div>`;
 }
@@ -860,7 +867,7 @@ async function pickResult(i,relinkId){
   const r=state.addResults[i]; let p;
   if(relinkId){p=byId(relinkId);p.gid=r.gid;p.photo=null}
   else{
-    const area=Object.keys(AREAS).find(a=>(r.addr||'').toLowerCase().includes(a.toLowerCase()))||'Xàbia';
+    const area=r.lat!=null?areaFor(r.lat,r.lng):'Xàbia';
     p={id:uid(),name:r.name,area,tags:[],menu:[],note:'',lat:r.lat,lng:r.lng,approx:false,gid:r.gid,addr:r.addr,type:r.type,michelin:''};
     data.places.push(p);
   }
@@ -959,10 +966,10 @@ function screenDetail(id){
     <a class="btn" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></div>`}`;
 }
 function galDots(el){const d=document.getElementById('dots');if(!d)return;const i=Math.round(el.scrollLeft/el.clientWidth);[...d.children].forEach((x,j)=>x.classList.toggle('on',i===j))}
-function setField(id,k,v){const p=byId(id);p[k]=v;save();toast('Saved')}
-function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);(p.menu=p.menu||[]).push(v);save();render(true);document.getElementById('menuAdd')?.focus()}
+function setField(id,k,v){const p=byId(id);p[k]=v;p.touched=true;save();toast('Saved')}
+function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);p.touched=true;(p.menu=p.menu||[]).push(v);save();render(true);document.getElementById('menuAdd')?.focus()}
 function rmMenu(id,i){byId(id).menu.splice(i,1);save();render(true)}
-function toggleTag(id,t){const p=byId(id),i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
+function toggleTag(id,t){const p=byId(id);p.touched=true;const i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
 function toggleClosed(id){const p=byId(id),D=when().date;p.closedOn=p.closedOn||[];const i=p.closedOn.indexOf(D);i>=0?p.closedOn.splice(i,1):p.closedOn.push(D);save();render(true)}
 async function checkHours(id){
   const p=byId(id); if(!p||!p.gid) return; toast('Checking with Google…');
@@ -983,7 +990,7 @@ function delPlace(id){
 // Shrinks photos to ~800px JPEGs so they fit in the phone's storage
 function shrink(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.72))};im.onerror=rej;im.src=u})}
 async function addPhotos(id,input){
-  const p=byId(id);p.myPhotos=p.myPhotos||[];const files=[...input.files].slice(0,6);let n=0;
+  const p=byId(id);p.touched=true;p.myPhotos=p.myPhotos||[];const files=[...input.files].slice(0,6);let n=0;
   for(const f of files){try{p.myPhotos.push({src:await shrink(f)});n++}catch(e){toast('That image couldn’t be read')}}
   try{localStorage.setItem(LS,JSON.stringify(data));toast(n>1?`${n} photos saved`:'Photo saved')}catch(e){p.myPhotos.splice(-n,n);save();toast('Phone storage is full. Remove some photos first.')}
   render(true);
@@ -993,26 +1000,48 @@ function rmPhoto(id,i){byId(id).myPhotos.splice(i,1);save();render(true)}
 /* ---------- MAP ---------- */
 function screenMap(){
   const w=when();
-  return topbar()+`<div class="pad"><h1 class="pagetitle">Map</h1><p class="lead">${state.when?pretty(w.date)+', ':''}${fmt(w.min)} · tap a pin for details</p>
+  return topbar()+`<div class="pad"><h1 class="pagetitle">Map</h1><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
   ${data.key?`<div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
    :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
   ${spotsSection()}
   <a class="btn ghost block" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('restaurants Xàbia')}" target="_blank" rel="noopener">Open Xàbia in Google Maps</a></div>`;
 }
+async function poiSheet(gid){
+  let sh=document.getElementById('poi'); if(!sh){sh=document.createElement('div');sh.id='poi';sh.className='poi';document.body.append(sh)}
+  const ex=data.places.find(p=>p.gid===gid);
+  sh.innerHTML=`<div class="pcard"><p class="small">Loading…</p></div>`;sh.hidden=false;
+  try{
+    const g=await gmaps(), pl=new g.Place({id:gid}); await pl.fetchFields({fields:['id','displayName','formattedAddress','location','primaryTypeDisplayName']});
+    state.poi={gid,name:pl.displayName,addr:pl.formattedAddress,type:pl.primaryTypeDisplayName,lat:pl.location&&pl.location.lat(),lng:pl.location&&pl.location.lng()};
+    sh.innerHTML=`<div class="pcard"><div class="srow" style="padding-top:0"><div><h3 style="font-size:20px">${esc(pl.displayName)}</h3><p class="small" style="margin:2px 0 0">${esc([pl.primaryTypeDisplayName,pl.formattedAddress].filter(Boolean).join(' · '))}</p></div><button class="mini" onclick="document.getElementById('poi').hidden=true" aria-label="Close">×</button></div>
+      ${ex?`<button class="btn block" onclick="document.getElementById('poi').hidden=true;openDetail('${ex.id}')">Already in your places · open</button>`
+      :`<span class="lab" style="margin-top:4px">Add it as</span><div class="chips wrap">${ALL_TAGS.map(t=>`<button class="chip" onclick="this.classList.toggle('on')" data-t="${t}">${t}</button>`).join('')}</div>
+        <button class="btn block" onclick="addPoi()">${I.plus} Add to my places</button>`}</div>`;
+  }catch(e){sh.innerHTML=`<div class="pcard"><p class="small">Couldn’t load that place. ${esc(e.message||'')}</p><button class="btn ghost block" onclick="document.getElementById('poi').hidden=true">Close</button></div>`}
+}
+async function addPoi(){
+  const r=state.poi, sh=document.getElementById('poi'); if(!r) return;
+  const tags=[...sh.querySelectorAll('.chip.on')].map(b=>b.dataset.t);
+  const p={id:uid(),name:r.name,area:r.lat!=null?areaFor(r.lat,r.lng):'Xàbia',tags,menu:[],note:'',lat:r.lat,lng:r.lng,approx:false,gid:r.gid,addr:r.addr,type:r.type,michelin:'',touched:true,autoTagged:!!tags.length};
+  data.places.push(p); save(); sh.hidden=true; toast(`${p.name} added. Getting hours…`);
+  try{applyDetails(p,await gDetails(p.gid));await resolvePhoto(p);save();toast(`${p.name} is in your places`)}catch(e){toast('Added, but Google details didn’t load')}
+  if(state.tab==='map'&&!state.stack.length) drawMap();
+}
 async function drawMap(){
   const el=document.getElementById('gmap'); if(!el) return;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
     el.innerHTML='';
-    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
+    map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});
     const b=new window.google.maps.LatLngBounds(); let n=0;
     data.places.forEach(p=>{
       if(p.lat==null||p.approx) return;
       const st=status(p), big=data.plan.includes(p.id);
       const pin=new g.Pin({background:big?'#d4622e':COL[st.s],borderColor:'#ffffff',glyphColor:'#ffffff',scale:big?1.25:1});
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
-      mk.addListener('click',()=>openDetail(p.id)); b.extend({lat:p.lat,lng:p.lng}); n++;
+      mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
     n+=addSpotMarkers(g,map,b);
     if(n>1) map.fitBounds(b,40);
@@ -1051,6 +1080,9 @@ function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));dat
 /* ---------- YOUR SPOTS (accommodation, friends) ---------- */
 const SPOT_KINDS=[{k:'home',label:'Where we’re staying',glyph:'⌂',col:'#5b4bb7'},{k:'friends',label:'Friends',glyph:'☺',col:'#2f6f86'},{k:'other',label:'Other',glyph:'★',col:'#6b6f76'}];
 const kindOf=s=>SPOT_KINDS.find(k=>k.k===s.kind)||SPOT_KINDS[2];
+// Area label from the place's real position (nearest neighbourhood within ~1.6 km)
+function areaFor(lat,lng,fallback){let best=null,bd=1.6;for(const[a,[la,ln]]of Object.entries(AREAS)){if(a==='Xàbia'||a==='Inland')continue;const d=km({lat,lng},{lat:la,lng:ln});if(d<bd){bd=d;best=a}}return best||fallback||'Xàbia'}
+const nearHome=p=>p.lat!=null&&!p.approx&&km(HOME,p)<12;
 const baseSpot=()=>data.spots.find(s=>s.id===data.base)||null;
 function km(a,b){const R=6371,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dn=r(b.lng-a.lng);const h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 function distTxt(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
@@ -1609,7 +1641,8 @@ function screenSettings(){
     <input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Paste your key (starts AIza…)" value="${esc(data.key)}">
     <button class="btn block">Save key</button>
     ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Re-check every place now (uses ~25 lookups)</button>`:''}
-    <div class="srow" style="margin-top:6px"><label for="phT">Show one Google photo per place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
+    <div class="srow" style="margin-top:6px"><label for="dscT">Also suggest top-rated places I haven’t added<br><span class="small">Off keeps the app to your own list.</span></label><input type="checkbox" id="dscT" ${data.discover?'checked':''} onchange="data.discover=this.checked;save()"></div>
+    <div class="srow"><label for="phT">Show one Google photo per place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
     <p class="small">The key is stored only on this device. Hours and one photo per place are loaded once. After that, Google is only asked when you tap “Check today’s hours”.</p>
   </form>
   ${sec('Your trip')}
@@ -1653,6 +1686,11 @@ function pasteTransfer(code){
     if(pack.bill){B.bill=pack.bill;B.meals=pack.meals||B.meals;localBills()}
     toast('Everything moved across. Reloading…');setTimeout(()=>location.reload(),900);
   }catch(e){toast('That isn’t a full transfer code. Copy it again and paste the whole thing.')}
+}
+function removeStarters(){
+  if(state.confirmDel!=='SEEDS'){state.confirmDel='SEEDS';render(true);setTimeout(()=>{if(state.confirmDel==='SEEDS'){state.confirmDel=null;renderSoft()}},4000);return}
+  const before=data.places.length;data.places=data.places.filter(p=>!p.seed||p.touched||data.plan.includes(p.id));state.confirmDel=null;save();
+  toast(`Removed ${before-data.places.length} starter places`);render(true);
 }
 function saveKey(k){k=k.trim();if(k===data.key){toast('Key unchanged');return}data.key=k;save();toast(k?'Key saved. Reloading…':'Key removed');setTimeout(()=>location.reload(),600)}
 function addHol(f){if(!f.d.value)return;data.holidays.push({date:f.d.value,name:f.n.value.trim()||'Holiday'});save();render(true)}
