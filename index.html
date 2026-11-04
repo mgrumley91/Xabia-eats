@@ -318,7 +318,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v8';
+const APP_VERSION='v9';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1500,8 +1500,8 @@ function screenBillSetup(){
    ${sec('3. Connect the app')}
    <ol class="steps"><li>Open <b>Project Settings → Data API</b> (or <b>API</b>) and copy the <b>Project URL</b>.</li><li>Open <b>API Keys</b> and copy the <b>publishable</b> key (or the <b>anon public</b> key on older projects). Never use the secret or service_role key.</li></ol>
    <form class="pcard" onsubmit="event.preventDefault();startSharing(this)">
-     <label class="lab" for="sbUrl" style="margin-top:0">Project URL</label><input class="field" id="sbUrl" name="u" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}" autocomplete="off">
-     <label class="lab" for="sbKey">Publishable key</label><input class="field" id="sbKey" name="k" placeholder="sb_publishable_… or eyJ…" value="${esc(c.key||'')}" autocomplete="off">
+     <label class="lab" for="sbUrl" style="margin-top:0">Project URL</label><input class="field" id="sbUrl" name="u" placeholder="https://xxxx.supabase.co" value="${esc(state.sbU??c.url??'')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="state.sbU=this.value">
+     <label class="lab" for="sbKey">Publishable key</label><input class="field" id="sbKey" name="k" placeholder="sb_publishable_… or eyJ…" value="${esc(state.sbK??c.key??'')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="state.sbK=this.value">
      <button class="btn block">Start shared bills</button>
    </form>`}
   ${sec('Who’s splitting')}
@@ -1519,11 +1519,16 @@ function screenBillSetup(){
 }
 function newTripCode(){const a=new Uint8Array(18);crypto.getRandomValues(a);return 'trip_'+[...a].map(x=>x.toString(36).padStart(2,'0')).join('').slice(0,30)}
 async function startSharing(f){
-  const url=f.u.value.trim().replace(/\/+$/,''),key=f.k.value.trim();
-  if(!/^https:\/\/.+/.test(url)||key.length<20){toast('Paste the Project URL and the publishable key');return}
+  let url=f.u.value.trim().replace(/\s/g,'').replace(/\/+$/,''); const key=f.k.value.replace(/\s/g,'');
+  const dash=url.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i); if(dash) url=`https://${dash[1]}.supabase.co`;
+  if(/^[a-z0-9]{15,}$/i.test(url)) url=`https://${url}.supabase.co`;
+  url=url.replace(/\/rest\/v1.*$/,'');
+  if(!/^https:\/\/[^/]+\.supabase\.co$/i.test(url)){toast('The Project URL should look like https://abcd1234.supabase.co');return}
+  if(key.length<20){toast('Paste the publishable key too');return}
+  if(/^sb_secret_/.test(key)){toast('That’s the secret key. Use the publishable one.');return}
   data.sb={url,key,trip:newTripCode()};save();B.seeded=false;
   toast('Connecting…');await pullBills();
-  if(B.status==='live'){toast('Shared bills are on');render(true)}
+  if(B.status==='live'){state.sbU=state.sbK=undefined;toast('Shared bills are on');render(true)}
   else{toast('Couldn’t connect: '+B.err);data.sb={url,key,trip:''};save();render(true)}
 }
 function inviteLink(){
@@ -1651,7 +1656,7 @@ function renderTabs(){
 function go(k){state.tab=k;state.stack=[];state.confirmDel=null;render()}
 function renderSync(){const el=document.getElementById('sync');if(el)el.textContent=state.sync}
 // re-render after background work, but never while someone is typing
-function renderSoft(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return renderSync();if(state.tab==='map'&&!state.stack.length)return renderSync();render(true)}
+function renderSoft(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return renderSync();if(['billsetup','settings','spot','add','prefs'].includes(state.stack.at(-1))||String(state.stack.at(-1)).startsWith('relink'))return renderSync();if(state.tab==='map'&&!state.stack.length)return renderSync();render(true)}
 function render(keepScroll){
   const app=document.getElementById('app'), top=state.stack.at(-1);
   let html;
