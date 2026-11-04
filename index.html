@@ -202,6 +202,14 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .setl .vline{font-size:16px}
 .paidok{margin-top:8px;font-size:13px;font-weight:700;color:var(--open)}.verdict .paidok{color:#9fe0c0}
 #bStatus{overflow-wrap:anywhere}
+.rate{display:flex;gap:4px;align-items:center}
+.rate button{font-size:32px;line-height:1;background:none;border:0;color:#d9d3ca;padding:2px 3px;cursor:pointer}
+.rate button.on{color:#e0a020}
+.rate.sm button{font-size:26px}
+.ratelbl{font-size:13px;font-weight:700;margin-top:4px}
+.ours{font-weight:800;border-radius:6px;padding:0 6px;font-size:11px}
+.ours.o5{background:#e3f1e8;color:#1f7a4c}.ours.o4{background:#eef0f3;color:var(--ink)}.ours.o3{background:#fbf0d9;color:#8a6a1f}.ours.o2,.ours.o1{background:#f7e1e1;color:#a63a3a}
+.rateask{margin-top:12px;border:1.5px solid var(--accent-soft)}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -409,6 +417,7 @@ select.field{appearance:auto}
 .pcard h3{font-size:19px;display:flex;align-items:center;gap:10px}
 .pcard h3 i{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-style:normal;font-size:17px}
 .pcard .small{margin:2px 0 10px 44px}
+.rateask .small,.gprog .small,#hhForm .small,#bTrip .pcard .small,.pcard .small.flush{margin-left:0}
 .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
 .srow:last-child{border:0}
 .ks{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px}
@@ -440,7 +449,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v30';
+const APP_VERSION='v31';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -784,7 +793,7 @@ function row(p){
   return `<div class="row" onclick="openDetail('${p.id}')">
     <div class="thumb">${p.myPhotos&&p.myPhotos.length||(p.photo&&p.photo.resolved)?img(p):noph(p)}</div>
     <div class="grow"><div class="rname">${esc(p.name)}</div>
-      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
+      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${oursTag(p)}${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
       ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
     <button class="add heartbtn ${p.fav?'on':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" aria-label="${p.fav?'Remove from':'Add to'} favourites">${p.fav?I.heartOn:I.heart}</button>
     <button class="add ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.check:I.plus}</button></div>`;
@@ -820,7 +829,7 @@ function defaultCat(min){return min<660?'breakfast':min<750?'bakery':min<990?'lu
 const catOf=()=>CATS.find(c=>c.k===(state.cat||defaultCat(when().min)));
 function score(p){
   const r=p.rating??4.0, c=p.ratingCount||0;
-  return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05);
+  return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05)+({5:1,4:.15,3:-.8}[p.ours]||0);
 }
 async function discover(cat,force){
   if(!data.key||!data.discover) return;
@@ -846,8 +855,8 @@ function candidates(cat){
   const gids=new Set(data.places.map(p=>p.gid).filter(Boolean));
   const disc=data.discover&&data.disc[cat.k]?data.disc[cat.k].items.filter(p=>!gids.has(p.gid)&&(p.ratingCount||0)>=15):[];
   let all=[...saved,...disc];
-  if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4);
-  return all;
+  if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4||p.ours>=4);
+  return all.filter(p=>!(p.ours&&p.ours<=2));
 }
 const CAT_SHORT={breakfast:'Coffee',bakery:'Bakery',lunch:'Lunch',seafood:'Paella',tapas:'Tapas',drinks:'Drinks',dessert:'Sweets',dinner:'Dinner'};
 function screenToday(){
@@ -871,11 +880,14 @@ function screenToday(){
       <p class="small" style="margin-top:8px">Your friend gets it in ⚙ → Sync &amp; sharing → Send trip link. Starting your own trip instead? <button class="link" onclick="push('settings')">Add a Google key</button></p></div>`:''}
     ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
     ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
+    ${(()=>{const a=rateAsk();if(!a)return'';return `<div class="pcard rateask"><p class="small" style="margin:0">You went ${visitDay(a.v.at)}</p><h3 style="font-size:19px;margin-top:2px">How was ${esc(a.p.name)}?</h3>
+      ${rateHtml(a.p.id,0)}<p class="small" style="margin-top:4px">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</p>
+      <button class="link" style="margin-top:6px" onclick="skipRate('${a.v.id}')">Not now</button></div>`})()}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
     <div id="list"></div>
     <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
     ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
-    <p class="small" style="margin-top:14px">Times are Xàbia time. Picks weigh Google rating, your ♥ preferences and Michelin.</p>
+    <p class="small" style="margin-top:14px">Times are Xàbia time. Picks weigh your own star ratings, Google rating, your ♥ preferences and Michelin.</p>
   </div></div>`;
 }
 function renderDiscNote(){const el=document.getElementById('discnote');if(el)el.textContent=state.discBusy?`Looking on Google for top-rated ${catOf().label.toLowerCase()}…`:''}
@@ -893,8 +905,8 @@ function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id), m=matches(p), dt=distTxt(p);
   if(kind==='pick'||kind==='fav'||kind==='alt') return `<div class="pickA k-${kind}" onclick="openDetail('${p.id}')" role="link" tabindex="0">
     <div class="th">${img(p)}</div>
-    <div class="tx"><span class="lbl">${kind==='fav'?'♥ Your favourite':kind==='alt'?'Or try something new':'Our pick'}${kind!=='alt'&&state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
-      <span class="pmeta"><span>${esc(st.txt)}</span><span>${esc(areaOf(p))}</span>${dt?`<span>${dt}</span>`:''}${mich(p)}</span>
+    <div class="tx"><span class="lbl">${kind==='fav'?(p.fav?'♥ Your favourite':'★ Definitely go back'):kind==='pick'&&p.ours===3?'Only if desperate':kind==='alt'?'Or try something new':'Our pick'}${kind!=='alt'&&state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
+      <span class="pmeta">${oursTag(p)}<span>${esc(st.txt)}</span><span>${esc(areaOf(p))}</span>${dt?`<span>${dt}</span>`:''}${mich(p)}</span>
       ${m.length?`<span class="match">♥ ${esc(m.slice(0,2).join(' · '))}</span>`:''}${flagsFor(p,when().date)}</div>
     <button class="favA ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>`;
   const inT=st.wait<60?st.wait+' min':Math.floor(st.wait/60)+' h'+(st.wait%60?' '+st.wait%60+' min':'');
@@ -907,9 +919,9 @@ function renderList(){
   const S=new Map(list.map(p=>[p.id,status(p)])), SC=new Map(list.map(p=>[p.id,score(p)]));
   const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>SC.get(b.id)-SC.get(a.id));
   const open=by('open'), soon=by('soon'), closed=by('closed'), unk=by('unknown');
-  const favOpen=open.filter(p=>p.fav), fav=favOpen[0]||null;
-  const alt=fav?(open.find(p=>!p.fav)||null):null;
-  const pick=fav||open[0]||null;
+  const favOpen=open.filter(p=>p.fav||p.ours===5), fav=favOpen[0]||null;
+  const alt=fav?(open.find(p=>!p.fav&&p.ours!==5&&p.ours!==3)||null):null;
+  const pick=fav||open.find(p=>p.ours!==3)||open[0]||null;
   const waitPool=soon.filter(p=>S.get(p.id).wait<=150);
   // 'much better' = Google rating at least 0.3 higher, or clearly higher overall score
   const wait=pick?(waitPool.find(p=>(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null)
@@ -933,6 +945,8 @@ function renderList(){
   if(unk.length) html+=`${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div>`;
   if(closed.length&&state.showMore) html+=state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="morebtn" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed ›</button>`;
   if(!list.length) html+=`<div class="note">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div>`;
+  const nope=data.places.filter(p=>p.ours&&p.ours<=2&&cat.tags.some(t=>p.tags.includes(t))).length;
+  if(nope) html+=`<p class="small" style="margin-top:10px">${nope} place${nope>1?'s':''} you rated “not going back” ${nope>1?'are':'is'} hidden.</p>`;
   el.innerHTML=html;
   renderDiscNote();
   drawRecMap();
@@ -963,7 +977,7 @@ async function drawRecMap(){
 function screenSaved(){
   const q=state.q.toLowerCase();
   const nf=data.places.filter(p=>p.fav).length;
-  const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||a.name.localeCompare(b.name));
+  const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||(ourRank(b)-ourRank(a))||a.name.localeCompare(b.name));
   return topbar('Saved')+`<div class="pad">
    <p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
@@ -1128,7 +1142,9 @@ function screenDetail(id){
     <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
     ${p.note?`<div class="noteA"><b>Your note · </b>${esc(p.note)}</div>`:''}
-    ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="visitNow('${id}')">We went here</button></div></div>`})()}
+    ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="visitNow('${id}')">We went here</button></div>
+      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><span class="lab" style="margin:0 0 4px">Our rating</span>${rateHtml(id,(byId(id)||{}).ours||0)}
+      <div class="ratelbl" style="color:${{5:'#1f7a4c',3:'#8a6a1f',2:'#a63a3a',1:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${(byId(id)||{}).ours?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</span>'}</div></div></div>`})()}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
     ${sec('Photos',`${slides.length}`)}
@@ -1286,8 +1302,22 @@ function historyHtml(){
   const vs=[...(data.visits||[])].sort((a,b)=>b.at-a.at);
   if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>`;
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
-  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
 }
+// Our own ratings: 5 definitely go back · 4 good if in the area · 3 only if desperate · 1-2 not going back
+const ourRank=p=>p.ours?(p.ours<=2?p.ours-3:p.ours):2.5;
+const RATE_LBL={5:'Definitely go back',4:'Good if we’re in the area',3:'Only if desperate',2:'Not going back',1:'Not going back'};
+const oursTag=p=>p&&p.ours?`<span class="ours o${p.ours}" title="${RATE_LBL[p.ours]}">${p.ours}★ ours</span>`:'';
+function rateHtml(id,n,sm){return `<div class="rate ${sm?'sm':''}" role="group" aria-label="Our rating">${[1,2,3,4,5].map(k=>`<button class="${n>=k?'on':''}" onclick="event.stopPropagation();setOurs('${id}',${k})" aria-label="${k} star${k>1?'s':''}: ${RATE_LBL[k]}" aria-pressed="${n===k}">★</button>`).join('')}</div>`}
+function setOurs(id,n){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}
+  if(p.ours===n){delete p.ours;toast('Rating cleared')}else{p.ours=n;p.oursAt=Date.now();toast(`${p.name}: ${RATE_LBL[n]}`)}
+  p.touched=true;save();render(true)}
+// The latest visit in the last 3 days that hasn't been rated yet
+function rateAsk(){
+  const vs=[...(data.visits||[])].filter(v=>v.placeId&&!v.noRate&&Date.now()-v.at<3*864e5).sort((a,b)=>b.at-a.at);
+  for(const v of vs){const p=byId(v.placeId);if(p&&!p.ours&&!(p.oursAt>v.at))return {v,p}}return null;
+}
+function skipRate(vid){const v=(data.visits||[]).find(x=>x.id===vid);if(v){v.noRate=true;save();render(true)}}
 function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
 function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
 function toggleDone(id){const i=data.done.indexOf(id);if(i>=0)data.done.splice(i,1);else{data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
@@ -1657,8 +1687,8 @@ function payCopy(a){const amt=a.dataset.amt;try{navigator.clipboard.writeText(am
   toast(a.dataset.pre?`Opening Monzo with ${amt}`:`${amt} copied. Paste it in ${a.dataset.app}`)}
 function fxNote(cur,dark){
   if(cur!=='€'&&cur!=='£') return ''; const r=FXR();
-  if(!r) return `<p class="small" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">Getting today’s exchange rate…</p>`;
-  return `<p class="small" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">€1 = £${r.toFixed(4)} · ${data.fx.manual?'your rate':'ECB rate'+(data.fx.date?', '+esc(fxDay(data.fx.date)):'')} · <button class="link" style="${dark?'color:#fff':''}" onclick="push('billsetup')">change</button></p>`;
+  if(!r) return `<p class="small flush" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">Getting today’s exchange rate…</p>`;
+  return `<p class="small flush" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">€1 = £${r.toFixed(4)} · ${data.fx.manual?'your rate':'ECB rate'+(data.fx.date?', '+esc(fxDay(data.fx.date)):'')} · <button class="link" style="${dark?'color:#fff':''}" onclick="push('billsetup')">change</button></p>`;
 }
 const anyPay=()=>PT().some(p=>p.monzo||p.revolut);
 function setFx(){const v=parseFloat(String(document.getElementById('fxIn').value).replace(',','.'));
