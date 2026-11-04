@@ -559,7 +559,7 @@ function bigCard(p){
 function row(p){
   const st=status(p), m=matches(p), inPlan=data.plan.includes(p.id);
   return `<div class="row" onclick="openDetail('${p.id}')">
-    <div class="thumb">${img(p)}</div>
+    <div class="thumb">${p.myPhotos&&p.myPhotos.length||data.showPhotos===true&&data.rowPhotos?img(p):noph(p)}</div>
     <div class="grow"><div class="rname">${esc(p.name)}</div>
       <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
       ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
@@ -956,8 +956,8 @@ function screenSettings(){
     <input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Paste your key (starts AIza…)" value="${esc(data.key)}">
     <button class="btn block">Save key</button>
     ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Refresh all hours now</button>`:''}
-    <div class="srow" style="margin-top:6px"><label for="phT">Show Google photos in lists</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
-    <p class="small">The key is stored only on this device. Each Google photo shown counts toward Google’s free monthly allowance.</p>
+    <div class="srow" style="margin-top:6px"><label for="phT">Show Google photos on picks and place pages</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
+    <p class="small">The key is stored only on this device. Each Google photo shown counts toward Google’s free allowance of 1,000 a month, so lists show initials instead of photos.</p>
   </form>
   ${sec('Your trip')}
   <div class="pcard">
