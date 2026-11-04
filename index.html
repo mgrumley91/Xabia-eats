@@ -201,6 +201,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .setl{padding:12px 0 2px;border-top:1px solid var(--line);margin-top:10px}
 .setl .vline{font-size:16px}
 .paidok{margin-top:8px;font-size:13px;font-weight:700;color:var(--open)}.verdict .paidok{color:#9fe0c0}
+#bStatus{overflow-wrap:anywhere}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -439,7 +440,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v29';
+const APP_VERSION='v30';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2076,7 +2077,7 @@ async function readBill(){
     }
   }catch(e){
     B.readErr=true;
-    B.readMsg=e.name==='AbortError'?'Stopped.':/not been used|disabled|PERMISSION|blocked|API key/i.test(e.message)?`Photo reading isn’t switched on for your Google key yet. ${e.message}`:`Couldn’t read the bill: ${e.message}`;
+    B.readMsg=e.name==='AbortError'?'Stopped.':/not been used|disabled|PERMISSION|blocked|API key/i.test(e.message)?`Photo reading isn’t switched on for your Google key yet. In Google Cloud, enable the Generative Language API for your key’s project and tick it in the key’s API restrictions (steps in ⚙ → Sync & sharing). Then wait a few minutes and tap Read bill again.`:`Couldn’t read the bill: ${e.message}`;
   }
   B.ctl=null; renderBillsBody();
 }
