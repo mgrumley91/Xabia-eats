@@ -384,7 +384,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v21';
+const APP_VERSION='v22';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -502,7 +502,7 @@ function seedPlaces(){
     return {id:'s'+(i+1),name,area,query:`${name}, Xàbia, Alicante`,tags:[...tags],menu:[...menu],note,lat,lng,approx:true,seed:true,michelin:MICH_SEED[name]||''};});
 }
 function defaultData(){
-  return {v:5,spots:[],base:null,fromBase:false,key:'',showPhotos:true,only4:true,discover:false,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
+  return {v:5,visits:[],spots:[],base:null,fromBase:false,key:'',showPhotos:true,only4:true,discover:false,disc:{},trip:{from:'',to:''},holidays:defaultHolidays(),
     prefs:{'Any venue':[],Bakery:['Pistachio croissant','Almond croissant','Coffee'],Breakfast:['Coffee'],Lunch:[],Dinner:[],Tapas:[],Seafood:[],Rice:[],Drinks:[],Dessert:[]},
     places:seedPlaces(),plan:[],done:[],travel:'walking'};
 }
@@ -510,7 +510,7 @@ function defaultData(){
 /* ================= storage ================= */
 let data;
 function load(){
-  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});data.spots=data.spots||[];if((d.v||0)<5){data.discover=false;data.v=5}return}}catch(e){}
+  try{const raw=localStorage.getItem(LS);if(raw){const d=JSON.parse(raw);data=Object.assign(defaultData(),d);data.prefs=Object.assign(defaultData().prefs,d.prefs||{});data.spots=data.spots||[];data.visits=data.visits||[];if((d.v||0)<5){data.discover=false;data.v=5}return}}catch(e){}
   data=defaultData();
 }
 function save(opt){
@@ -1061,6 +1061,7 @@ function screenDetail(id){
     <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
     ${p.note?`<div class="noteA"><b>Your note · </b>${esc(p.note)}</div>`:''}
+    ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="visitNow('${id}')">We went here</button></div></div>`})()}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
     ${sec('Photos',`${slides.length}`)}
@@ -1197,6 +1198,8 @@ function screenPlan(){
    <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
    <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(data.plan.map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy plan as text</button>
+   ${sec('Where we’ve been',`${(data.visits||[]).length}`)}
+   ${historyHtml()}
    ${sec('Export everything')}
    <div class="pcard">
      <button class="btn ghost block" style="margin-top:0" onclick="download('xabia-eats.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Download KML for Google My Maps</button>
@@ -1204,8 +1207,22 @@ function screenPlan(){
      <ol class="steps" style="margin-top:12px"><li>Download the KML.</li><li>On a computer, open <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a>, create a map and choose Import.</li><li>In the Google Maps app it appears under You → Maps.</li></ol>
    </div></div>`;
 }
+// Visit history: where you went and when (synced, so Claude can read it too)
+function logVisit(p,how){
+  const v={id:uid(),placeId:p&&p.id?p.id:null,name:p?p.name:'',area:p&&p.id?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:Date.now(),how:how||'tap'};
+  data.visits=data.visits||[];data.visits.push(v);save();return v;
+}
+function visitNow(id){const p=byId(id);if(!p)return;if(p.disc)id=saveDisc(id);logVisit(byId(id),'tap');toast(`Logged: you went to ${byId(id).name}`);render(true)}
+function rmVisit(vid){data.visits=data.visits.filter(v=>v.id!==vid);save();render(true)}
+const visitDay=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+function historyHtml(){
+  const vs=[...(data.visits||[])].sort((a,b)=>b.at-a.at);
+  if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>`;
+  const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
+}
 function movePlan(i,d){const a=data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
-function toggleDone(id){const i=data.done.indexOf(id);i>=0?data.done.splice(i,1):data.done.push(id);save();render(true)}
+function toggleDone(id){const i=data.done.indexOf(id);if(i>=0)data.done.splice(i,1);else{data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
 function clearDone(){data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[];save();render(true)}
 
 /* ---------- YOUR SPOTS (accommodation, friends) ---------- */
@@ -1399,7 +1416,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 async function pushApp(){
@@ -1666,6 +1683,7 @@ function wireBills(){
     B.meals.push({id,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
     if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
       if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
+    const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
     S.tallied=true;saveBill();saveMeals();renderBillsBody();toast('Added to the trip tally');
   };
   $('bPhoto').onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;B.photo=f;B.photoUrl=URL.createObjectURL(f);try{B.photoData='data:image/jpeg;base64,'+await shrinkB64(f,1100,.7)}catch(_){B.photoData=null}B.readMsg=data.key?'Photo ready. Tap Read bill.':'';B.readErr=false;renderBillsBody()};
