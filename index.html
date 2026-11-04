@@ -161,6 +161,8 @@ pre.sql{max-width:100%;background:#1d2229;color:#f5f3ef;border-radius:14px;paddi
 .spotpin{display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateY(8px)}
 .spotpin i{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-style:normal;font-size:17px;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .spotpin span{background:#fff;color:var(--ink);font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;box-shadow:0 1px 5px rgba(0,0,0,.2);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.upd{position:fixed;left:12px;right:12px;margin:0 auto;max-width:456px;top:calc(10px + env(safe-area-inset-top));z-index:20;background:var(--ink);color:#fff;border-radius:18px;padding:10px 12px 10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.upd .btn{padding:8px 16px;font-size:14px}
 .poi{position:fixed;left:12px;right:12px;margin:0 auto;bottom:calc(92px + env(safe-area-inset-bottom));max-width:456px;z-index:8}
 .poi .pcard{box-shadow:0 10px 40px rgba(0,0,0,.18)}
 .poi .pcard h3 i{display:none}
@@ -327,7 +329,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v17';
+const APP_VERSION='v18';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1809,7 +1811,7 @@ function screenSettings(){
   </div>
   ${sec('Your data')}
   <div class="pcard">
-    <p class="small" style="margin:0">Everything is saved on this device. Use a backup to move it to another phone or computer.</p>
+    <p class="small" style="margin:0">${SB()?'Everything syncs through Supabase. These are extra ways to move or save a copy.':'Everything is saved on this screen only. Turn on Sync & sharing above so it’s kept safe and shared across screens.'}</p>
     <button class="btn block" onclick="copyTransfer()">Copy transfer code</button>
     <form class="frow" onsubmit="event.preventDefault();pasteTransfer(this.c.value)"><input class="field" name="c" id="xferIn" placeholder="Paste a transfer code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Use</button></form>
     <p class="small" style="margin-top:6px">To move everything to the home-screen icon or another phone, copy the code here and paste it there. It includes your Google key, places, notes, spots and bill sharing.</p>
@@ -1906,6 +1908,18 @@ function render(keepScroll){
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
 }
+// Check for a newer version each time the app opens, and offer a one-tap update (nothing is reset)
+async function checkUpdate(){
+  try{
+    const r=await fetch(location.pathname+'?check='+Date.now(),{cache:'no-store'}); if(!r.ok) return;
+    const m=(await r.text()).match(/const APP_VERSION='(v\d+)'/); if(!m||m[1]===APP_VERSION) return;
+    if(+m[1].slice(1)<=+APP_VERSION.slice(1)) return;
+    let bar=document.getElementById('upd'); if(!bar){bar=document.createElement('div');bar.id='upd';bar.className='upd';document.body.append(bar)}
+    bar.innerHTML=`<span>A new version (${m[1]}) is ready.</span><button class="btn" onclick="location.replace(location.pathname+'?v=${m[1]}')">Update</button>`;
+  }catch(e){}
+}
+setTimeout(checkUpdate,1500);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 render();
 if(data.key) gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{});
 setInterval(()=>{if(!state.when&&!state.stack.length&&state.tab==='today'){const t=document.getElementById('tm');if(t)t.textContent=fmt(madridNow().min);renderList()}},60000);
