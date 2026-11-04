@@ -437,7 +437,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v26';
+const APP_VERSION='v27';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1486,7 +1486,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 async function pushApp(){
@@ -1611,17 +1611,54 @@ function gcalc(){
 }
 // Monzo.me and Revolut.me links. Monzo.me only takes an amount in pounds, so for other currencies the amount is copied instead.
 const cleanHandle=h=>String(h||'').trim().replace(/^https?:\/\/(www\.)?(monzo\.me|revolut\.me)\//i,'').replace(/^@/,'').split(/[\/?#\s]/)[0];
+// Exchange rate: the European Central Bank's daily rate (free, no key), or your own rate from Settings
+const FXR=()=>data.fx&&data.fx.rate>0?data.fx.rate:null;
+const fxDay=d=>/^\d{4}-\d\d-\d\d$/.test(d||'')?new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):(d||'');
+let fxBusy=null;
+async function getFx(force){
+  if(fxBusy) return fxBusy;
+  if(!force&&data.fx&&(data.fx.manual||Date.now()-(data.fx.at||0)<12*36e5)) return;
+  if(!force&&Date.now()-(getFx.fail||0)<10*6e4) return;
+  fxBusy=(async()=>{
+    const srcs=[['https://api.frankfurter.app/latest?from=EUR&to=GBP',j=>[j.rates&&j.rates.GBP,j.date]],
+      ['https://api.frankfurter.dev/v1/latest?base=EUR&symbols=GBP',j=>[j.rates&&j.rates.GBP,j.date]],
+      ['https://open.er-api.com/v6/latest/EUR',j=>[j.rates&&j.rates.GBP,(j.time_last_update_utc||'').slice(5,16)]]];
+    for(const [u,f] of srcs){try{const r=await fetch(u,{cache:'no-store'});if(!r.ok)continue;const [rate,date]=f(await r.json());
+      if(rate>0.5&&rate<1.5){data.fx={rate:+rate,date:date||'',at:Date.now()};save();billsRefresh();return true}}catch(e){}}
+    getFx.fail=Date.now();
+    if(force) toast('Couldn’t get today’s rate. Type one in instead.');
+  })();
+  try{return await fxBusy}finally{fxBusy=null}
+}
+// Amount to send in pounds or euros, whichever this trip pays friends in
+function payAmt(c,cur,want){
+  want=want||data.payIn||'£'; const r=FXR();
+  if(cur===want) return {c,cur};
+  if(cur==='€'&&want==='£'&&r) return {c:Math.round(c*r),cur:'£'};
+  if(cur==='£'&&want==='€'&&r) return {c:Math.round(c/r),cur:'€'};
+  return {c,cur};
+}
 function payLink(kind,pid,c,cur,note){
   const p=PT().find(x=>x.id===pid), h=p&&cleanHandle(p[kind]); if(!h) return null;
-  if(kind==='monzo') return 'https://monzo.me/'+encodeURIComponent(h)+(cur==='£'&&c>0?`/${(c/100).toFixed(2)}?d=${encodeURIComponent(note||'Xàbia')}`:'');
+  if(kind==='monzo'){const a=payAmt(c,cur,'£');return 'https://monzo.me/'+encodeURIComponent(h)+(a.cur==='£'&&a.c>0?`/${(a.c/100).toFixed(2)}?d=${encodeURIComponent(note||'Xàbia')}`:'')}
   return 'https://revolut.me/'+encodeURIComponent(h);
 }
 function payBtns(pid,c,cur,note){
-  return [['monzo','Monzo'],['revolut','Revolut']].map(([k,l])=>{const u=payLink(k,pid,c,cur,note);
-    return u?`<a class="paybtn ${k}" href="${esc(u)}" target="_blank" rel="noopener" data-amt="${esc(mMoney(c,cur))}" data-app="${l}" data-cur="${esc(cur)}" onclick="payCopy(this)">Pay ${esc(pn(pid))} with ${l}</a>`:''}).join('');
+  return [['monzo','Monzo'],['revolut','Revolut']].map(([k,l])=>{const u=payLink(k,pid,c,cur,note);if(!u)return'';
+    const a=payAmt(c,cur,k==='monzo'?'£':undefined), pre=k==='monzo'&&a.cur==='£';
+    return `<a class="paybtn ${k}" href="${esc(u)}" target="_blank" rel="noopener" data-amt="${esc(mMoney(a.c,a.cur))}" data-app="${l}" data-pre="${pre?1:''}" onclick="payCopy(this)">Pay ${esc(pn(pid))} ${a.cur!==cur||pre?esc(mMoney(a.c,a.cur))+' ':''}with ${l}</a>`}).join('');
 }
 function payCopy(a){const amt=a.dataset.amt;try{navigator.clipboard.writeText(amt.replace(/[^\d.]/g,''))}catch(_){}
-  toast(a.dataset.app==='Monzo'&&a.dataset.cur==='£'?`Opening Monzo with ${amt}`:`${amt} copied. Paste it in ${a.dataset.app}`)}
+  toast(a.dataset.pre?`Opening Monzo with ${amt}`:`${amt} copied. Paste it in ${a.dataset.app}`)}
+function fxNote(cur,dark){
+  if(cur!=='€'&&cur!=='£') return ''; const r=FXR();
+  if(!r) return `<p class="small" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">Getting today’s exchange rate…</p>`;
+  return `<p class="small" style="margin-top:6px;${dark?'color:#fff;opacity:.75':''}">€1 = £${r.toFixed(4)} · ${data.fx.manual?'your rate':'ECB rate'+(data.fx.date?', '+esc(fxDay(data.fx.date)):'')} · <button class="link" style="${dark?'color:#fff':''}" onclick="push('billsetup')">change</button></p>`;
+}
+const anyPay=()=>PT().some(p=>p.monzo||p.revolut);
+function setFx(){const v=parseFloat(String(document.getElementById('fxIn').value).replace(',','.'));
+  if(!(v>0.3&&v<3)){toast('Type the rate as pounds per euro, e.g. 0.8650');return}
+  data.fx={rate:v,manual:true,at:Date.now(),date:''};save();toast('Using your rate');render(true)}
 // Who owes whom, household by household (no re-routing debts between people who didn't eat together)
 function settleLines(){
   const pr={},add=(f,t,v)=>{if(!f||!t||f===t||!v)return;const k=f<t?f+'|'+t:t+'|'+f;pr[k]=(pr[k]||0)+(f<t?v:-v)};
@@ -1661,6 +1698,7 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(B.needRender&&!bEdit
 function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
   const S=B.bill,n=NM(),canRead=!!data.key,g=gm(),P=PT(),heads=P.reduce((t,p)=>t+(p.heads||1),0);
+  if(anyPay()) getFx();
   root.innerHTML=`
   ${sec('Bill & what you paid')}
   <div class="pcard">
@@ -1766,7 +1804,7 @@ function renderGroupTotals(){
     v.innerHTML=`<div class="vwho">${esc(pn(S.payer)==='Us'?'We':pn(S.payer))} paid ${bMoney(r.paidC)}</div>
       ${lines.map(p=>`<div class="vline"><span>${esc(owesTxt(p.id,S.payer))}</span><span>${bMoney(r.per[p.id].tot)}</span></div>`).join('')||'<div class="vamt">Nobody owes anything</div>'}
       <div class="vsub">${waiting.length?`Still picking: ${esc(waiting.map(p=>p.name).join(', '))}. `:'Everyone has picked. '}${r.uncItems.length?`${bMoney(Math.round(r.unc))} nobody picked is split by head.`:''}</div>
-      ${myAmt>0&&payBtns(S.payer,myAmt,S.cur,S.place)?`<div class="payrow">${payBtns(S.payer,myAmt,S.cur,S.place)}</div>`:''}`}
+      ${myAmt>0&&payBtns(S.payer,myAmt,S.cur,S.place)?`<div class="payrow">${payBtns(S.payer,myAmt,S.cur,S.place)}</div>${fxNote(S.cur,true)}`:''}`}
   const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':B.tallyC?`${waiting.map(p=>p.name).join(', ')} still picking. Tap again to add anyway`:'Add to trip tally';
   return r;
 }
@@ -1858,7 +1896,7 @@ function renderBillTotals(){
     const pb=S.payer==='us'?payBtns('us',r.wTot,S.cur,S.place):payBtns('wass',r.uTot,S.cur,S.place);
     v.innerHTML=(S.payer==='us'?`<div class="vwho">${esc(theyOwe())}</div><div class="vamt">${bMoney(r.wTot)}</div><div class="vsub">${esc(n.a==='Us'?'We':n.a)} paid ${bMoney(r.paidC)}. ${esc(n.a==='Us'?'Our':n.a+'’s')} share was ${bMoney(r.uTot)}${n.ha>1?`, ${bMoney(Math.round(r.uTot/n.ha))} each`:''}.</div>`
       :`<div class="vwho">${esc(weOwe())}</div><div class="vamt">${bMoney(r.uTot)}</div><div class="vsub">${n.ha>1?`That’s ${bMoney(Math.round(r.uTot/n.ha))} each. `:''}${esc(n.b)} paid ${bMoney(r.paidC)} and their share was ${bMoney(r.wTot)}.</div>`)
-      +(pb?`<div class="payrow">${pb}</div>`:'')}
+      +(pb?`<div class="payrow">${pb}</div>${fxNote(S.cur,true)}`:'')}
   const t=document.getElementById('bTally');t.disabled=!ready||!!S.tallied;t.textContent=S.tallied&&ready?'Added to trip tally ✓':'Add to trip tally';
   return r;
 }
@@ -1882,13 +1920,15 @@ function renderBillTrip(){
   const meals=B.meals, cur=(meals.filter(m=>!m.settle).at(-1)||{}).cur||'€', lines=settleLines();
   const usOwes=lines.some(l=>l.from==='us'), usOwed=lines.some(l=>l.to==='us');
   const day=ms=>new Date(ms).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'});
+  const gbp=c=>cur==='€'&&FXR()&&(data.payIn||'£')==='£'&&anyPay()?`<span class="small" style="display:block;text-align:right;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;line-height:1.3">≈ ${mMoney(Math.round(c*FXR()),'£')}</span>`:'';
   const head=l=>{const t=owesTxt(l.from,l.to);return t.replace(/^./,c=>c.toUpperCase())};
   const noPay=[...new Set(lines.map(l=>l.to))].filter(to=>!payLink('monzo',to,1,cur)&&!payLink('revolut',to,1,cur));
   el.innerHTML=`<div class="pcard" style="background:${usOwes?'#fbeadf':usOwed&&!usOwes?'#e3f1e8':'var(--card)'}"><p class="small" style="margin:0">Trip balance</p>
     ${!lines.length?'<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px">All square</p>'
-      :lines.length===1?`<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${usOwes?'var(--accent-dark)':usOwed?'var(--open)':'var(--ink)'}">${esc(head(lines[0]))} ${mMoney(lines[0].c,cur)}</p>`:''}
-    ${lines.map((l,i)=>`<div class="${lines.length>1?'setl':''}">${lines.length>1?`<div class="vline"><span>${esc(head(l))}</span><span>${mMoney(l.c,cur)}</span></div>`:''}
+      :lines.length===1?`<p style="font-family:var(--display);font-size:28px;line-height:1.1;margin-top:2px;color:${usOwes?'var(--accent-dark)':usOwed?'var(--open)':'var(--ink)'}">${esc(head(lines[0]))} ${mMoney(lines[0].c,cur)}</p>${gbp(lines[0].c).replace('text-align:right','text-align:left')}`:''}
+    ${lines.map((l,i)=>`<div class="${lines.length>1?'setl':''}">${lines.length>1?`<div class="vline"><span>${esc(head(l))}</span><span style="text-align:right;white-space:nowrap">${mMoney(l.c,cur)}${gbp(l.c)}</span></div>`:''}
       <div class="payrow">${payBtns(l.to,l.c,cur,'Xàbia trip')}<button class="paybtn ghost" data-mark="${esc(l.from+'|'+l.to+'|'+l.c+'|'+cur)}" onclick="markPaid(this)">Mark as paid</button></div></div>`).join('')}
+    ${lines.length&&anyPay()?fxNote(cur):''}
     ${noPay.length?`<button class="link" style="margin-top:8px" onclick="push('billsetup')">Add ${esc(noPay.map(id=>pn(id)==='Us'?'your':pn(id)+'’s').join(' and '))} Monzo or Revolut to pay from here →</button>`:''}</div>
     ${meals.length?`<div class="list" style="margin-top:12px">${[...meals].reverse().map(m=>{
       let stat;
@@ -2119,6 +2159,14 @@ function screenBillSetup(){
     <div class="chips wrap">${PT().map(p=>`<button type="button" class="chip ${ME()===p.id?'on':''}" onclick="setMe('${p.id}');render(true)"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name)}</button>`).join('')}</div>
     <p class="small" style="margin-top:6px">Only saved on this phone. It’s who you pick for when everyone picks, and who you pay from.</p>
   </form>
+  ${sec('Paying in pounds')}
+  <div class="pcard"><p style="font-size:14px;margin:0">${FXR()?`€1 = <b>£${FXR().toFixed(4)}</b> · ${data.fx.manual?'your own rate':'European Central Bank rate'+(data.fx.date?', '+esc(fxDay(data.fx.date)):'')}`:'No exchange rate yet.'}</p>
+    <span class="lab">Pay each other in</span>
+    <div class="seg2" style="margin-top:0"><button type="button" class="${(data.payIn||'£')==='£'?'on':''}" onclick="data.payIn='£';save();render(true)">Pounds £</button><button type="button" class="${data.payIn==='€'?'on':''}" onclick="data.payIn='€';save();render(true)">Euros €</button></div>
+    <label class="lab" for="fxIn">Use your own rate (pounds per euro)</label>
+    <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="e.g. 0.8650" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
+    <button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Rate updated');render(true)}})">Get today’s rate</button>
+    <p class="small" style="margin-top:6px">Bills stay in euros. Monzo.me only takes pounds, so Monzo buttons convert at this rate and open with the amount filled in; Revolut copies the converted amount for you. Your bank may use a slightly different rate: type it in above to match. The live rate refreshes twice a day.</p></div>
   ${sec('Reading bill photos')}
   <div class="pcard"><p style="font-size:14px">Uses Google’s Gemini with your Google key. In Google Cloud:</p>
    <ol class="steps"><li>Open <a href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" target="_blank" rel="noopener">Generative Language API</a> and tap <b>Enable</b>.</li><li>In <b>Credentials</b>, edit your key and tick <b>Generative Language API</b> under API restrictions, then Save.</li></ol>
