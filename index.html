@@ -318,7 +318,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v9';
+const APP_VERSION='v11';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -554,7 +554,7 @@ function applyDetails(p,pl){
   const ro=pl.regularOpeningHours, co=pl.currentOpeningHours;
   p.reg=ro&&ro.periods?weekly(ro.periods):null;
   if(co&&co.periods){p.cur=weekly(co.periods);p.curFrom=madridNow().date;p.special=(co.specialDays||[]).map(isoOf).filter(Boolean)}else{p.cur=null;p.curFrom=null;p.special=[]}
-  if(pl.photos&&pl.photos.length&&!(p.photo&&p.photo.resolved&&Date.now()-(p.photoAt||0)<7*864e5)){const ph=pl.photos[0];p.photo={src:ph.getURI({maxWidth:800,maxHeight:800}),by:(ph.authorAttributions||[]).map(a=>({name:a.displayName,uri:a.uri})),resolved:false}}
+  if(pl.photos&&pl.photos.length&&!(p.photo&&p.photo.resolved)){const ph=pl.photos[0];p.photo={src:ph.getURI({maxWidth:800,maxHeight:800}),by:(ph.authorAttributions||[]).map(a=>({name:a.displayName,uri:a.uri})),resolved:false}}
   delete p.gphotos;
   p.serves={coffee:pl.servesCoffee,breakfast:pl.servesBreakfast,brunch:pl.servesBrunch,lunch:pl.servesLunch,dinner:pl.servesDinner,beer:pl.servesBeer,wine:pl.servesWine,cocktails:pl.servesCocktails,dessert:pl.servesDessert,vegetarian:pl.servesVegetarianFood,outdoor:pl.hasOutdoorSeating};
   if(!p.autoTagged){
@@ -585,7 +585,7 @@ async function syncAll(force){
   if(!data.key||syncing) return; syncing=true;
   const today=madridNow().date;
   if(force) data.places.forEach(p=>p.linkFailed=false);
-  const todo=data.places.filter(p=>force||!p.gid||!p.updated||p.curFrom!==today||Date.now()-p.updated>12*36e5).filter(p=>force||!p.linkFailed);
+  const todo=data.places.filter(p=>force||!p.gid||!p.updated).filter(p=>force||!p.linkFailed);
   let i=0,ok=0;
   for(const p of todo){
     i++; state.sync=`Updating from Google… ${i} of ${todo.length}`; renderSync();
@@ -694,7 +694,7 @@ function score(p){
 async function discover(cat,force){
   if(!data.key||!data.discover) return;
   const today=madridNow().date, c=data.disc[cat.k];
-  if(!force&&c&&c.date===today&&Date.now()-c.at<6*36e5) return;
+  if(!force&&c) return;
   if(state.discBusy===cat.k) return;
   state.discBusy=cat.k; renderDiscNote();
   try{
@@ -743,6 +743,7 @@ function screenToday(){
    ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
    ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
    <div id="discnote" class="small" style="text-align:center;margin-top:10px"></div>
+   ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="text-align:center;margin-top:4px">Google results from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search Google again</button></p>`:''}
    </div>
    <div id="list"></div>`;
 }
@@ -917,9 +918,10 @@ function screenDetail(id){
     </div>
     ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)}</p>`:''}
 
-    ${sec('Opening hours',p.gid&&p.updated?`updated ${new Date(p.updated).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'')}
+    ${sec('Opening hours',p.gid&&p.updated?`checked ${new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'')}
     <div class="panel">${hoursList(p)}</div>
-    <p class="small" style="margin-top:8px">${p.gid?'From Google. The next 7 days include any holiday hours the owner has set.':'Connect Google in Settings to load hours.'}</p>
+    <p class="small" style="margin-top:8px">${p.gid?'From Google when last checked. Check again before you go to pick up holiday or last-minute changes.':'Connect Google in Settings to load hours.'}</p>
+    ${p.gid&&data.key?`<button class="btn block" onclick="checkHours('${id}')">${I.clock} Going there? Check today’s hours</button>`:''}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
     ${sec('Photos',`${slides.length}`)}
@@ -949,7 +951,7 @@ function screenDetail(id){
     ${sec('Google listing')}
     <div class="pcard">
       <p style="font-size:14px">${p.gid?`Linked to <b>${esc(p.gname||p.name)}</b>${p.addr?`<br><span class="small">${esc(p.addr)}</span>`:''}`:p.linkFailed?'Google couldn’t find this place automatically.':data.key?'Not linked yet.':'Add a Google key in Settings to link this place.'}</p>
-      ${data.key?`<button class="btn ghost block" onclick="state.addResults=null;push('relink:${id}')">${p.gid?'Wrong place? Pick another':'Find it on Google'}</button>${p.gid?`<button class="btn ghost block" onclick="refreshOne('${id}')">Refresh hours now</button>`:''}`:''}
+      ${data.key?`<button class="btn ghost block" onclick="state.addResults=null;push('relink:${id}')">${p.gid?'Wrong place? Pick another':'Find it on Google'}</button>`:''}
       <button class="btn danger block" onclick="delPlace('${id}')">${state.confirmDel===id?'Tap again to delete':'Delete this place'}</button>
     </div>
   </section>
@@ -962,6 +964,17 @@ function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);
 function rmMenu(id,i){byId(id).menu.splice(i,1);save();render(true)}
 function toggleTag(id,t){const p=byId(id),i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
 function toggleClosed(id){const p=byId(id),D=when().date;p.closedOn=p.closedOn||[];const i=p.closedOn.indexOf(D);i>=0?p.closedOn.splice(i,1):p.closedOn.push(D);save();render(true)}
+async function checkHours(id){
+  const p=byId(id); if(!p||!p.gid) return; toast('Checking with Google…');
+  try{applyDetails(p,await gDetails(p.gid));save();const st=status(p,madridNow().date,madridNow().min);toast(`${p.name}: ${st.txt}`);render(true)}
+  catch(e){toast('Couldn’t check right now: '+(e.message||'no response'))}
+}
+async function checkPlanHours(){
+  const plan=data.plan.map(byId).filter(p=>p&&p.gid); if(!plan.length) return;
+  toast(`Checking ${plan.length} stop${plan.length>1?'s':''}…`); let n=0;
+  for(const p of plan){try{applyDetails(p,await gDetails(p.gid));n++}catch(e){}}
+  save(); toast(`Checked ${n} of ${plan.length} stops`); render(true);
+}
 async function refreshOne(id){const p=byId(id);toast('Refreshing…');try{applyDetails(p,await gDetails(p.gid));save();toast('Hours updated');render(true)}catch(e){toast('Google didn’t respond')}}
 function delPlace(id){
   if(state.confirmDel!==id){state.confirmDel=id;render(true);setTimeout(()=>{if(state.confirmDel===id){state.confirmDel=null;renderSoft()}},4000);return}
@@ -1017,6 +1030,7 @@ function screenPlan(){
       <button class="mini" onclick="movePlan(${i},1)" aria-label="Move down" ${i<plan.length-1?'':'disabled style="opacity:.2"'}>↓</button>
       <button class="mini" onclick="togglePlan('${p.id}')" aria-label="Remove">×</button></div>`}).join('')}</div>
       ${data.done.length?`<button class="link" onclick="clearDone()">Clear ticked-off stops</button>`:''}`:''}
+   ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours()">${I.clock} Check hours for my plan</button>`:''}
    ${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
  ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
@@ -1055,7 +1069,7 @@ function spotsSection(){
     <div class="thumb" style="background:${k.col};color:#fff;display:grid;place-items:center;font-size:26px">${k.glyph}</div>
     <div class="grow"><div class="rname">${esc(s.name)}</div><div class="rmeta"><span>${k.label}</span>${isBase?'<span class="newtag" style="color:#5b4bb7;background:#ebe8f7">Distances from here</span>':''}</div>
       <div class="rmeta" style="gap:14px;margin-top:4px"><a class="link" style="padding:0" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=${data.travel}" target="_blank" rel="noopener">Directions</a>${isBase?'':`<button class="link" style="padding:0" onclick="data.base='${s.id}';save();render(true)">Measure from here</button>`}<button class="link" style="padding:0;color:#a63a3a" onclick="delSpot('${s.id}')">${state.confirmDel==='spot:'+s.id?'Tap again to delete':'Delete'}</button></div></div></div>`}).join('')||'<div class="empty">Add where you’re staying and where friends are, so they show on the map.</div>'}</div>
-  <button class="btn block" onclick="state.spotDraft=null;state.spotResults=null;push('spot')">${I.plus} Add a spot</button>`;
+  <button class="btn block" onclick="state.spotDraft=null;state.spotResults=null;state.spotHelp=null;push('spot')">${I.plus} Add a spot</button>`;
 }
 function delSpot(id){
   if(state.confirmDel!=='spot:'+id){state.confirmDel='spot:'+id;render(true);return}
@@ -1074,7 +1088,10 @@ function screenSpot(){
    ${data.key?`<form class="search searchform" style="margin-top:0" onsubmit="event.preventDefault();spotSearch(this.q.value)">${I.search}<input name="q" id="spQ" placeholder="Address, villa or hotel name" autocomplete="off"><button class="btn" style="padding:7px 14px">Find</button></form>`:''}
    ${state.spotBusy?'<div class="empty">Searching…</div>':res?`<div class="list" style="margin-top:10px">${res.length?res.map((r,i)=>`<div class="row" onclick="spotPick(${i})"><div class="grow"><div class="rname" style="font-size:16px">${esc(r.name)}</div><div class="rmeta">${esc(r.addr||'')}</div></div><span class="link">Use</span></div>`).join(''):'<div class="empty">No results. Try the street address.</div>'}</div>`:''}
    <button class="btn ghost block" onclick="spotHere()">${I.pin} Use where I am now</button>
-   <form class="frow" onsubmit="event.preventDefault();spotLink(this.u.value)"><input class="field" name="u" id="spLink" placeholder="Or paste a Google Maps link"><button class="btn">Use</button></form>
+   <form class="frow" onsubmit="event.preventDefault();spotLink(this.u.value)"><input class="field" name="u" id="spLink" placeholder="Or paste a shared location, link or coordinates" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Use</button></form>
+   ${state.spotHelp?`<div class="note warn" style="margin-top:10px">${state.spotHelp.link?`<b>Short Google links can’t be read by apps.</b> Any of these works instead:`:`<b>There’s no location in that.</b> Try one of these:`}
+     <ol class="steps" style="margin-top:6px"><li>Paste the <b>whole message</b> your friend sent, including the address, or just type the address in the search box above.</li><li>In Google Maps, <b>press and hold</b> on their pin, copy the numbers that appear (like 38.78, 0.17) and paste them here.</li><li>Open the link to see where it is, then come back and <b>tap that spot</b> on the map below.</li></ol>
+     ${state.spotHelp.link?`<a class="btn ghost block" href="${esc(state.spotHelp.link)}" target="_blank" rel="noopener">Open the link</a>`:''}</div>`:''}
    ${data.key?`<p class="small" style="margin-top:12px">Or tap the map to drop the pin exactly.</p><div id="spotmap" style="height:300px;border-radius:var(--r);overflow:hidden;background:var(--line);margin-top:8px"></div>`:''}
    <p class="small" id="spotStatus" style="margin-top:10px">${spotStatusTxt()}</p>
    <button class="btn block" id="spotSave" ${d.lat==null?'disabled':''} onclick="saveSpot()">Save spot</button>
@@ -1112,13 +1129,17 @@ function spotHere(){
   navigator.geolocation.getCurrentPosition(p=>{setSpotPos(p.coords.latitude,p.coords.longitude,'where you were standing',true);render(true)},
     e=>toast(e.code===1?'Location permission was declined. Allow it in your browser settings.':'Couldn’t get your location. Try again outside.'),{enableHighAccuracy:true,timeout:15000});
 }
-function spotLink(u){
-  u=decodeURIComponent((u||'').trim());
-  const m=u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||u.match(/[?&](?:q|query|ll|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/)||u.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/);
-  if(m){setSpotPos(+m[1],+m[2],'from your link',true);render(true);return}
-  toast(/goo\.gl|maps\.app/.test(u)?'Short links can’t be read. Open it, then copy the full link from the address bar.':'That link has no location in it. Try sharing the pin from Google Maps.');
+function spotLink(raw){
+  const txt=(raw||'').trim(); let u=txt; try{u=decodeURIComponent(txt)}catch(e){}
+  const pats=[/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/,/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/,/[?&](?:q|query|ll|sll|destination|center)=(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/,/(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/];
+  for(const re of pats){const m=u.match(re);if(m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180){state.spotHelp=null;setSpotPos(+m[1],+m[2],'from what you pasted',true);render(true);return}}
+  const short=u.match(/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)\/\S+/i);
+  const words=u.replace(/https?:\/\/\S+/g,' ').replace(/\s+/g,' ').trim();
+  if(words.length>=4&&data.key){state.spotHelp=null;if(!state.spotDraft.name)state.spotDraft.name=words.split(/[,\n]/)[0].slice(0,40);toast('Searching for the address in what you pasted…');spotSearch(words);return}
+  state.spotHelp=short?{link:short[0]}:{link:null};render(true);
 }
 function saveSpot(){
+  state.spotHelp=null;
   const d=state.spotDraft;if(d.lat==null){toast('Set a location first');return}
   const s={id:uid(),name:d.name.trim()||kindOf(d).label,kind:d.kind,lat:d.lat,lng:d.lng,addr:d.addr||''};
   data.spots.push(s);if(!data.base&&s.kind==='home')data.base=s.id;
@@ -1587,9 +1608,9 @@ function screenSettings(){
     ${state.lastErr?`<div class="note warn" style="margin:0 0 10px;user-select:text">Last Google error: ${esc(state.lastErr)}</div>`:''}
     <input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Paste your key (starts AIza…)" value="${esc(data.key)}">
     <button class="btn block">Save key</button>
-    ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Refresh all hours now</button>`:''}
+    ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Re-check every place now (uses ~25 lookups)</button>`:''}
     <div class="srow" style="margin-top:6px"><label for="phT">Show one Google photo per place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
-    <p class="small">The key is stored only on this device. Each place’s photo is fetched once and reused for a week, which keeps you well inside Google’s free allowance.</p>
+    <p class="small">The key is stored only on this device. Hours and one photo per place are loaded once. After that, Google is only asked when you tap “Check today’s hours”.</p>
   </form>
   ${sec('Your trip')}
   <div class="pcard" style="margin-bottom:12px"><div class="srow" style="padding:0"><span>Where you’re staying and friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div></div>
@@ -1607,6 +1628,9 @@ function screenSettings(){
   ${sec('Your data')}
   <div class="pcard">
     <p class="small" style="margin:0">Everything is saved on this device. Use a backup to move it to another phone or computer.</p>
+    <button class="btn block" onclick="copyTransfer()">Copy transfer code</button>
+    <form class="frow" onsubmit="event.preventDefault();pasteTransfer(this.c.value)"><input class="field" name="c" id="xferIn" placeholder="Paste a transfer code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Use</button></form>
+    <p class="small" style="margin-top:6px">To move everything to the home-screen icon or another phone, copy the code here and paste it there. It includes your Google key, places, notes, spots and bill sharing.</p>
     <button class="btn ghost block" onclick="exportBackup()">Download backup</button>
     <label class="btn ghost block" for="imp">Restore from backup</label><input type="file" id="imp" accept=".json,application/json" hidden onchange="importBackup(this)">
     <button class="btn danger block" onclick="resetAll()">${state.confirmDel==='ALL'?'Tap again to erase everything':'Start over with the starter list'}</button>
@@ -1614,6 +1638,21 @@ function screenSettings(){
   <p class="small" style="margin-top:14px">App version ${APP_VERSION}.</p>
   <p class="small" style="margin-top:6px">The starter list comes from the Guía Repsol 2026 list for Xàbia, javea.com and Nothing Familiar’s Jávea guide. Michelin badges follow the 2026 Michelin Guide Spain plus its March 2026 additions; the 2027 guide may change them, and you can edit each place’s badge. Hours, photos and ratings come from Google Maps.</p>
   </div>`;
+}
+function copyTransfer(){
+  const pack={d:{...data},bill:B.bill,meals:B.meals};
+  const code='XE1.'+btoa(unescape(encodeURIComponent(JSON.stringify(pack))));
+  copyText(code,'Transfer code copied. Open the app on the other screen and paste it in Settings.');
+}
+function pasteTransfer(code){
+  try{
+    code=code.trim().replace(/\s/g,'');if(!code.startsWith('XE1.'))throw 0;
+    const pack=JSON.parse(decodeURIComponent(escape(atob(code.slice(4)))));
+    if(!pack.d||!Array.isArray(pack.d.places))throw 0;
+    data=Object.assign(defaultData(),pack.d);save();
+    if(pack.bill){B.bill=pack.bill;B.meals=pack.meals||B.meals;localBills()}
+    toast('Everything moved across. Reloading…');setTimeout(()=>location.reload(),900);
+  }catch(e){toast('That isn’t a full transfer code. Copy it again and paste the whole thing.')}
 }
 function saveKey(k){k=k.trim();if(k===data.key){toast('Key unchanged');return}data.key=k;save();toast(k?'Key saved. Reloading…':'Key removed');setTimeout(()=>location.reload(),600)}
 function addHol(f){if(!f.d.value)return;data.holidays.push({date:f.d.value,name:f.n.value.trim()||'Holiday'});save();render(true)}
@@ -1683,7 +1722,7 @@ function render(keepScroll){
 render();
 if(data.key) gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{});
 setInterval(()=>{if(!state.when&&!state.stack.length&&state.tab==='today'){const t=document.getElementById('tm');if(t)t.textContent=fmt(madridNow().min);renderList()}},60000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&data.key&&state.keyStatus==='ok')syncAll()});
+
 </script>
 </body>
 </html>
