@@ -155,6 +155,9 @@ li.item{position:relative;overflow:hidden;border-bottom:1px dotted var(--line)}
 .verdict.pending{background:var(--card);color:var(--muted);border:1.5px dashed #d6d0c7}
 .verdict.pending .vamt{font-size:20px;color:var(--ink)}
 pre.sql{background:#1d2229;color:#f5f3ef;border-radius:14px;padding:12px;font-size:11px;overflow-x:auto;white-space:pre;margin-top:8px}
+.spotpin{display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateY(8px)}
+.spotpin i{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-style:normal;font-size:17px;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.spotpin span{background:#fff;color:var(--ink);font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;box-shadow:0 1px 5px rgba(0,0,0,.2);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .poi{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:456px;z-index:8}
 .poi .pcard{box-shadow:0 10px 40px rgba(0,0,0,.18)}
 .poi .pcard h3 i{display:none}
@@ -321,7 +324,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v12';
+const APP_VERSION='v13';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -790,7 +793,7 @@ function renderList(){
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
   if(data.key) html+=`<div class="pad"><div id="recmap"><div class="empty" style="padding-top:110px">Loading map…</div></div>
-     <div class="legend">${pick?'<span class="lg pick">Our pick</span>':''}${wait?`<span class="lg wait">${waitKind==='first'?'Opens first':'Worth the wait'}</span>`:''}${rest.length?'<span class="s-open"><span class="dotc">Open</span></span>':''}${later.length?'<span class="lg later">Opens later</span>':''}${data.spots.length?'<span>⌂ ☺ Your spots</span>':''}</div></div>`;
+     <div class="legend">${pick?'<span class="lg pick">Our pick</span>':''}${wait?`<span class="lg wait">${waitKind==='first'?'Opens first':'Worth the wait'}</span>`:''}${rest.length?'<span class="s-open"><span class="dotc">Open</span></span>':''}${later.length?'<span class="lg later">Opens later</span>':''}${data.spots.length?`<span>${data.spots.map(s=>kindOf(s).glyph+' '+esc(s.name)).join(' · ')}</span>`:''}</div></div>`;
   if(pick) html+=`<div class="pad" style="margin-top:16px">${heroCard(pick,'pick',S.get(pick.id))}</div>`;
   else if(list.length&&!unk.length) html+=`<div class="pad"><div class="note" style="background:var(--card)">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div></div>`;
   if(wait) html+=`<div class="pad" style="margin-top:14px">${heroCard(wait,waitKind,S.get(wait.id))}</div>`;
@@ -818,9 +821,8 @@ async function drawRecMap(){
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='pick'?99:k==='wait'?98:1});
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    const bs=baseSpot(); if(n&&bs){addSpotMarkers(g,map,null);b.extend({lat:bs.lat,lng:bs.lng})}else addSpotMarkers(g,map,null);
-    if(n>1) map.fitBounds(b,36); else if(n===1) map.setCenter(b.getCenter?b.getCenter():HOME);
-    if(!n) el.innerHTML='<div class="empty" style="padding-top:110px">Nothing to show on the map yet.</div>';
+    n+=addSpotMarkers(g,map,b);
+    if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
 
@@ -1044,7 +1046,7 @@ async function drawMap(){
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
     n+=addSpotMarkers(g,map,b);
-    if(n>1) map.fitBounds(b,40);
+    if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
 
@@ -1086,13 +1088,16 @@ const nearHome=p=>p.lat!=null&&!p.approx&&km(HOME,p)<12;
 const baseSpot=()=>data.spots.find(s=>s.id===data.base)||null;
 function km(a,b){const R=6371,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dn=r(b.lng-a.lng);const h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 function distTxt(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
-function addSpotMarkers(g,map,bounds){
-  data.spots.forEach(s=>{const k=kindOf(s);
-    const pin=new g.Pin({background:k.col,borderColor:'#ffffff',glyphColor:'#ffffff',glyph:k.glyph,scale:1.15});
-    new g.Marker({map,position:{lat:s.lat,lng:s.lng},title:s.name,content:pin.element||pin,zIndex:200});
-    if(bounds) bounds.extend({lat:s.lat,lng:s.lng});
+// Your accommodation and friends' places: always on every map, with a name label
+function addSpotMarkers(g,map,bounds,skipId){
+  let n=0;
+  data.spots.forEach(s=>{if(s.id===skipId)return;const k=kindOf(s);
+    const el=document.createElement('div');el.className='spotpin';
+    el.innerHTML=`<i style="background:${k.col}">${k.glyph}</i><span>${esc(s.name)}</span>`;
+    new g.Marker({map,position:{lat:s.lat,lng:s.lng},title:s.name,content:el,zIndex:500});
+    if(bounds&&km(HOME,s)<12){bounds.extend({lat:s.lat,lng:s.lng});n++}
   });
-  return data.spots.length;
+  return n;
 }
 function spotsSection(){
   const b=baseSpot();
@@ -1144,6 +1149,7 @@ async function drawSpotMap(){
     const d=state.spotDraft, start=d.lat!=null?{lat:d.lat,lng:d.lng}:HOME;
     spotMapObj=new g.Map(el,{center:start,zoom:d.lat!=null?16:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
     const k=kindOf(d), pin=new g.Pin({background:k.col,borderColor:'#ffffff',glyphColor:'#ffffff',glyph:k.glyph,scale:1.2});
+    addSpotMarkers(g,spotMapObj,null);
     spotMarker=new g.Marker({map:spotMapObj,position:d.lat!=null?start:null,content:pin.element||pin,gmpDraggable:true});
     spotMarker.addListener('dragend',()=>{const p=spotMarker.position;setSpotPos(typeof p.lat==='function'?p.lat():p.lat,typeof p.lng==='function'?p.lng():p.lng,'')});
     spotMapObj.addListener('click',e=>{if(!e.latLng)return;if(!spotMarker.position)spotMarker.map=spotMapObj;setSpotPos(e.latLng.lat(),e.latLng.lng(),'')});
