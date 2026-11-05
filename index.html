@@ -211,7 +211,8 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .rate.sm button{font-size:26px}
 .ratelbl{font-size:13px;font-weight:700;margin-top:4px}
 .ours{font-weight:800;border-radius:6px;padding:0 6px;font-size:11px}
-.ours.o5{background:#e3f1e8;color:#1f7a4c}.ours.o4{background:#eef0f3;color:var(--ink)}.ours.o3{background:#fbf0d9;color:#8a6a1f}.ours.o2,.ours.o1{background:#f7e1e1;color:#a63a3a}
+.ours.o5,.ours.o4{background:#e3f1e8;color:#1f7a4c}.ours.o3,.ours.o2{background:#eef0f3;color:var(--ink)}.ours.o1{background:#fbf0d9;color:#8a6a1f}.ours.o0{background:#f7e1e1;color:#a63a3a}
+.rate button.no{font-size:22px;margin-right:4px}.rate button.no.on{color:#a63a3a}
 .rateask{margin-top:12px;border:1.5px solid var(--accent-soft)}
 .paybtn.ask{background:var(--accent);border-color:var(--accent);color:#fff}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
@@ -483,7 +484,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v66';
+const APP_VERSION='v67';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -874,7 +875,7 @@ const catOf=()=>{const c=CATS.find(x=>x.k===(state.cat||defaultCat(when().min)))
   const sb=c.subs&&state.sub&&c.subs.find(x=>x.k===state.sub);return sb?{...sb,k:c.k+'_'+sb.k,parent:c.k}:c};
 function score(p){
   const r=p.rating??4.0, c=p.ratingCount||0;
-  return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05)+({5:1,4:.15,3:-.8}[p.ours]||0);
+  return r+Math.min(.2,.05*Math.log10(1+c))+.12*matches(p).length+(MICH_BONUS[p.michelin]||0)+(p.disc?0:.05)+({5:1,4:.6,3:.15,2:-.2,1:-.8}[p.ours]||0);
 }
 async function discover(cat,force){
   if(!data.key||!data.discover) return;
@@ -901,7 +902,7 @@ function candidates(cat){
   const disc=data.discover&&data.disc[cat.k]?data.disc[cat.k].items.filter(p=>!gids.has(p.gid)&&(p.ratingCount||0)>=15):[];
   let all=[...saved,...disc];
   if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4||p.ours>=4);
-  return all.filter(p=>!(p.ours&&p.ours<=2));
+  return all.filter(p=>p.ours!==0);
 }
 const CAT_SHORT={sport:'⛳ Sport',breakfast:'Coffee',bakery:'Bakery',lunch:'Lunch',seafood:'Paella',tapas:'Tapas',drinks:'Drinks',dessert:'Sweets',dinner:'Dinner'};
 function screenToday(){
@@ -929,7 +930,7 @@ function screenToday(){
     ${state.keyStatus==='bad'?`<div class="note warn"><b>Google didn’t accept the key</b>, so hours can’t update. <button class="link" onclick="push('settings')">Check the key →</button></div>`:''}
     ${hol?`<div class="note warn"><b>${esc(hol.name)}</b> is a public holiday. Places marked ✓ have holiday hours confirmed by Google. For the rest, call ahead.</div>`:''}
     ${(()=>{const a=rateAsk();if(!a)return'';return `<div class="pcard rateask"><p class="small" style="margin:0">You went ${visitDay(a.v.at)}</p><h3 style="font-size:19px;margin-top:2px">How was ${esc(a.p.name)}?</h3>
-      ${rateHtml(a.p.id,0)}<p class="small" style="margin-top:4px">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</p>
+      ${rateHtml(a.p.id,-1)}<p class="small" style="margin-top:4px">5 outstanding · 4 superb, will go again · 3 good for the area · 2 nothing special · 1 only if no other option · 0 don’t go back</p>
       <button class="link" style="margin-top:6px" onclick="skipRate('${a.v.id}')">Not now</button></div>`})()}
     ${state.betterTrip?`<div class="note warn" style="margin-top:12px"><b>This phone is on an old, empty trip.</b> Your trip with ${state.betterTrip.visits} visit${state.betterTrip.visits===1?'':'s'} and ${state.betterTrip.rated} rated place${state.betterTrip.rated===1?'':'s'} is saved separately. <button class="btn block" style="margin-top:8px" onclick="switchTrip('${state.betterTrip.trip}')">Switch to my trip</button></div>`:''}
     ${claudeCardHtml()}
@@ -955,7 +956,7 @@ function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id), m=matches(p), dt=distTxt(p);
   if(kind==='pick'||kind==='fav'||kind==='alt') return `<div class="pickA k-${kind}" onclick="openDetail('${p.id}')" role="link" tabindex="0">
     <div class="th">${img(p)}</div>
-    <div class="tx"><span class="lbl">${kind==='fav'?(p.fav?'♥ Your favourite':'★ Definitely go back'):kind==='pick'&&p.ours===3?'Only if desperate':kind==='alt'?'Or try something new':'Our pick'}${kind!=='alt'&&state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
+    <div class="tx"><span class="lbl">${kind==='fav'?(p.fav?'♥ Your favourite':'★ '+(RATE_LBL[p.ours]||'Superb')):kind==='pick'&&p.ours===1?'Only if no other option':kind==='alt'?'Or try something new':'Our pick'}${kind!=='alt'&&state.when?' for '+fmt(when().min):''}</span><span class="pname">${esc(p.name)}</span>
       <span class="pmeta">${oursTag(p)}<span>${esc(st.txt)}</span><span>${esc(areaOf(p))}</span>${dt?`<span>${dt}</span>`:''}${mich(p)}</span>
       ${m.length?`<span class="match">♥ ${esc(m.slice(0,2).join(' · '))}</span>`:''}${flagsFor(p,when().date)}</div>
     <button class="favA ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button></div>`;
@@ -972,12 +973,12 @@ function renderList(){
   let list=all.filter(p=>D.get(p.id)!=null&&D.get(p.id)<=R), widened=false;
   if(!list.length&&all.length){list=all.filter(p=>D.get(p.id)!=null).sort((a,b)=>D.get(a.id)-D.get(b.id)).slice(0,8);widened=true}
   const S=new Map(list.map(p=>[p.id,status(p)])), SC=new Map(list.map(p=>[p.id,score(p)]));
-  const tier=p=>p.fav||p.ours===5?0:(p.ours>=4||(!p.ours&&(p.rating||0)>=4))?1:2;
+  const tier=p=>p.fav||p.ours>=4?0:(p.ours===3||(!rated(p)&&(p.rating||0)>=4))?1:2;
   const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>(tier(a)-tier(b))||(D.get(a.id)-D.get(b.id))||(SC.get(b.id)-SC.get(a.id)));
   const open=by('open'), soon=by('soon'), closed=by('closed'), unk=by('unknown');
-  const favOpen=open.filter(p=>p.fav||p.ours===5), fav=favOpen[0]||null;
-  const alt=fav?(open.find(p=>!p.fav&&p.ours!==5&&p.ours!==3)||null):null;
-  const pick=fav||open.find(p=>p.ours!==3)||open[0]||null;
+  const favOpen=open.filter(p=>p.fav||p.ours>=4), fav=favOpen[0]||null;
+  const alt=fav?(open.find(p=>!p.fav&&!(p.ours>=4)&&p.ours!==1)||null):null;
+  const pick=fav||open.find(p=>p.ours!==1)||open[0]||null;
   const waitPool=soon.filter(p=>S.get(p.id).wait<=150);
   // 'much better' = Google rating at least 0.3 higher, or clearly higher overall score
   const wait=pick?(waitPool.find(p=>(p.rating!=null&&pick.rating!=null&&p.rating>=pick.rating+.3)||SC.get(p.id)>=SC.get(pick.id)+.25)||null)
@@ -1003,8 +1004,8 @@ function renderList(){
   if(unk.length) html+=`${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div>`;
   if(closed.length&&state.showMore) html+=state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="morebtn" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed ›</button>`;
   if(!list.length) html+=`<div class="note">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div>`;
-  const nope=data.places.filter(p=>p.ours&&p.ours<=2&&cat.tags.some(t=>p.tags.includes(t))).length;
-  if(nope) html+=`<p class="small" style="margin-top:10px">${nope} place${nope>1?'s':''} you rated “not going back” ${nope>1?'are':'is'} hidden.</p>`;
+  const nope=data.places.filter(p=>p.ours===0&&cat.tags.some(t=>p.tags.includes(t))).length;
+  if(nope) html+=`<p class="small" style="margin-top:10px">${nope} place${nope>1?'s':''} you rated “don’t go back” ${nope>1?'are':'is'} hidden.</p>`;
   el.innerHTML=html;
   renderDiscNote();
   drawRecMap();
@@ -1044,7 +1045,7 @@ async function drawRecMap(){
 // All places in three groups: been, want to go, recommended
 const inGroup=(p,k)=>k==='been'?beenTo(p):k==='want'?wantTo(p):k==='rec'?!beenTo(p)&&!wantTo(p):true;
 const lastVisit=id=>(data.visits||[]).filter(v=>v.placeId===id).reduce((a,v)=>Math.max(a,v.at),0);
-const beenTo=p=>!!(p.ours||lastVisit(p.id));
+const beenTo=p=>rated(p)||!!lastVisit(p.id);
 const wantTo=p=>!beenTo(p)&&(data.plan.includes(p.id)||inToday(p.id)||p.fav);
 function savedGroups(list){
   const been=list.filter(beenTo).sort((a,b)=>(ourRank(b)-ourRank(a))||(lastVisit(b.id)-lastVisit(a.id)));
@@ -1238,8 +1239,8 @@ function screenDetail(id){
     ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${vs[0].meal?MEAL_LBL[vs[0].meal]+', ':''}${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="askVisit('${id}')">We went here</button></div>
       ${vs.length?`<div style="margin-top:8px">${vs.map(v=>`<div class="srow" style="padding:6px 0;font-size:14px"><span>${v.meal?MEAL_LBL[v.meal]+' · ':''}${visitDay(v.at)}${v.how==='bill'?' <span class="small">· from a bill</span>':''}</span><button class="link danger" style="font-size:13px" onclick="rmVisit('${v.id}',true)">${state.rmV===v.id?'Tap again to remove':'Remove'}</button></div>`).join('')}</div>`:''}
       ${state.visitAsk===id?visitAskHtml(id):''}
-      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><span class="lab" style="margin:0 0 4px">Our rating</span>${rateHtml(id,(byId(id)||{}).ours||0)}
-      <div class="ratelbl" style="color:${{5:'#1f7a4c',3:'#8a6a1f',2:'#a63a3a',1:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${(byId(id)||{}).ours?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</span>'}</div></div></div>`})()}
+      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><span class="lab" style="margin:0 0 4px">Our rating</span>${rateHtml(id,rated(byId(id))?byId(id).ours:-1)}
+      <div class="ratelbl" style="color:${{5:'#1f7a4c',4:'#1f7a4c',1:'#8a6a1f',0:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${rated(byId(id))?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 outstanding · 4 superb, will go again · 3 good for the area · 2 nothing special · 1 only if no other option · 0 don’t go back</span>'}</div></div></div>`})()}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
     <details class="more" ${state.moreOpen?'open':''} ontoggle="state.moreOpen=this.open"><summary><span>More details</span><span class="small">Photos, menu, type, notes, Google</span></summary>
@@ -1510,20 +1511,21 @@ function historyHtml(){
 }
 function historyList(vs){
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
-  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${v.meal?MEAL_LBL[v.meal]:new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${v.meal?MEAL_LBL[v.meal]:new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(rated(byId(v.placeId))?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
 }
-// Our own ratings: 5 definitely go back · 4 good if in the area · 3 only if desperate · 1-2 not going back
-const ourRank=p=>p.ours?(p.ours<=2?p.ours-3:p.ours):2.5;
-const RATE_LBL={5:'Definitely go back',4:'Good if we’re in the area',3:'Only if desperate',2:'Not going back',1:'Not going back'};
-const oursTag=p=>p&&p.ours?`<span class="ours o${p.ours}" title="${RATE_LBL[p.ours]}">${p.ours}★ ours</span>`:'';
-function rateHtml(id,n,sm){return `<div class="rate ${sm?'sm':''}" role="group" aria-label="Our rating">${[1,2,3,4,5].map(k=>`<button class="${n>=k?'on':''}" onclick="event.stopPropagation();setOurs('${id}',${k})" aria-label="${k} star${k>1?'s':''}: ${RATE_LBL[k]}" aria-pressed="${n===k}">★</button>`).join('')}</div>`}
+// Our own ratings (0–5): 5 outstanding (rare) · 4 superb, will go again · 3 good for the area · 2 nothing special, would eat again · 1 only if no other option · 0 don't go back (hidden from suggestions)
+const rated=p=>!!p&&typeof p.ours==='number';
+const ourRank=p=>rated(p)?(p.ours===0?-3:p.ours===1?-1:p.ours):2.5;
+const RATE_LBL={5:'Outstanding',4:'Superb, will go again',3:'Good for the area',2:'Nothing special, would eat again',1:'Only if no other option',0:'Don’t go back'};
+const oursTag=p=>rated(p)?`<span class="ours o${p.ours}" title="${RATE_LBL[p.ours]}">${p.ours?p.ours+'★ ours':'✕ don’t go back'}</span>`:'';
+function rateHtml(id,n,sm){return `<div class="rate ${sm?'sm':''}" role="group" aria-label="Our rating"><button class="no ${n===0?'on':''}" onclick="event.stopPropagation();setOurs('${id}',0)" aria-label="0: ${RATE_LBL[0]}" aria-pressed="${n===0}">✕</button>${[1,2,3,4,5].map(k=>`<button class="${n>=k?'on':''}" onclick="event.stopPropagation();setOurs('${id}',${k})" aria-label="${k} star${k>1?'s':''}: ${RATE_LBL[k]}" aria-pressed="${n===k}">★</button>`).join('')}</div>`}
 function setOurs(id,n){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}
   if(p.ours===n){delete p.ours;toast('Rating cleared')}else{p.ours=n;p.oursAt=Date.now();toast(`${p.name}: ${RATE_LBL[n]}`)}
   p.touched=true;save();render(true)}
 // The latest visit in the last 3 days that hasn't been rated yet
 function rateAsk(){
   const vs=[...(data.visits||[])].filter(v=>v.placeId&&!v.noRate&&Date.now()-v.at<3*864e5).sort((a,b)=>b.at-a.at);
-  for(const v of vs){const p=byId(v.placeId);if(p&&!p.ours&&!(p.oursAt>v.at))return {v,p}}return null;
+  for(const v of vs){const p=byId(v.placeId);if(p&&!rated(p)&&!(p.oursAt>v.at))return {v,p}}return null;
 }
 function skipRate(vid){const v=(data.visits||[]).find(x=>x.id===vid);if(v){v.noRate=true;save();render(true)}}
 function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
@@ -2595,7 +2597,7 @@ function screenBillSetup(){
   </div>`;
 }
 // Guard against landing on an old, empty trip: find the trip on this Supabase project that holds our data
-const tripScore=d=>{d=d||{};const pl=d.places||[];return 2*(d.visits||[]).length+pl.filter(p=>p.ours).length+pl.filter(p=>p.fav).length+(d.plan||[]).length+Object.values(d.dayPlans||{}).reduce((a,x)=>a+((x&&x.ids)||[]).length,0)};
+const tripScore=d=>{d=d||{};const pl=d.places||[];return 2*(d.visits||[]).length+pl.filter(rated).length+pl.filter(p=>p.fav).length+(d.plan||[]).length+Object.values(d.dayPlans||{}).reduce((a,x)=>a+((x&&x.ids)||[]).length,0)};
 async function checkTrips(){
   if(!SB()||state.tripChecked) return; state.tripChecked=true;
   try{
@@ -2603,7 +2605,7 @@ async function checkTrips(){
     const cur=rows.find(r=>r.trip===SB().trip), cs=tripScore(cur&&cur.data&&cur.data.d);
     const best=rows.filter(r=>r.trip!==SB().trip).map(r=>({trip:r.trip,s:tripScore(r.data&&r.data.d),d:r.data&&r.data.d||{}})).sort((a,b)=>b.s-a.s)[0];
     if(best&&best.s>=3&&cs===0){toast('This phone was on an empty trip. Moving you back to yours…');return switchTrip(best.trip)}
-    if(best&&best.s>=cs+3){state.betterTrip={trip:best.trip,visits:(best.d.visits||[]).length,rated:(best.d.places||[]).filter(p=>p.ours).length};renderSoft();renderTripBar()}
+    if(best&&best.s>=cs+3){state.betterTrip={trip:best.trip,visits:(best.d.visits||[]).length,rated:(best.d.places||[]).filter(rated).length};renderSoft();renderTripBar()}
   }catch(e){}
 }
 async function switchTrip(t){

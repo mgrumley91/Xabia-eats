@@ -12,8 +12,9 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
 - `id = 'app'` row: `data->'d'` holds
   - `spots`: our apartment (`kind` = 'home') and friends' places such as Wass's (`kind` = 'friends'), with name, lat, lng
   - `places`: saved restaurants, cafés and bakeries (name, area, tags, note, menu, michelin, rating, addr, lat, lng, ig)
-    plus `fav` (favourite) and `ours`, our own 1–5 rating: 5 definitely go back, 4 good if in the area,
-    3 only if desperate, 1–2 not going back. (`rating` is Google's.)
+    plus `fav` (favourite) and `ours`, our own 0–5 rating: 5 outstanding (rare), 4 superb, will go again,
+    3 good for the area, 2 nothing special but would eat again, 1 only if no other option, 0 don't go back
+    (never recommend a 0). (`rating` is Google's.)
   - `plan`: the whole-trip plan, place ids in order · `dayPlans`: today's plan by date (`{"2026-11-04": {ids, done}}`)
   - `visits`: where we went (name, placeId, at, how, meal = breakfast/coffee/lunch/dinner) · `prefs`: food preferences
   - sports places (golf, tennis, padel, gym, water sports) are in `places` too, tagged Sport, Golf, Tennis, Padel, Gym or Watersports
