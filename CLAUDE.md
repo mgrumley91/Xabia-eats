@@ -8,8 +8,7 @@ served at https://mgrumley91.github.io/Xabia-eats/.
 Use the Supabase connector. Project: **mgrumley91@gmail.com** (project id `cffosbepcciwpfrzqpvy`).
 Everything is in one table, `public.splitter` (columns: trip, id, kind, data jsonb, updated_at).
 
-- Several `trip` values exist from setup; **our current trip is the one whose `id = 'app'` row
-  has the latest `updated_at`.** Only use rows for that trip.
+- There is one trip: `trip_0k3l3f1m5p511x1d0n1e471p1p515m`. Only use rows for that trip.
 - `id = 'app'` row: `data->'d'` holds
   - `spots`: our apartment (`kind` = 'home') and friends' places such as Wass's (`kind` = 'friends'), with name, lat, lng
   - `places`: saved restaurants, cafés and bakeries (name, area, tags, note, menu, michelin, rating, addr, lat, lng, ig)
