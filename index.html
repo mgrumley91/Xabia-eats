@@ -476,7 +476,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v55';
+const APP_VERSION='v56';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2346,7 +2346,7 @@ Search Google for it. Reply with ONLY this JSON and nothing else: {"handle":"the
 Use "high" only if you found an instagram.com profile that clearly belongs to this exact business in Xàbia/Jávea. If you can't find one, use an empty handle.`;
   let last;
   for(const model of ['gemini-2.5-flash','gemini-flash-latest']){
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gemKey())}`,{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':gemKey()},
       body:JSON.stringify({contents:[{parts:[{text}]}],tools:[{google_search:{}}],generationConfig:{temperature:0}})});
     const j=await r.json().catch(()=>({}));
     if(r.ok){const txt=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');state.igLast=txt.slice(0,240)||('(empty answer'+(j.candidates?.[0]?.finishReason?', '+j.candidates[0].finishReason:'')+')');return parseIg(txt)}
@@ -2379,7 +2379,7 @@ const gemKey=()=>data.gemKey||data.key;
 async function gemini(b64,signal){
   let last;
   for(const model of ['gemini-2.5-flash','gemini-flash-latest','gemini-2.0-flash']){
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gemKey())}`,{method:'POST',signal,headers:{'Content-Type':'application/json'},
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal,headers:{'Content-Type':'application/json','x-goog-api-key':gemKey()},
       body:JSON.stringify({contents:[{parts:[{text:BILL_PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
     const j=await r.json().catch(()=>({}));
     if(r.ok){const t=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';return JSON.parse(t.replace(/^```(json)?|```$/g,'').trim())}
@@ -2534,7 +2534,7 @@ function screenBillSetup(){
     <p style="font-size:14px;margin:0">Bill photos are read by Google’s Gemini. It needs its own key, because Google won’t let a Maps key use Gemini.</p>
     <ol class="steps"><li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a> and sign in.</li><li>Tap <b>Create API key</b>, choose your Xabia Eats project, and copy it.</li><li>Paste it here and tap Save.</li></ol>
     <label class="lab" for="gemKeyIn">Bill-reading key</label>
-    <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${data.gemKey?'Saved · paste a new one to replace':'AIza…'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
+    <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${data.gemKey?'Saved · paste a new one to replace':'Paste the key'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
     <p class="small flush" style="margin-top:6px">${data.gemKey?'✓ Saved and shared with your trip. ':''}Each bill costs well under a cent.</p>
   </form>
   </div>`;
@@ -2685,7 +2685,13 @@ const IG_ASK='Find the Instagram accounts for all our places in the app that don
 function askClaudeIg(){try{const r=navigator.clipboard&&navigator.clipboard.writeText(IG_ASK);r&&r.catch&&r.catch(()=>{})}catch(e){}
   if(data.claudeUrl){toast('Request copied. Paste it in Claude');window.open(data.claudeUrl,'_blank','noopener')}
   else{toast('Request copied. Add your Claude link below to open it from here');setTimeout(()=>document.getElementById('claudeUrl')?.focus(),50)}}
-function saveGemKey(v){v=String(v||'').trim();if(!/^AIza[\w-]{20,}$/.test(v)){toast('That doesn’t look like a Google key (it starts with AIza)');return}data.gemKey=v;save();toast('Saved. Snap a bill to try it');render(true)}
+async function saveGemKey(v){v=String(v||'').replace(/\s/g,'');
+  if(v.length<20){toast('Paste the whole key from AI Studio');return}
+  toast('Checking the key with Google…');
+  try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',{headers:{'x-goog-api-key':v}});
+    if(!r.ok){const j=await r.json().catch(()=>({}));toast('Google didn’t accept it: '+(j.error&&j.error.message||r.status));return}}
+  catch(e){toast('Couldn’t reach Google to check it. Saved anyway')}
+  data.gemKey=v;save();toast('Key works. Snap a bill to try it');render(true)}
 function openClaude(){
   if(!data.claudeUrl){state.stack=['settings'];render();setTimeout(()=>{const el=document.getElementById('claudeUrl');if(el){el.scrollIntoView({block:'center'});el.focus()}},80);toast('Paste the link to your Claude trip project once');return}
   window.open(data.claudeUrl,'_blank','noopener');
