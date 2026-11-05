@@ -240,6 +240,10 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .trippanel{border:1.5px solid #9fd1c3;background:#f3faf7;margin-top:12px}.trippanel .lbl{color:#1f7a6c;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .tnum{border:0;cursor:pointer;font:inherit;font-weight:700}.trippanel .clnum,.tripstops .clnum{background:#1f7a6c}.trippanel .sdone .clnum{background:#9aa3ad}.sdone .tnum{background:#9aa3ad}.sdone .rname{text-decoration:line-through;color:var(--muted)}
 .omap{height:280px;border-radius:18px;overflow:hidden;margin-top:12px;background:#ece6dc}
+.swrow{position:relative;overflow:hidden}
+.swrow .swdel{position:absolute;top:0;right:0;bottom:0;width:88px;border:0;background:#c0392b;color:#fff;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.swrow .swface{position:relative;background:var(--card);transition:transform .2s;touch-action:pan-y}
+.trippanel .swrow .swface{background:#f3faf7}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -967,7 +971,7 @@ function heroCard(p,kind,st){
 function renderList(){
   const el=document.getElementById('list'); if(!el) return;
   const at=activeOut();
-  if(at){el.innerHTML=tripPanelHtml();state.recPins=[];const rm=document.getElementById('recmap');if(rm){rm.dataset.sig='trip';drawRoute(rm,at.o)}renderDiscNote();return}
+  if(at){el.innerHTML=tripPanelHtml();swipeRows(el);state.recPins=[];const rm=document.getElementById('recmap');if(rm){rm.dataset.sig='trip';drawRoute(rm,at.o)}renderDiscNote();return}
   const cat=catOf(), all=candidates(cat), R=data.radius||3;
   const D=new Map(all.map(p=>[p.id,distKm(p)]));
   let list=all.filter(p=>D.get(p.id)!=null&&D.get(p.id)<=R), widened=false;
@@ -2762,6 +2766,34 @@ function routeUrl2(o,fromIdx){const s=stopsWithPos(o).slice(fromIdx||0);if(!s.le
   return `https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${ll(s.at(-1))}`+(s.length>1?`&waypoints=${encodeURIComponent(s.slice(0,-1).map(ll).join('|'))}`:'')}
 const navUrl=(o,x)=>`https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${x.lat},${x.lng}`;
 function startOuting(id){data.activeOuting={id,at:Date.now(),done:[]};save();state.stack=[];state.tab='today';render();toast('Trip started. It’s on your Home map')}
+// Swipe a stop left to reveal Remove
+function removeStop(id,i){
+  const o=outById(id); if(!o||!o.stops[i]) return; const st=o.stops[i], a=data.activeOuting&&data.activeOuting.id===id?data.activeOuting:null;
+  state.stopUndo={id,i,st,done:a?a.done.slice():null};
+  o.stops.splice(i,1); delete o.route;
+  if(a) a.done=a.done.filter(x=>x!==i).map(x=>x>i?x-1:x);
+  save(); render(true);
+  let bar=document.getElementById('undo'); if(!bar){bar=document.createElement('div');bar.id='undo';bar.className='upd';document.body.append(bar)}
+  bar.innerHTML=`<span>Removed ${esc(st.name)}</span><button class="btn" onclick="undoStop()">Undo</button>`; bar.hidden=false;
+  clearTimeout(removeStop.t); removeStop.t=setTimeout(()=>{bar.hidden=true;state.stopUndo=null},8000);
+}
+function undoStop(){const u=state.stopUndo;if(!u)return;const o=outById(u.id);if(o){o.stops.splice(u.i,0,u.st);delete o.route;if(u.done&&data.activeOuting&&data.activeOuting.id===u.id)data.activeOuting.done=u.done}
+  state.stopUndo=null;const bar=document.getElementById('undo');if(bar)bar.hidden=true;save();render(true);toast('Stop put back')}
+function swipeRows(root){
+  (root||document).querySelectorAll('.swrow').forEach(row=>{
+    const face=row.querySelector('.swface'); if(!face||face._sw) return; face._sw=1; let x0=null,y0=0,dx=0,open=false,drag=false;
+    const set=v=>{face.style.transform=v?`translateX(${v}px)`:''};
+    face.addEventListener('pointerdown',e=>{x0=e.clientX;y0=e.clientY;dx=0;drag=false;face.style.transition='none'});
+    face.addEventListener('pointermove',e=>{if(x0===null)return;const mx=e.clientX-x0,my=e.clientY-y0;
+      if(!drag){if(Math.abs(mx)>10&&Math.abs(mx)>Math.abs(my)){drag=true;try{face.setPointerCapture(e.pointerId)}catch(_){}}else if(Math.abs(my)>10){x0=null;return}else return}
+      dx=Math.min(0,Math.max(-110,(open?-88:0)+mx));set(dx)});
+    const end=e=>{if(x0===null)return;face.style.transition='';x0=null;
+      if(drag){open=dx<-44;set(open?-88:0);document.querySelectorAll('.swrow .swface').forEach(f=>{if(f!==face&&f.style.transform){f.style.transform=''}});e.preventDefault();e.stopPropagation();face._skip=Date.now()}
+      else if(open){open=false;set(0);face._skip=Date.now()}};
+    face.addEventListener('pointerup',end);face.addEventListener('pointercancel',()=>{x0=null;face.style.transition='';set(open?-88:0)});
+    face.addEventListener('click',e=>{if(face._skip&&Date.now()-face._skip<350){e.preventDefault();e.stopPropagation()}},true);
+  });
+}
 function finishOuting(){const a=data.activeOuting,o=a&&outById(a.id);if(o){o.lastDone=Date.now();o.stops.forEach((x,i)=>{if(a.done.includes(i)&&x.placeId&&byId(x.placeId))logVisit(byId(x.placeId),'trip')})}data.activeOuting=null;save();toast('Trip finished');render(true)}
 function stopDone(i){const a=data.activeOuting;if(!a)return;a.done=a.done.includes(i)?a.done.filter(x=>x!==i):[...a.done,i];save();renderList()}
 function delOuting(id){if(state.confirmDel!=='o'+id){state.confirmDel='o'+id;render(true);setTimeout(()=>{if(state.confirmDel==='o'+id){state.confirmDel=null;renderSoft()}},4000);return}
@@ -2771,9 +2803,9 @@ function tripPanelHtml(){
   const t=activeOut(); if(!t) return ''; const {a,o}=t, m=MODES[o.mode]||MODES.walking, next=o.stops.findIndex((x,i)=>!a.done.includes(i));
   return `<div class="pcard trippanel"><div class="clhead"><span class="lbl">${m.icon} Trip in progress</span><button class="link" onclick="push('outing:${o.id}')">Details</button></div>
     <h3 style="font-size:20px;margin-top:2px">${esc(o.title)}</h3><p class="small" style="margin:2px 0 6px">${next<0?'All stops done':`Stop ${next+1} of ${o.stops.length}`} · ${esc(routeLine(o).replace(/^\S+ /,''))}</p>
-    ${o.stops.map((x,i)=>`<div class="clrow ${a.done.includes(i)?'sdone':''}"><button class="clnum tnum" onclick="stopDone(${i})" aria-label="${a.done.includes(i)?'Not done':'Done'}">${a.done.includes(i)?'✓':i+1}</button>
+    ${o.stops.map((x,i)=>`<div class="swrow"><button class="swdel" onclick="removeStop('${o.id}',${i})">Remove</button><div class="clrow swface ${a.done.includes(i)?'sdone':''}"><button class="clnum tnum" onclick="stopDone(${i})" aria-label="${a.done.includes(i)?'Not done':'Done'}">${a.done.includes(i)?'✓':i+1}</button>
       <div class="grow" ${x.placeId?`onclick="openDetail('${x.placeId}')" style="cursor:pointer"`:''}><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="small" style="margin:2px 0 0">${esc(x.why)}</div>`:''}</div>
-      ${i===next&&x.lat!=null?`<a class="btn" style="padding:9px 14px;font-size:14px;text-decoration:none" href="${esc(navUrl(o,x))}" target="_blank" rel="noopener">Navigate</a>`:''}</div>`).join('')}
+      ${i===next&&x.lat!=null?`<a class="btn" style="padding:9px 14px;font-size:14px;text-decoration:none" href="${esc(navUrl(o,x))}" target="_blank" rel="noopener">Navigate</a>`:''}</div></div>`).join('')}
     <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1;text-decoration:none;text-align:center" href="${esc(routeUrl2(o,Math.max(0,next)))}" target="_blank" rel="noopener">Whole route in Maps</a><button class="btn ghost" style="flex:1" onclick="finishOuting()">Finish trip</button></div></div>`;
 }
 function screenOuting(id){
@@ -2786,7 +2818,8 @@ function screenOuting(id){
     <p class="small" id="routeline" style="margin-top:8px">${esc(routeLine(o))}</p>
     ${data.key?'<div id="omap" class="omap"></div>':''}
     ${sec('Stops',`${o.stops.length}`)}
-    <div class="list tripstops">${o.stops.map((x,i)=>`<div class="row" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
+    <div class="list tripstops">${o.stops.map((x,i)=>`<div class="swrow"><button class="swdel" onclick="removeStop('${id}',${i})">Remove</button><div class="row swface" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div></div>`).join('')}</div>
+    <p class="small" style="margin-top:6px">Swipe a stop left to remove it.</p>
     <button class="btn block" style="margin-top:16px" onclick="${act?`go('today')`:`startOuting('${id}')`}">${act?'Trip in progress · show on Home':'Start trip'}</button>
     <a class="btn ghost block" style="text-decoration:none;text-align:center" href="${esc(routeUrl2(o))}" target="_blank" rel="noopener">Open route in Google Maps</a>
     ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" data-q="${esc('About our saved trip “'+o.title+'”: ')}" onclick="igCopy(this);toast('Trip name copied. Paste it in Claude and say what to change')">✦ Change with Claude</a>`:''}
@@ -2999,7 +3032,7 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
-  if(top&&top.startsWith('outing:')){const om=document.getElementById('omap'),oo=outById(top.slice(7));if(om&&oo)drawRoute(om,oo)}
+  if(top&&top.startsWith('outing:')){swipeRows();const om=document.getElementById('omap'),oo=outById(top.slice(7));if(om&&oo)drawRoute(om,oo)}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
