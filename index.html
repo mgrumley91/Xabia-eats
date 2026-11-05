@@ -480,7 +480,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v61';
+const APP_VERSION='v62';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -918,7 +918,7 @@ function screenToday(){
      <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
     <div class="chipsA">${CATS.map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
-    <div class="nearrow"><button class="chip" onclick="locate(true)">📍 ${state.locating?'Finding you…':'Near '+esc(nearLbl())}</button>${[1,3,10].map(r=>`<button class="chip ${(data.radius||3)===r?'on':''}" onclick="data.radius=${r};save();render(true)">${r} km</button>`).join('')}</div>
+    ${nearRowHtml()}
     ${(()=>{const pc=CATS.find(c=>c.k===(cat.parent||cat.k));return pc&&pc.subs?`<div class="chips wrap" style="margin-top:8px">${[{k:'',label:'All '+pc.label.toLowerCase()},...pc.subs].map(sb=>`<button class="chip ${(state.sub||'')===sb.k?'on':''}" onclick="state.sub='${sb.k}'||null;state.showMore=false;render(true)">${sb.label}</button>`).join('')}</div>`:''})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
       <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
@@ -1010,18 +1010,22 @@ async function drawRecMap(){
   if(el.dataset.sig===sig&&el.dataset.drawn) return; el.dataset.sig=sig;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
-    el.innerHTML='';
-    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});
+    // keep the same map and just swap the pins, so updates don't flash
+    let map=el._map; const first=!map;
+    if(first){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});el._mks=[]}
+    else{el._mks.forEach(m=>{m.map=null});el._mks=[]}
     const b=new window.google.maps.LatLngBounds(); let n=0;
     const style={fav:{bg:'#d4622e',sc:1.45,gl:'♥'},alt:{bg:'#b94f1f',sc:1.15,gl:'★'},pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},cl:{bg:'#7b4fd6',sc:1.45},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
     [...(state.recPins||[])].reverse().forEach(([p,k])=>{
       if(p.lat==null||p.approx) return;
       const s=style[k], gl=k==='cl'?String(p._n):s.gl, pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(gl?{glyph:gl}:{})});
-      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='cl'?100:k==='pick'?99:k==='wait'?98:1});
+      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='cl'?100:k==='pick'?99:k==='wait'?98:1});el._mks.push(mk);
       mk.addListener('click',()=>{if(p.id)openDetail(p.id);else document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})}); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    n+=addSpotMarkers(g,map,b); addYou(g,map);
-    if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
+    if(first){n+=addSpotMarkers(g,map,b);addYou(g,map)}
+    else data.spots.forEach(sp=>{if(sp.lat!=null&&km(HOME,sp)<12){b.extend({lat:sp.lat,lng:sp.lng});n++}});
+    const ck=catOf().k+'|'+(data.radius||3);
+    if(first||el._ck!==ck){el._ck=ck;if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}}
     el.dataset.drawn='1';
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
@@ -1529,10 +1533,12 @@ function locate(force){
   if(!navigator.geolocation||state.locating) return;
   if(!force&&(data.noLoc||(state.here&&Date.now()-state.here.at<4*6e4))) return;
   state.locating=true;
-  navigator.geolocation.getCurrentPosition(pos=>{state.locating=false;state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};updateYou();if(data.noLoc){data.noLoc=false;save()}if(state.tab==='today'&&!state.stack.length)render(true)},
-    err=>{state.locating=false;if(err.code===1&&!data.noLoc){data.noLoc=true;save()}if(force)toast(err.code===1?'Location is off for this app. Using your apartment instead':'Couldn’t get your location');renderSoft()},
+  navigator.geolocation.getCurrentPosition(pos=>{state.locating=false;state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};updateYou();if(data.noLoc){data.noLoc=false;save()}refreshNear()},
+    err=>{state.locating=false;if(err.code===1&&!data.noLoc){data.noLoc=true;save()}if(force)toast(err.code===1?'Location is off for this app. Using your apartment instead':'Couldn’t get your location');refreshNear()},
     {enableHighAccuracy:!!force,timeout:9000,maximumAge:force?0:60000});
 }
+function nearRowHtml(){return `<div class="nearrow"><button class="chip" onclick="locate(true);refreshNear()">📍 ${state.locating?'Finding you…':'Near '+esc(nearLbl())}</button>${[1,3,10].map(r=>`<button class="chip ${(data.radius||3)===r?'on':''}" onclick="data.radius=${r};save();refreshNear()">${r} km</button>`).join('')}</div>`}
+function refreshNear(){const r=document.querySelector('.nearrow');if(r)r.outerHTML=nearRowHtml();if(state.tab==='today'&&!state.stack.length)renderList()}
 const distKm=p=>p.lat==null||p.approx?null:km(origin(),p);
 function distTxt(p){const b=origin();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
 // Your accommodation and friends' places: always on every map, with a name label
