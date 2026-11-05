@@ -488,7 +488,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v69';
+const APP_VERSION='v70';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1470,9 +1470,9 @@ function pendingBills(){
 function vcOthers(){const q=normName(state.vcQ||''),sg=new Set((state.vcSug||[]));
   const list=data.places.filter(p=>!sg.has(p.id)&&(!q||normName(p.name).includes(q))).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8);
   return list.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')||'<span class="small">No saved place matches. Find it on Google below.</span>'}
-function vcHtml(){
+function vcHtml(mid){
   const pend=pendingBills(); if(!pend.length) return '';
-  const m=pend[pend.length-1];
+  const m=mid?pend.find(x=>x.id===mid):pend[pend.length-1]; if(!m) return '';
   if(state.vcFor!==m.id){const sg=suggestFor(m);state.vcFor=m.id;state.vcMeal=guessMeal(madridMin(m.at));state.vcDate=madridDate(m.at);state.vcPlace=sg[0]&&sg[0][1]>=.5?sg[0][0].id:null;state.vcQ='';state.vcOther=!sg.length}
   const sg=suggestFor(m).map(x=>x[0]); if(state.vcPlace&&!sg.some(p=>p.id===state.vcPlace)&&byId(state.vcPlace)) sg.unshift(byId(state.vcPlace));
   state.vcSug=sg.map(p=>p.id); const today=madridNow().date, nm=m.billName||m.place;
@@ -2526,6 +2526,10 @@ function screenMeal(id){
   return head+`<div class="pad"><h1 class="pagetitle">${esc(m.place)}</h1><p class="lead">${when}</p>
     <div class="verdict" style="margin-top:14px;background:${m.net<0?'var(--accent-dark)':m.net>0?'#1f7a6c':'var(--ink)'}"><div class="vwho">This bill</div><div class="vamt">${esc(verdict)}</div></div>
     ${mealDebts(m).length?`${sec('Payment','Ref '+esc(mealRef(m)))}${mealDebts(m).map(d=>`<div class="pcard"><div class="vline" style="font-size:16px"><span>${esc(owesTxt(d.from,d.to,d&&m.detail&&m.detail.parties))}</span><span>${mm(d.c)}</span></div>${debtBlock(m,d)}</div>`).join('')}${anyPay()?fxNote(cur):''}`:''}
+    ${!m.settle?(()=>{const lp=m.placeId&&byId(m.placeId);
+      if(lp) return `${sec('Where you ate')}<div class="pcard"><div class="srow" style="padding:0;cursor:pointer" onclick="openDetail('${lp.id}')"><b>${esc(lp.name)}</b><span class="small">Open ›</span></div>
+        <div style="margin-top:8px">${rateHtml(lp.id,rated(lp)?lp.ours:-1)}</div><div class="ratelbl">${rated(lp)?RATE_LBL[lp.ours]:'<span class="small" style="font-weight:500">Tap to rate it</span>'}</div></div>`;
+      const card=vcHtml(m.id); return card?`${sec('Where you ate')}${card}`:'';})():''}
     ${body}
     ${state.mealDel===m.id?(()=>{const now=B.meals.reduce((t,x)=>t+x.net,0),after=now-m.net,bal=v=>v===0?'all square':v<0?`${We.toLowerCase()==='we'?'you':We} owe ${n.b} ${mm(-v)}`:`${n.b} owes ${us==='us'?'you':us} ${mm(v)}`;
       return `<div class="pcard" style="margin-top:22px;border-color:#e3b5b5"><h3 style="font-size:18px">Remove this bill from the trip?</h3>
