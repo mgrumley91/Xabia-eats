@@ -488,7 +488,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v68';
+const APP_VERSION='v69';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1481,7 +1481,8 @@ function vcHtml(){
     <span class="lab">Which place is it?</span>
     <div class="chips wrap">${sg.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')}<button class="chip ${state.vcOther?'on':''}" onclick="state.vcOther=!state.vcOther;render(true)">${sg.length?'Somewhere else…':'Pick a place…'}</button></div>
     ${state.vcOther?`<input class="field" id="vcQ" style="margin-top:8px" placeholder="Search your places" value="${esc(state.vcQ||'')}" autocomplete="off" oninput="state.vcQ=this.value;document.getElementById('vcList').innerHTML=vcOthers()"><div class="chips wrap" id="vcList" style="margin-top:6px">${vcOthers()}</div>
-      ${data.key?`<button class="link" style="margin-top:6px" onclick="vcFind()">Not saved yet? Find it on Google →</button>`:''}`:''}
+      ${data.key&&state.vcPlace?`<button class="link" style="margin-top:6px" onclick="vcFind()">Not saved yet? Find it on Google →</button>`:''}`:''}
+    ${data.key&&!state.vcPlace?`<button class="btn block" style="margin-top:10px" onclick="vcFind()">Find “${esc(nm.replace(/\s*[-–|].*$/,''))}” on Google</button>`:''}
     <span class="lab">What was it?</span>
     <div class="chips wrap">${MEALS.map(([k,l])=>`<button class="chip ${state.vcMeal===k?'on':''}" onclick="state.vcMeal='${k}';render(true)">${l}</button>`).join('')}</div>
     <label class="lab" for="vcDate">When</label><input class="field" type="date" id="vcDate" value="${state.vcDate}" max="${today}" onchange="state.vcDate=this.value">
@@ -1494,7 +1495,7 @@ function vcYes(){
   if(date===madridDate(m.at)) v.at=m.at; else {const [y,mo,d]=date.split('-').map(Number),mi=MEAL_HOUR[meal];v.at=madridMs(y,mo,d,Math.floor(mi/60),mi%60)}
   data.visits=data.visits.filter(x=>x.id!=='vb_'+m.id);
   if(!m.billName) m.billName=m.place; m.place=p.name; m.placeId=p.id; m.visit=v.id;
-  save(); saveMeals(); state.vcFor=null; toast(`Added: ${MEAL_LBL[meal].toLowerCase()} at ${p.name}`); render(true);
+  save(); saveMeals(); state.vcFor=null; if(!rated(p)) state.rateNow=p.id; toast(`Added: ${MEAL_LBL[meal].toLowerCase()} at ${p.name}`); render(true);
 }
 function vcSkip(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;m.noVisit=true;saveMeals();state.vcFor=null;render(true)}
 function vcFind(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;const nm=m.billName||m.place;
@@ -2067,7 +2068,8 @@ function renderBillsBody(){
     html=`<div id="bBal"></div>
     ${billBusy()?`<div class="bprog" onclick="billGo(${S.payer?3:2})"><span class="ic">📝</span><div class="grow"><b>${esc(S.place||'Bill')} · in progress</b><div class="small" style="margin:0">${S.items.length} item${S.items.length>1?'s':''}${gm()?' · everyone picking':''}</div></div><b style="color:var(--accent)">Continue ›</b></div>`:''}
     <button class="btn block bnew" onclick="newBill()">${state.newConfirm?'Start again? The unfinished bill is cleared':'📷 &nbsp;New bill'}</button>
-    ${pend.length?(state.vcOpen?vcHtml()+`<button class="link" style="display:block;margin:8px auto 0" onclick="state.vcOpen=false;render(true)">Later</button>`
+    ${state.rateNow&&byId(state.rateNow)&&!rated(byId(state.rateNow))?`<div class="pcard rateask"><h3 style="font-size:19px;margin:0">How was ${esc(byId(state.rateNow).name)}?</h3>${rateHtml(state.rateNow,-1)}<p class="small" style="margin-top:4px">5 outstanding · 4 superb · 3 good for the area · 2 nothing special · 1 only if no other option · 0 don’t go back</p><button class="link" onclick="state.rateNow=null;render(true)">Later</button></div>`:''}
+    ${pend.length?((state.vcOpen??(Date.now()-pend[pend.length-1].at<6*36e5))?vcHtml()+`<button class="link" style="display:block;margin:8px auto 0" onclick="state.vcOpen=false;render(true)">Later</button>`
       :`<div class="bask" onclick="state.vcOpen=true;render(true)"><span class="ic">📍</span><div class="grow"><b>${pend.length} bill${pend.length>1?'s':''} need${pend.length>1?'':'s'} a place</b><div class="small" style="margin:0">Tap to say where you ate</div></div><span>›</span></div>`):''}
     ${sec('This trip',`${B.meals.filter(m=>!m.settle).length} meal${B.meals.filter(m=>!m.settle).length===1?'':'s'}`)}
     <div id="bTrip"></div>`;
@@ -2190,7 +2192,7 @@ function tallyGroup(){
   if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
     if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
   
-  S.tallied=true;saveBill();saveMeals();state.billStep=0;render(true);toast('Added to the trip tally');
+  S.tallied=true;saveBill();saveMeals();state.billStep=0;state.vcOpen=true;state.vcFor=null;render(true);window.scrollTo(0,0);toast('Added to the trip tally');
 }
 function renderBillItems(){
   if(gm()) return renderGroupItems();
@@ -2353,7 +2355,7 @@ function wireBills(){
     if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
       if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
     
-    S.tallied=true;saveBill();saveMeals();state.billStep=0;render(true);toast('Added to the trip tally');
+    S.tallied=true;saveBill();saveMeals();state.billStep=0;state.vcOpen=true;state.vcFor=null;render(true);window.scrollTo(0,0);toast('Added to the trip tally');
   };
   $('bPhoto').onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;B.photo=f;B.photoUrl=URL.createObjectURL(f);try{B.photoData='data:image/jpeg;base64,'+await shrinkB64(f,1100,.7)}catch(_){B.photoData=null}B.readMsg='';B.readErr=false;renderBillsBody();if(gemKey())readBill()};
   $('bRead').onclick=readBill;
