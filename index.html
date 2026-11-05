@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v35';
+const APP_VERSION='v36';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1156,7 +1156,8 @@ function screenDetail(id){
     <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
     ${p.note?`<div class="noteA"><b>Your note · </b>${esc(p.note)}</div>`:''}
-    ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="visitNow('${id}')">We went here</button></div>
+    ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${vs[0].meal?MEAL_LBL[vs[0].meal]+', ':''}${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="askVisit('${id}')">We went here</button></div>
+      ${state.visitAsk===id?visitAskHtml(id):''}
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><span class="lab" style="margin:0 0 4px">Our rating</span>${rateHtml(id,(byId(id)||{}).ours||0)}
       <div class="ratelbl" style="color:${{5:'#1f7a4c',3:'#8a6a1f',2:'#a63a3a',1:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${(byId(id)||{}).ours?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</span>'}</div></div></div>`})()}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
@@ -1330,12 +1331,33 @@ function logVisit(p,how){
   const v={id:uid(),placeId:p&&p.id?p.id:null,name:p?p.name:'',area:p&&p.id?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:Date.now(),how:how||'tap'};
   data.visits=data.visits||[];data.visits.push(v);save();return v;
 }
-function visitNow(id){const p=byId(id);if(!p)return;if(p.disc)id=saveDisc(id);logVisit(byId(id),'tap');toast(`Logged: you went to ${byId(id).name}`);render(true)}
+// "We went here": which meal and which day
+const MEALS=[['breakfast','Breakfast'],['coffee','Coffee'],['lunch','Lunch'],['dinner','Dinner']];
+const MEAL_LBL=Object.fromEntries(MEALS);
+const MEAL_HOUR={breakfast:9*60+30,coffee:11*60,lunch:14*60,dinner:21*60};
+const guessMeal=min=>min<11*60?'breakfast':min<12*60+30?'coffee':min<17*60?'lunch':min<19*60?'coffee':'dinner';
+function askVisit(id){const n=madridNow();state.visitAsk=id;state.vMeal=guessMeal(n.min);state.vDate=n.date;render(true)}
+function visitAskHtml(id){const today=madridNow().date;
+  return `<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+    <span class="lab" style="margin:0 0 6px">What did you have?</span>
+    <div class="chips wrap">${MEALS.map(([k,l])=>`<button class="chip ${state.vMeal===k?'on':''}" onclick="state.vMeal='${k}';render(true)">${l}</button>`).join('')}</div>
+    <label class="lab" for="vDate">When</label>
+    <div class="frow" style="margin-top:0"><input class="field" type="date" id="vDate" value="${state.vDate||today}" max="${today}" onchange="state.vDate=this.value"><button class="btn" onclick="visitNow('${id}')">Save</button></div>
+    <button class="link" style="margin-top:6px" onclick="state.visitAsk=null;render(true)">Cancel</button></div>`}
+function visitNow(id){const p=byId(id);if(!p)return;if(p.disc)id=saveDisc(id);
+  const meal=state.vMeal||guessMeal(madridNow().min), now=madridNow(), date=(document.getElementById('vDate')||{}).value||state.vDate||now.date;
+  const v=logVisit(byId(id),'tap'); v.meal=meal;
+  if(date!==now.date){const [y,m,d]=date.split('-').map(Number), mins=MEAL_HOUR[meal]; v.at=madridMs(y,m,d,Math.floor(mins/60),mins%60)}
+  save(); state.visitAsk=null;
+  toast(`Logged: ${MEAL_LBL[meal].toLowerCase()} at ${byId(id).name}${date!==now.date?', '+pretty(date):''}`);render(true)}
+// Milliseconds for a Xàbia (Europe/Madrid) wall-clock time
+function madridMs(y,m,d,h,mi){const guess=Date.UTC(y,m-1,d,h,mi);const off=(t)=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(t));const g=k=>+p.find(x=>x.type===k).value;return Date.UTC(g('year'),g('month')-1,g('day'),g('hour'),g('minute'))-t};return guess-off(guess-off(guess))}
 // Every bill in the tally is a visit too: rebuild history from them
 function billVisits(){
   return (B.meals||[]).filter(m=>!m.settle&&m.place&&!/^Meal \d+$/.test(m.place)).map(m=>{
     const p=data.places.find(x=>x.name&&x.name.toLowerCase()===m.place.toLowerCase())||data.places.find(x=>x.name&&(x.name.toLowerCase().includes(m.place.toLowerCase())||m.place.toLowerCase().includes(x.name.toLowerCase())));
-    return {id:'vb_'+m.id,placeId:p?p.id:null,name:p?p.name:m.place,area:p?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:m.at,how:'bill'}});
+    const hm=new Date(m.at).toLocaleTimeString('en-GB',{timeZone:TZ,hourCycle:'h23',hour:'2-digit',minute:'2-digit'}).split(':').map(Number);
+    return {id:'vb_'+m.id,placeId:p?p.id:null,name:p?p.name:m.place,area:p?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:m.at,how:'bill',meal:guessMeal(hm[0]*60+hm[1])}});
 }
 function fillVisits(){const have=new Set((data.visits||[]).map(v=>v.id)),add=billVisits().filter(v=>!have.has(v.id));
   data.visits=[...(data.visits||[]),...add];save();toast(`Added ${add.length} visit${add.length>1?'s':''} from your bills`);render(true)}
@@ -1347,7 +1369,7 @@ function historyHtml(){
   const fill=fromBills.length?`<button class="btn ghost block" onclick="fillVisits()">Add ${fromBills.length} visit${fromBills.length>1?'s':''} from our bills</button>`:'';
   if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>${fill}`;
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
-  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('')+fill;
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${v.meal?MEAL_LBL[v.meal]:new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('')+fill;
 }
 // Our own ratings: 5 definitely go back · 4 good if in the area · 3 only if desperate · 1-2 not going back
 const ourRank=p=>p.ours?(p.ours<=2?p.ours-3:p.ours):2.5;
@@ -1975,7 +1997,7 @@ function tallyGroup(){
   B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
   if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
     if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
-  const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
+  const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill').meal=guessMeal(madridNow().min);save();
   S.tallied=true;saveBill();saveMeals();renderBillsBody();renderTabs();toast('Added to the trip tally');
 }
 function renderBillItems(){
@@ -2137,7 +2159,7 @@ function wireBills(){
     B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
     if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
       if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
-    const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill');
+    const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill').meal=guessMeal(madridNow().min);save();
     S.tallied=true;saveBill();saveMeals();renderBillsBody();toast('Added to the trip tally');
   };
   $('bPhoto').onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;B.photo=f;B.photoUrl=URL.createObjectURL(f);try{B.photoData='data:image/jpeg;base64,'+await shrinkB64(f,1100,.7)}catch(_){B.photoData=null}B.readMsg=data.key?'Photo ready. Tap Read bill.':'';B.readErr=false;renderBillsBody()};
