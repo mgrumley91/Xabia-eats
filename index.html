@@ -483,7 +483,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v65';
+const APP_VERSION='v66';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2738,8 +2738,24 @@ function saveTripFromPicks(start){
   if(start) startOuting(o.id); else {toast('Saved. Find it in Plan → Saved trips');render(true)}
 }
 const stopsWithPos=o=>o.stops.filter(x=>x.lat!=null&&x.lng!=null);
-function routeKm(o){const s=stopsWithPos(o);let d=0;for(let i=1;i<s.length;i++)d+=km(s[i-1],s[i]);return d*1.25}
-function routeLine(o){const d=routeKm(o),m=MODES[o.mode]||MODES.walking,min=Math.round(d/m.kmh*60);return d?`${m.icon} about ${d<1?Math.round(d*1000/50)*50+' m':d.toFixed(1)+' km'} · roughly ${min<60?min+' min':Math.floor(min/60)+' h '+(min%60?min%60+' min':'')} by ${m.lbl.toLowerCase()}, plus stops`:''}
+// Real roads and paths from OpenStreetMap's routing service (free, no key); saved with the trip
+const OSRM={bicycling:'routed-bike',walking:'routed-foot',driving:'routed-car'};
+const routeKey=o=>(o.mode||'walking')+'|'+stopsWithPos(o).map(x=>(+x.lat).toFixed(5)+','+(+x.lng).toFixed(5)).join(';');
+const goodRoute=o=>o.route&&o.route.key===routeKey(o)?o.route:null;
+const routeBusy={};
+async function roadRoute(o){
+  const s=stopsWithPos(o); if(s.length<2) return null; const key=routeKey(o);
+  if(goodRoute(o)) return o.route; if(routeBusy[o.id]) return null; routeBusy[o.id]=1;
+  try{
+    const r=await fetch(`https://routing.openstreetmap.de/${OSRM[o.mode]||'routed-foot'}/route/v1/driving/${s.map(x=>(+x.lng)+','+(+x.lat)).join(';')}?overview=full&geometries=geojson`);
+    const j=await r.json(), rt=j.routes&&j.routes[0]; if(!rt) return null;
+    let c=rt.geometry.coordinates; const step=Math.max(1,Math.ceil(c.length/250));
+    c=c.filter((_,i)=>i%step===0||i===c.length-1).map(([lng,lat])=>[+lat.toFixed(5),+lng.toFixed(5)]);
+    const live=outById(o.id)||o; live.route={key,pts:c,dist:Math.round(rt.distance),dur:Math.round(rt.duration)}; save(); return live.route;
+  }catch(e){return null}finally{delete routeBusy[o.id]}
+}
+function routeKm(o){const g=goodRoute(o);if(g)return g.dist/1000;const s=stopsWithPos(o);let d=0;for(let i=1;i<s.length;i++)d+=km(s[i-1],s[i]);return d*1.25}
+function routeLine(o){const d=routeKm(o),m=MODES[o.mode]||MODES.walking,g=goodRoute(o),min=g?Math.round(g.dur/60):Math.round(d/m.kmh*60);return d?`${m.icon} about ${d<1?Math.round(d*1000/50)*50+' m':d.toFixed(1)+' km'} · roughly ${min<60?min+' min':Math.floor(min/60)+' h '+(min%60?min%60+' min':'')} by ${m.lbl.toLowerCase()}, plus stops`:''}
 function routeUrl2(o,fromIdx){const s=stopsWithPos(o).slice(fromIdx||0);if(!s.length)return'#';const ll=x=>`${x.lat},${x.lng}`;
   return `https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${ll(s.at(-1))}`+(s.length>1?`&waypoints=${encodeURIComponent(s.slice(0,-1).map(ll).join('|'))}`:'')}
 const navUrl=(o,x)=>`https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${x.lat},${x.lng}`;
@@ -2765,12 +2781,13 @@ function screenOuting(id){
   return head+`<div class="pad"><h1 class="pagetitle">${esc(o.title)}</h1>
     <p class="lead">${o.summary?esc(o.summary)+' ':''}${o.src==='claude'?'Planned with Claude.':''}</p>
     <div class="chips wrap" style="margin-top:10px">${Object.entries(MODES).map(([k,v])=>`<button class="chip ${o.mode===k?'on':''}" onclick="outById('${id}').mode='${k}';save();render(true)">${v.icon} ${v.lbl}</button>`).join('')}</div>
-    <p class="small" style="margin-top:8px">${esc(routeLine(o))}</p>
+    <p class="small" id="routeline" style="margin-top:8px">${esc(routeLine(o))}</p>
     ${data.key?'<div id="omap" class="omap"></div>':''}
     ${sec('Stops',`${o.stops.length}`)}
     <div class="list tripstops">${o.stops.map((x,i)=>`<div class="row" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
     <button class="btn block" style="margin-top:16px" onclick="${act?`go('today')`:`startOuting('${id}')`}">${act?'Trip in progress · show on Home':'Start trip'}</button>
     <a class="btn ghost block" style="text-decoration:none;text-align:center" href="${esc(routeUrl2(o))}" target="_blank" rel="noopener">Open route in Google Maps</a>
+    ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" data-q="${esc('About our saved trip “'+o.title+'”: ')}" onclick="igCopy(this);toast('Trip name copied. Paste it in Claude and say what to change')">✦ Change with Claude</a>`:''}
     <button class="link danger" style="display:block;margin:18px auto 0" onclick="delOuting('${id}')">${state.confirmDel==='o'+id?'Tap again to delete':'Delete this trip'}</button></div>`;
 }
 async function drawRoute(el,o,pins){
@@ -2781,7 +2798,10 @@ async function drawRoute(el,o,pins){
     const s=stopsWithPos(o), b=new window.google.maps.LatLngBounds(), done=(data.activeOuting&&data.activeOuting.id===o.id)?data.activeOuting.done:[];
     s.forEach(x=>{const i=o.stops.indexOf(x);const pin=new g.Pin({background:done.includes(i)?'#9aa3ad':'#1f7a6c',borderColor:'#fff',glyphColor:'#fff',glyph:String(i+1),scale:1.2});
       const mk=new g.Marker({map,position:{lat:x.lat,lng:x.lng},title:x.name,content:pin.element||pin,zIndex:150});el._omks.push(mk);b.extend({lat:x.lat,lng:x.lng})});
-    if(window.google.maps.Polyline&&s.length>1) el._line=new window.google.maps.Polyline({map,path:s.map(x=>({lat:x.lat,lng:x.lng})),strokeColor:'#1f7a6c',strokeOpacity:.85,strokeWeight:4});
+    const rt=goodRoute(o), path=rt?rt.pts.map(([lat,lng])=>({lat,lng})):s.map(x=>({lat:x.lat,lng:x.lng}));
+    if(window.google.maps.Polyline&&s.length>1) el._line=new window.google.maps.Polyline({map,path,strokeColor:'#1f7a6c',strokeOpacity:.85,strokeWeight:rt?5:3,...(rt?{}:{strokeOpacity:.5})});
+    if(rt) path.forEach(pt=>b.extend(pt));
+    if(!rt&&s.length>1) roadRoute(o).then(r=>{if(r&&document.body.contains(el)){drawRoute(el,outById(o.id)||o);const rl=document.getElementById('routeline');if(rl)rl.textContent=routeLine(outById(o.id)||o)}});
     if(s.length>1&&!el._fit){map.fitBounds(b,{top:60,right:40,bottom:40,left:40});el._fit=1}else if(s.length===1&&!el._fit){map.setCenter(b.getCenter());map.setZoom(15);el._fit=1}
   }catch(e){}
 }

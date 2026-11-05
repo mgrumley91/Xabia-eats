@@ -58,6 +58,29 @@ on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind,
 - `why` is one short line. Check opening hours for when we're going before recommending.
 - Then tell us: "They're on your Home map."
 
+## Saved trips (routes)
+
+Our saved trips are in `data->'d'->'outings'`: each has `id`, `title`, `summary`, `mode` (bicycling / walking /
+driving) and `stops` in order (`name`, `why`, `lat`, `lng`, `placeId` if it's one of our places). The trip we're on
+right now is `data->'d'->'activeOuting'` (`id`, and `done` = indexes of stops already visited).
+
+When we ask to change a trip (e.g. "add a lunch stop halfway"), work out the new list of stops (check opening hours
+for when we'll be there) and save it like this. Removing `route` makes the app redraw the roads:
+
+```sql
+update public.splitter
+set data = jsonb_set(
+      jsonb_set(data, '{d,outings}', (
+        select jsonb_agg(case when o->>'id' = '<trip id>'
+          then jsonb_set(o - 'route', '{stops}', '<new stops as a JSON array>'::jsonb) else o end order by ord)
+        from jsonb_array_elements(data->'d'->'outings') with ordinality as t(o, ord))),
+      '{updated}', to_jsonb((extract(epoch from now()) * 1000)::bigint)),
+    updated_at = now()
+where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
+```
+
+Then tell us what changed. The app shows it on the trip page (Saved → Trips) and on Home if the trip is running.
+
 ## Adding a place's Instagram
 
 When we ask you to find Instagram accounts, search the web for each place's official account in Xàbia/Jávea.
