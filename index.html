@@ -458,7 +458,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v44';
+const APP_VERSION='v45';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -904,6 +904,7 @@ function screenToday(){
     ${(()=>{const a=rateAsk();if(!a)return'';return `<div class="pcard rateask"><p class="small" style="margin:0">You went ${visitDay(a.v.at)}</p><h3 style="font-size:19px;margin-top:2px">How was ${esc(a.p.name)}?</h3>
       ${rateHtml(a.p.id,0)}<p class="small" style="margin-top:4px">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</p>
       <button class="link" style="margin-top:6px" onclick="skipRate('${a.v.id}')">Not now</button></div>`})()}
+    ${state.betterTrip?`<div class="note warn" style="margin-top:12px"><b>This phone is on an old, empty trip.</b> Your trip with ${state.betterTrip.visits} visit${state.betterTrip.visits===1?'':'s'} and ${state.betterTrip.rated} rated place${state.betterTrip.rated===1?'':'s'} is saved separately. <button class="btn block" style="margin-top:8px" onclick="switchTrip('${state.betterTrip.trip}')">Switch to my trip</button></div>`:''}
     ${claudeCardHtml()}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
     <div id="list"></div>
@@ -1747,7 +1748,7 @@ async function pullBills(){
     if(JSON.stringify(cl)!==JSON.stringify(CL())){B.claims=cl;changed=true}
     nudgePick();
     if(B.photoPending&&B.photoPending.length){for(const id of B.photoPending.splice(0)){const src=localStorage.getItem('xe.ph.'+id);if(src)await sbUpsert([sbRow('photo_'+id,'photo',{src})]).catch(()=>B.photoPending.push(id))}}
-    localBills(); setB('live');
+    localBills(); setB('live'); checkTrips();
     if(changed){billsRefresh();renderTabs()}
   }catch(e){setB(navigator.onLine?'error':'offline',e.message)}
   pulling=false;
@@ -2427,6 +2428,23 @@ function screenBillSetup(){
    <p class="small">Each bill costs well under a cent.</p></div>
   </div>`;
 }
+// Guard against landing on an old, empty trip: find the trip on this Supabase project that holds our data
+const tripScore=d=>{d=d||{};const pl=d.places||[];return 2*(d.visits||[]).length+pl.filter(p=>p.ours).length+pl.filter(p=>p.fav).length+(d.plan||[]).length+Object.values(d.dayPlans||{}).reduce((a,x)=>a+((x&&x.ids)||[]).length,0)};
+async function checkTrips(){
+  if(!SB()||state.tripChecked) return; state.tripChecked=true;
+  try{
+    const rows=await sbFetch('splitter?id=eq.app&select=trip,updated_at,data');
+    const cur=rows.find(r=>r.trip===SB().trip), cs=tripScore(cur&&cur.data&&cur.data.d);
+    const best=rows.filter(r=>r.trip!==SB().trip).map(r=>({trip:r.trip,s:tripScore(r.data&&r.data.d),d:r.data&&r.data.d||{}})).sort((a,b)=>b.s-a.s)[0];
+    if(best&&best.s>=cs+3){state.betterTrip={trip:best.trip,visits:(best.d.visits||[]).length,rated:(best.d.places||[]).filter(p=>p.ours).length};renderSoft()}
+  }catch(e){}
+}
+async function switchTrip(t){
+  data.sb={...data.sb,trip:t};data.appUpdated=0;state.takeRemote=true;state.betterTrip=null;appDirty=false;clearTimeout(appT);
+  try{localStorage.removeItem('xe.base')}catch(e){}
+  B.seeded=true;B.bill=blankBill();B.meals=[];B.claims={};B.deleted=[];localBills();save({remote:true});
+  toast('Switching to your trip…');await pullBills();toast(B.status==='live'?'You’re back on your trip':'Couldn’t connect: '+B.err);state.stack=[];render();
+}
 function newTripCode(){const a=new Uint8Array(18);crypto.getRandomValues(a);return 'trip_'+[...a].map(x=>x.toString(36).padStart(2,'0')).join('').slice(0,30)}
 async function startSharing(f){
   let url=f.u.value.trim().replace(/\s/g,'').replace(/\/+$/,''); const key=f.k.value.replace(/\s/g,'');
@@ -2440,8 +2458,8 @@ async function startSharing(f){
   let existing=null;
   try{
     const h={apikey:key};if(/^eyJ/.test(key))h.Authorization='Bearer '+key;
-    const r=await fetch(url+'/rest/v1/splitter?id=eq.app&select=trip,data,updated_at&order=updated_at.desc&limit=5',{headers:h});
-    if(r.ok){const rows=await r.json();existing=(rows||[]).sort((a,b)=>((b.data&&b.data.d&&b.data.d.key)?1:0)-((a.data&&a.data.d&&a.data.d.key)?1:0))[0]||null}
+    const r=await fetch(url+'/rest/v1/splitter?id=eq.app&select=trip,data,updated_at&order=updated_at.desc&limit=20',{headers:h});
+    if(r.ok){const rows=await r.json();existing=(rows||[]).sort((a,b)=>(tripScore(b.data&&b.data.d)-tripScore(a.data&&a.data.d))||(String(b.updated_at).localeCompare(String(a.updated_at))))[0]||null}
   }catch(e){}
   if(existing){stashLocal();data.sb={url,key,trip:existing.trip};data.appUpdated=0;state.takeRemote=true;save({remote:true});B.seeded=true;B.bill=blankBill();B.meals=[];localBills()}
   else{data.sb={url,key,trip:newTripCode()};save();B.seeded=false}
