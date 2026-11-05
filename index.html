@@ -476,7 +476,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v57';
+const APP_VERSION='v58';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1348,7 +1348,7 @@ const todayKey=()=>madridNow().date;
 const TPr=()=>(data.dayPlans||{})[todayKey()]||{ids:[],done:[]};
 function TPw(){data.dayPlans=data.dayPlans||{};const k=todayKey();
   for(const d of Object.keys(data.dayPlans))if(dayDiff(d,k)>14)delete data.dayPlans[d];
-  return data.dayPlans[k]||(data.dayPlans[k]={ids:[],done:[]})}
+  const t=data.dayPlans[k]||(data.dayPlans[k]={ids:[],done:[]});t.ids=t.ids.filter(byId);return t}
 const inToday=id=>TPr().ids.includes(id);
 function toggleToday(id){
   if(byId(id)?.disc) id=saveDisc(id);
@@ -1357,9 +1357,9 @@ function toggleToday(id){
   save();render(true);
 }
 const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
-const PLIST=v=>v==='today'?TPr().ids:data.plan, PDONE=v=>v==='today'?TPr().done:data.done;
+const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
 function screenPlan(){
-  const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.length, nP=data.plan.length;
+  const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
   const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
   return topbar('Plan')+`<div class="pad">
    <div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>
@@ -1498,7 +1498,7 @@ function rateAsk(){
 }
 function skipRate(vid){const v=(data.visits||[]).find(x=>x.id===vid);if(v){v.noRate=true;save();render(true)}}
 function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
-function movePlan(i,d,v){const a=v==='today'?TPw().ids:data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
+function movePlan(i,d,v){if(v!=='today')data.plan=data.plan.filter(byId);const a=v==='today'?TPw().ids:data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
 function toggleDone(id,v){const D=v==='today'?TPw().done:data.done,i=D.indexOf(id);if(i>=0)D.splice(i,1);else{D.push(id);if(v==='today'&&!data.done.includes(id))data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
 function clearDone(v){if(v==='today'){const t=TPw();t.ids=t.ids.filter(id=>!t.done.includes(id));t.done=[]}else{data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[]}save();render(true)}
 
@@ -2817,7 +2817,7 @@ function renderTabs(){
   document.getElementById('phone').classList.toggle('detail',!!hide);
   const t=document.getElementById('tabs'); t.hidden=!!hide; if(hide) return;
   t.innerHTML=TABS.map(([k,l,ic])=>{const on=state.tab===k&&!state.stack.length;
-    return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${(TPr().ids.length||data.plan.length)?`<em class="badge">${TPr().ids.length||data.plan.length}</em>`:''}</button>`
+    return k==='plan'?`<button class="tab mid ${on?'on':''}" onclick="go('plan')" aria-label="Plan"><i>${ic}</i>${l}${(()=>{const t=TPr().ids.filter(byId).length,pl=data.plan.filter(byId).length;return t||pl?`<em class="badge">${t||pl}</em>`:''})()}</button>`
       :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}${k==='bills'&&needsMyPick()?'<em class="bdot" aria-label="Your picks are needed"></em>':''}</button>`}).join('');
 }
 function go(k){if(k==='bills'&&state.tab==='bills'&&!state.stack.length)state.billStep=0;state.tab=k;state.stack=[];state.confirmDel=null;render()}
