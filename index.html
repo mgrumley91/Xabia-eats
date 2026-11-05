@@ -480,7 +480,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v62';
+const APP_VERSION='v63';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2530,7 +2530,7 @@ function screenBillSetup(){
    ${sec('Or connect with your Supabase details')}<p class="small" style="margin-top:-4px">If you’ve used sync before, this finds your trip and brings everything back, including your Google key.</p>`}
   ${SB()?`${sec('You’re sharing')}
     <div class="pcard"><p style="font-size:14px">Your places, spots, plan, preferences, Google key and bills all sync through your Supabase project. Use the trip link to connect another screen (the home-screen icon, Safari, another phone) or ${esc(n.b)}.</p>
-      <label class="srow" style="padding-top:12px"><span>Include my Google key in the invite<br><span class="small">So ${esc(n.b)} gets opening hours, photos and bill reading. Usage bills to your Google account.</span></span><input type="checkbox" id="invKey" ${state.invKey!==false?'checked':''} onchange="state.invKey=this.checked"></label>
+      <label class="srow" style="padding-top:12px"><span>Include my Google keys in the invite<br><span class="small">So ${esc(n.b)} gets opening hours, photos and bill reading. Usage bills to your Google account.</span></span><input type="checkbox" id="invKey" ${state.invKey!==false?'checked':''} onchange="state.invKey=this.checked"></label>
       <button class="btn block" onclick="shareInvite()">Send trip link</button>
       <button class="btn ghost block" onclick="copyText(inviteLink(),'Trip link copied. Paste it in Settings → Sync & sharing on the other screen.')">Copy trip link</button>
       <button class="btn ghost block" onclick="pullBills().then(()=>toast(B.status==='live'?'Connected':'Couldn’t connect: '+B.err))">Test connection</button>
@@ -2624,6 +2624,7 @@ async function startSharing(f){
 function inviteLink(toBills){
   const n=NM(),j={u:data.sb.url,k:data.sb.key,t:data.sb.trip,n:{...n}};if(toBills)j.b=1;
   if(state.invKey!==false&&data.key) j.g=data.key;
+  if(state.invKey!==false&&data.gemKey) j.gk=data.gemKey;
   const b64=btoa(unescape(encodeURIComponent(JSON.stringify(j)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   return location.origin+location.pathname+'#join='+b64;
 }
@@ -2652,7 +2653,7 @@ function rmParty(i){const P=collectParties();if(i<2||!P[i])return;
 function stashLocal(){state.mergeLocal={spots:(data.spots||[]).slice(),places:(data.places||[]).filter(p=>!p.seed||p.touched),key:data.key}}
 function joinTrip(j){
   stashLocal();
-  data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}
+  data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}if(j.gk)data.gemKey=j.gk;
   data.appUpdated=0;state.takeRemote=true;save({remote:true});state.joined=true;B.seeded=true;B.bill=blankBill();B.meals=[];localBills();
 }
 async function pasteTrip(text){
@@ -2665,15 +2666,19 @@ async function pasteTrip(text){
   }catch(e){toast('That trip link didn’t work. Copy it again.')}
 }
 // Opening an invite link joins the trip on this phone
-(function joinFromLink(){
-  if(location.hash==='#bills'){state.tab='bills';state.billStep=2;history.replaceState(null,'',location.pathname+location.search);return}
+function joinFromLink(){
+  if(location.hash==='#bills'){state.tab='bills';state.billStep=2;history.replaceState(null,'',location.pathname+location.search);return true}
   const m=location.hash.match(/#join=([\w-]+)/); if(!m) return;
   try{
     const j=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
-    if(j.u&&j.k&&j.t){if(!(data.sb&&data.sb.trip===j.t&&data.sb.url===j.u))joinTrip(j);else if(j.g&&!data.key){data.key=j.g;save()}state.tab=j.b?'bills':'today';if(j.b)state.billStep=2}
+    if(j.u&&j.k&&j.t){if(!(data.sb&&data.sb.trip===j.t&&data.sb.url===j.u))joinTrip(j);else{if(j.g&&!data.key)data.key=j.g;if(j.gk)data.gemKey=j.gk;save()}state.tab=j.b?'bills':'today';if(j.b)state.billStep=2}
   }catch(e){}
   history.replaceState(null,'',location.pathname+location.search);
-})();
+  return true;
+}
+joinFromLink();
+// a link tapped while the app is already open
+window.addEventListener('hashchange',()=>{if(/#(join=|bills)/.test(location.hash)&&joinFromLink()!==undefined){state.stack=[];render();if(SB())pullBills()}});
 
 /* ---------- PREFS ---------- */
 function screenPrefs(){
