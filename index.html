@@ -483,7 +483,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v64';
+const APP_VERSION='v65';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1014,7 +1014,8 @@ async function drawRecMap(){
   if(activeOut()) return;
   if(el._omks){el._omks.forEach(m=>{m.map=null});el._omks=null;if(el._line){try{el._line.setMap(null)}catch(e){}}el._fit=0;el._ck=null}
   const sig=(state.recPins||[]).map(([p,k])=>(p.id||p.name)+k).join()+'|'+data.spots.map(s=>s.id).join();
-  if(el.dataset.sig===sig&&el.dataset.drawn) return; el.dataset.sig=sig;
+  const ck0=catOf().k+'|'+(data.radius||3)+'|'+(state.here&&origin()===state.here?'me':'base');
+  if(el.dataset.sig===sig&&el.dataset.drawn&&el._ck===ck0) return; el.dataset.sig=sig;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
     // keep the same map and just swap the pins, so updates don't flash
@@ -1031,8 +1032,10 @@ async function drawRecMap(){
     });
     if(first){n+=addSpotMarkers(g,map,b);addYou(g,map)}
     else data.spots.forEach(sp=>{if(sp.lat!=null&&km(HOME,sp)<12){b.extend({lat:sp.lat,lng:sp.lng});n++}});
-    const ck=catOf().k+'|'+(data.radius||3);
-    if(first||el._ck!==ck){el._ck=ck;if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}}
+    const me=state.here&&origin()===state.here, ck=catOf().k+'|'+(data.radius||3)+'|'+(me?'me':'base');
+    if(first||el._ck!==ck){el._ck=ck;
+      if(me){map.setCenter({lat:state.here.lat,lng:state.here.lng});map.setZoom({1:15,3:14,10:12}[data.radius||3]||14)}
+      else if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}}
     el.dataset.drawn='1';
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
@@ -1056,7 +1059,10 @@ function screenSaved(){
   const q=state.q.toLowerCase();
   const nf=data.places.filter(p=>p.fav).length;
   const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||(ourRank(b)-ourRank(a))||a.name.localeCompare(b.name));
-  return topbar('Saved')+`<div class="pad">
+  const sv=state.savedView||'places', nt=OUT().length;
+  const seg=`<div class="seg2" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button></div>`;
+  if(sv==='trips') return topbar('Saved')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
+  return topbar('Saved')+`<div class="pad">${seg}
    <p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
    <button class="btn block" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">${I.plus} Add a place</button>
@@ -1398,7 +1404,6 @@ function screenPlan(){
       ${done.length?`<button class="link" onclick="clearDone('${v}')">Clear ticked-off stops</button>`:''}`:''}
    ${extra.length?`${sec('Add from your trip list',`${extra.length}`)}<div class="chips wrap">${extra.map(p=>`<button class="chip" onclick="toggleToday('${p.id}')">＋ ${esc(p.name)}</button>`).join('')}</div>`:''}
    ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours('${v}')">${I.clock} Check hours for ${v==='today'?'today’s':'my'} plan</button>`:''}
-   ${savedTripsHtml()}
    ${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
  ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
