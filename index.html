@@ -204,7 +204,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .setl{padding:12px 0 2px;border-top:1px solid var(--line);margin-top:10px}
 .setl .vline{font-size:16px}
 .paidok{margin-top:8px;font-size:13px;font-weight:700;color:var(--open)}.verdict .paidok{color:#9fe0c0}
-#bStatus{overflow-wrap:anywhere}
+#bStatus,.small.err{overflow-wrap:anywhere}
 .rate{display:flex;gap:4px;align-items:center}
 .rate button{font-size:32px;line-height:1;background:none;border:0;color:#d9d3ca;padding:2px 3px;cursor:pointer}
 .rate button.on{color:#e0a020}
@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v50';
+const APP_VERSION='v51';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
