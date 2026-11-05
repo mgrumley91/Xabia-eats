@@ -214,6 +214,12 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .ours.o5{background:#e3f1e8;color:#1f7a4c}.ours.o4{background:#eef0f3;color:var(--ink)}.ours.o3{background:#fbf0d9;color:#8a6a1f}.ours.o2,.ours.o1{background:#f7e1e1;color:#a63a3a}
 .rateask{margin-top:12px;border:1.5px solid var(--accent-soft)}
 .paybtn.ask{background:var(--accent);border-color:var(--accent);color:#fff}
+details.more{margin-top:22px;border-top:1px solid var(--line)}
+details.more>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;font-family:var(--display);font-size:20px;font-weight:700}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::after{content:'▾';font-size:16px;color:var(--muted);transition:transform .2s}
+details.more[open]>summary::after{transform:rotate(180deg)}
+details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inherit);font-weight:500}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -426,7 +432,7 @@ select.field{appearance:auto}
 .pcard h3{font-size:19px;display:flex;align-items:center;gap:10px}
 .pcard h3 i{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-style:normal;font-size:17px}
 .pcard .small{margin:2px 0 10px 44px}
-.rateask .small,.gprog .small,#hhForm .small,#bTrip .pcard .small,.pcard .small.flush{margin-left:0}
+.ratelbl .small,.rateask .small,.gprog .small,#hhForm .small,#bTrip .pcard .small,.pcard .small.flush{margin-left:0}
 .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
 .srow:last-child{border:0}
 .ks{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px}
@@ -458,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v46';
+const APP_VERSION='v47';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1175,9 +1181,12 @@ function screenDetail(id){
     <div class="acts4">
       <a href="${esc(dirLink(p))}" target="_blank" rel="noopener">${I.nav}Go</a>
       <a class="${p.phone?'':'off'}" href="tel:${esc((p.phone||'').replace(/\s/g,''))}">${I.phone}Call</a>
-      <a href="${esc(p.ig?igLink(p.ig):'https://www.instagram.com/explore/search/keyword/?q='+encodeURIComponent(p.name.replace(/,.*$/,'')+' xabia'))}" target="_blank" rel="noopener">${I.camera}Instagram</a>
+      ${p.ig?`<a href="${esc(igLink(p.ig))}" target="_blank" rel="noopener">${I.camera}Instagram</a>`:`<a href="#" onclick="event.preventDefault();state.igAsk=state.igAsk==='${id}'?null:'${id}';render(true)">${I.camera}Instagram</a>`}
       <a class="${p.web?'':'off'}" href="${esc(p.web||'#')}" target="_blank" rel="noopener">${I.globe}Website</a>
     </div>
+    ${state.igAsk===id&&!p.ig?`<div class="pcard" style="margin-top:12px"><p style="font-size:14px;margin:0"><b>No Instagram saved for ${esc(p.name)}.</b> Add their handle and this button will open their page.</p>
+      <form class="frow" onsubmit="event.preventDefault();saveIg('${id}',this.h.value)"><input class="field" name="h" id="igAsk" placeholder="@handle" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></form>
+      <a class="link" style="display:inline-block;margin-top:8px" href="https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(p.name.replace(/,.*$/,'')+' xabia')}" target="_blank" rel="noopener">Search Instagram for it →</a></div>`:''}
     ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)} · <a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`:`<p class="small" style="text-align:center;margin-top:8px"><a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`}
     <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
@@ -1188,6 +1197,7 @@ function screenDetail(id){
       <div class="ratelbl" style="color:${{5:'#1f7a4c',3:'#8a6a1f',2:'#a63a3a',1:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${(byId(id)||{}).ours?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</span>'}</div></div></div>`})()}
     <button class="link" onclick="toggleClosed('${id}')">${closedD?`Undo: closed on ${pretty(D)}`:`They told us they’re closed on ${pretty(D)}`}</button>
 
+    <details class="more" ${state.moreOpen?'open':''} ontoggle="state.moreOpen=this.open"><summary><span>More details</span><span class="small">Photos, menu, type, notes, Google</span></summary>
     ${sec('Photos',`${slides.length}`)}
     <div class="strip">${mine.map((x,i)=>`<figure><img src="${x.src}" alt="Your photo"><button onclick="rmPhoto('${id}',${i})" aria-label="Remove photo">×</button></figure>`).join('')}${gp.map(x=>`<figure><img src="${esc(x.src)}" alt="" loading="lazy"></figure>`).join('')}
       ${p.disc?'':`<label for="addPh">+ Add<br>your photo</label>`}<input type="file" id="addPh" accept="image/*" multiple hidden onchange="addPhotos('${id}',this)"></div>
@@ -1198,7 +1208,7 @@ function screenDetail(id){
     ${p.disc?'':`<form class="frow" onsubmit="event.preventDefault();addMenu('${id}',this.q)"><input class="field" name="q" id="menuAdd" placeholder="Add a dish or drink"><button class="btn">Add</button></form>`}
     ${serv.length?`<p class="small" style="margin-top:8px">Google says it serves: ${serv.join(', ')}</p>`:''}
 
-    ${p.disc?`${sec('Not saved yet')}<div class="pcard"><p style="font-size:14px">Found on Google for “${esc(catOf().label)}”. Save it to add notes, your photos and menu items.</p><button class="btn block" onclick="savePlace('${id}')">${I.plus} Save to my places</button></div></section>
+    ${p.disc?`</details>${sec('Not saved yet')}<div class="pcard"><p style="font-size:14px">Found on Google for “${esc(catOf().label)}”. Save it to add notes, your photos and menu items.</p><button class="btn block" onclick="savePlace('${id}')">${I.plus} Save to my places</button></div></section>
   <div class="cta ctaA">${p.gid&&data.key?`<button class="btn ghost" onclick="checkHours('${id}')">Check hours</button>`:''}<a class="btn go" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions${walkMin(p)&&walkMin(p)<=40?` · ${walkMin(p)} min walk`:''}</a></div>`:`
     ${sec('About this place')}
     <div class="pcard">
@@ -1218,6 +1228,7 @@ function screenDetail(id){
       ${data.key?`<button class="btn ghost block" onclick="state.addResults=null;push('relink:${id}')">${p.gid?'Wrong place? Pick another':'Find it on Google'}</button>`:''}
       <button class="btn danger block" onclick="delPlace('${id}')">${state.confirmDel===id?'Tap again to delete':'Delete this place'}</button>
     </div>
+    </details>
   </section>
   <div class="cta ctaA">${p.gid&&data.key?`<button class="btn ghost" onclick="checkHours('${id}')">Check hours</button>`:''}<a class="btn go" href="${esc(dirLink(p))}" target="_blank" rel="noopener">Directions${walkMin(p)&&walkMin(p)<=40?` · ${walkMin(p)} min walk`:''}</a></div>`}`;
 }
@@ -1225,6 +1236,8 @@ function galDots(el){const d=document.getElementById('dots');if(!d)return;const 
 function setField(id,k,v){const p=byId(id);p[k]=v;p.touched=true;save();toast('Saved')}
 function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);p.touched=true;(p.menu=p.menu||[]).push(v);save();render(true);document.getElementById('menuAdd')?.focus()}
 function rmMenu(id,i){byId(id).menu.splice(i,1);save();render(true)}
+function saveIg(id,v){let h=String(v||'').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/^@/,'').split(/[\/?#\s]/)[0];
+  if(!h){toast('Type their Instagram handle');return}const p=byId(id);p.ig='@'+h;p.touched=true;state.igAsk=null;save();toast('Instagram saved. The button now opens it');render(true)}
 function toggleTag(id,t){const p=byId(id);p.touched=true;const i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
 function toggleClosed(id){const p=byId(id),D=when().date;p.closedOn=p.closedOn||[];const i=p.closedOn.indexOf(D);i>=0?p.closedOn.splice(i,1):p.closedOn.push(D);save();render(true)}
 async function checkHours(id){
