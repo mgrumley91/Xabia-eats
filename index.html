@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v49';
+const APP_VERSION='v50';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2295,7 +2295,7 @@ function parseIg(text){
   const t=String(text||'');
   let j=null;try{j=JSON.parse((t.match(/\{[\s\S]*\}/)||[''])[0])}catch(e){}
   let h=j&&j.handle!=null?String(j.handle):'', conf=j&&j.confidence?String(j.confidence).toLowerCase():'';
-  if(!h){const m=t.match(/instagram\.com\/([a-z0-9._]{2,30})/i);if(m){h=m[1];conf=conf||'medium'}}
+  if(!h){const m=t.match(/instagram\.com\/([a-z0-9._]{2,30})/i)||t.match(/(?:^|\s)@([a-z0-9._]{3,30})\b/i);if(m){h=m[1];conf=conf||'medium'}}
   h=h.replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[\/?#].*$/,'').trim();
   if(!IG_RE.test(h)||/^(explore|p|reel|reels|stories|accounts|about)$/i.test(h)) return null;
   return {handle:h,conf:conf||'low'};
@@ -2310,7 +2310,7 @@ Use "high" only if you found an instagram.com profile that clearly belongs to th
     const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(data.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({contents:[{parts:[{text}]}],tools:[{google_search:{}}],generationConfig:{temperature:0}})});
     const j=await r.json().catch(()=>({}));
-    if(r.ok) return parseIg((j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join(''));
+    if(r.ok){const txt=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');state.igLast=txt.slice(0,240)||('(empty answer'+(j.candidates?.[0]?.finishReason?', '+j.candidates[0].finishReason:'')+')');return parseIg(txt)}
     last=j.error?.message||`Google said ${r.status}`; if(r.status!==404) break;
   }
   throw new Error(last);
@@ -2319,7 +2319,7 @@ Use "high" only if you found an instagram.com profile that clearly belongs to th
 async function autoIg(id,quiet){
   const p=byId(id); if(!p||p.ig||p.disc||!data.key) return null;
   p.igTried=Date.now(); state.igBusy=id; if(!quiet) renderSoft();
-  let res=null; try{res=await findIg(p)}catch(e){if(!quiet)toast('Couldn’t search right now: '+e.message)}
+  let res=null; try{res=await findIg(p)}catch(e){state.igErr=e.message;delete p.igTried;if(!quiet)toast('Couldn’t search right now: '+e.message)}
   state.igBusy=null; const q=byId(id); if(!q) return null;
   if(res&&res.conf==='high'&&!q.ig){q.ig='@'+res.handle;q.igAuto=true;delete q.igGuess;q.touched=true;save();if(!quiet)toast(`Found their Instagram: @${res.handle}`)}
   else if(res){q.igGuess=res.handle;save()}
@@ -2331,9 +2331,9 @@ function takeGuess(id){const p=byId(id);if(!p||!p.igGuess)return;p.ig='@'+p.igGu
 async function findAllIg(){
   if(state.igAll) return; const list=data.places.filter(p=>!p.ig&&!p.disc);
   if(!list.length){toast('Every place already has its Instagram');return}
-  state.igAll={done:0,total:list.length,found:0,maybe:0};render(true);
+  state.igAll={done:0,total:list.length,found:0,maybe:0};state.igErr=null;state.igLast=null;render(true);
   for(const p of list){const r=await autoIg(p.id,true);state.igAll.done++;if(byId(p.id)&&byId(p.id).ig)state.igAll.found++;else if(r)state.igAll.maybe++;if(state.stack.at(-1)==='settings'&&!typing())render(true);else renderSoft()}
-  const s=state.igAll;state.igAll=null;toast(`Instagram: found ${s.found} of ${s.total}${s.maybe?`, ${s.maybe} to confirm`:''}`);render(true);
+  const s=state.igAll;state.igAll=null;state.igReport=s;toast(state.igErr&&!s.found&&!s.maybe?'Google refused the search: '+state.igErr:`Instagram: found ${s.found} of ${s.total}${s.maybe?`, ${s.maybe} to confirm`:''}`);render(true);
 }
 async function gemini(b64,signal){
   let last;
@@ -2657,7 +2657,9 @@ function screenSettings(){
   ${data.key?`${sec('Instagram')}
   <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. The app can look them up on Google for you.</p>
     <button class="btn block" onclick="findAllIg()" ${state.igAll?'disabled':''}>${state.igAll?`Looking… ${state.igAll.done} of ${state.igAll.total}`:'Find Instagram for all places'}</button>
-    <p class="small flush" style="margin-top:6px">Clear matches are saved straight away; places where it’s not sure ask you on their page.</p></div>`:''}
+    <p class="small flush" style="margin-top:6px">Clear matches are saved straight away; places where it’s not sure ask you on their page.</p>
+    ${state.igErr?`<p class="small flush err" style="margin-top:6px">Google said: ${esc(state.igErr)}</p>`:''}
+    ${state.igReport&&!state.igErr&&state.igLast?`<p class="small flush" style="margin-top:6px">Last answer from Google: “${esc(state.igLast)}”</p>`:''}</div>`:''}
   ${sec('Ask Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
     <p style="font-size:14px;margin:0">Adds an <b>✦ Ask Claude</b> button to Home that opens your Xàbia trip chat in Claude. It’s only saved on this phone, so phones without your Claude account don’t get the button.</p>
