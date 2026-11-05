@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v48';
+const APP_VERSION='v49';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1184,6 +1184,9 @@ function screenDetail(id){
       ${p.ig?`<a href="${esc(igLink(p.ig))}" target="_blank" rel="noopener">${I.camera}Instagram</a>`:`<a href="#" onclick="event.preventDefault();state.igAsk=state.igAsk==='${id}'?null:'${id}';render(true)">${I.camera}Instagram</a>`}
       <a class="${p.web?'':'off'}" href="${esc(p.web||'#')}" target="_blank" rel="noopener">${I.globe}Website</a>
     </div>
+    ${p.igAuto&&p.ig?`<p class="small" style="text-align:center;margin-top:8px">Found their Instagram automatically: ${esc(p.ig)} · <button class="link" style="font-size:12px" onclick="undoIg('${id}')">Not right?</button></p>`:''}
+    ${!p.ig&&p.igGuess&&!p.disc?`<div class="pcard" style="margin-top:12px"><p style="font-size:14px;margin:0">Is this their Instagram? <a href="${esc(igLink(p.igGuess))}" target="_blank" rel="noopener"><b>@${esc(p.igGuess)}</b></a></p><div class="frow"><button class="btn" style="flex:1" onclick="takeGuess('${id}')">Yes, save it</button><button class="btn ghost" onclick="delete byId('${id}').igGuess;state.igAsk='${id}';save();render(true)">No</button></div></div>`:''}
+    ${state.igBusy===id&&!p.ig?`<p class="small" style="text-align:center;margin-top:8px">Looking for their Instagram…</p>`:''}
     ${state.igAsk===id&&!p.ig?`<div class="pcard" style="margin-top:12px"><p style="font-size:14px;margin:0"><b>No Instagram saved for ${esc(p.name)}.</b> Add their handle and this button will open their page.</p>
       <form class="frow" onsubmit="event.preventDefault();saveIg('${id}',this.h.value)"><input class="field" name="h" id="igAsk" placeholder="@handle" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></form>
       <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1" href="https://www.google.com/search?q=${encodeURIComponent('site:instagram.com "'+igName(p.name)+'" (Jávea OR Xàbia OR Javea)')}" target="_blank" rel="noopener">Find it with Google</a><a class="btn ghost" style="flex:1" href="https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(igName(p.name)+' javea')}" target="_blank" rel="noopener" data-q="${esc(igName(p.name))} jávea" onclick="igCopy(this)">Search in Instagram</a></div>
@@ -2286,6 +2289,52 @@ Rules:
 - Also set "serviceIncluded" true if the bill states service is included even with no amount. Set false if there is clearly no service charge. Use null only if you genuinely cannot tell.
 - "billTotal" is the final total printed on the bill (including any service charge), or null if unreadable.
 - If the image is not a bill, reply {"items":[]}.`;
+/* --- find a place's Instagram with Gemini + Google Search (uses the same Google key) --- */
+const IG_RE=/^[a-z0-9._]{2,30}$/i;
+function parseIg(text){
+  const t=String(text||'');
+  let j=null;try{j=JSON.parse((t.match(/\{[\s\S]*\}/)||[''])[0])}catch(e){}
+  let h=j&&j.handle!=null?String(j.handle):'', conf=j&&j.confidence?String(j.confidence).toLowerCase():'';
+  if(!h){const m=t.match(/instagram\.com\/([a-z0-9._]{2,30})/i);if(m){h=m[1];conf=conf||'medium'}}
+  h=h.replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[\/?#].*$/,'').trim();
+  if(!IG_RE.test(h)||/^(explore|p|reel|reels|stories|accounts|about)$/i.test(h)) return null;
+  return {handle:h,conf:conf||'low'};
+}
+async function findIg(p){
+  if(!data.key) throw new Error('nokey');
+  const text=`Find the official Instagram account of this business: "${p.name}"${p.addr?`, ${p.addr}`:''}, in Xàbia (Jávea), Alicante, Spain${p.web?`. Its website is ${p.web}`:''}${p.type?`. It is a ${p.type}`:''}.
+Search Google for it. Reply with ONLY this JSON and nothing else: {"handle":"the_handle_without_@ or empty string","confidence":"high, medium or low"}
+Use "high" only if you found an instagram.com profile that clearly belongs to this exact business in Xàbia/Jávea. If you can't find one, use an empty handle.`;
+  let last;
+  for(const model of ['gemini-2.5-flash','gemini-flash-latest']){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(data.key)}`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text}]}],tools:[{google_search:{}}],generationConfig:{temperature:0}})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok) return parseIg((j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join(''));
+    last=j.error?.message||`Google said ${r.status}`; if(r.status!==404) break;
+  }
+  throw new Error(last);
+}
+// Look up once per place; a clear match is saved straight away, a maybe is offered to confirm
+async function autoIg(id,quiet){
+  const p=byId(id); if(!p||p.ig||p.disc||!data.key) return null;
+  p.igTried=Date.now(); state.igBusy=id; if(!quiet) renderSoft();
+  let res=null; try{res=await findIg(p)}catch(e){if(!quiet)toast('Couldn’t search right now: '+e.message)}
+  state.igBusy=null; const q=byId(id); if(!q) return null;
+  if(res&&res.conf==='high'&&!q.ig){q.ig='@'+res.handle;q.igAuto=true;delete q.igGuess;q.touched=true;save();if(!quiet)toast(`Found their Instagram: @${res.handle}`)}
+  else if(res){q.igGuess=res.handle;save()}
+  else save();
+  if(!quiet) renderSoft(); return res;
+}
+function undoIg(id){const p=byId(id);if(!p)return;delete p.ig;delete p.igAuto;delete p.igGuess;state.igAsk=id;save();render(true)}
+function takeGuess(id){const p=byId(id);if(!p||!p.igGuess)return;p.ig='@'+p.igGuess;delete p.igGuess;p.touched=true;state.igAsk=null;save();toast('Instagram saved');render(true)}
+async function findAllIg(){
+  if(state.igAll) return; const list=data.places.filter(p=>!p.ig&&!p.disc);
+  if(!list.length){toast('Every place already has its Instagram');return}
+  state.igAll={done:0,total:list.length,found:0,maybe:0};render(true);
+  for(const p of list){const r=await autoIg(p.id,true);state.igAll.done++;if(byId(p.id)&&byId(p.id).ig)state.igAll.found++;else if(r)state.igAll.maybe++;if(state.stack.at(-1)==='settings'&&!typing())render(true);else renderSoft()}
+  const s=state.igAll;state.igAll=null;toast(`Instagram: found ${s.found} of ${s.total}${s.maybe?`, ${s.maybe} to confirm`:''}`);render(true);
+}
 async function gemini(b64,signal){
   let last;
   for(const model of ['gemini-2.5-flash','gemini-flash-latest','gemini-2.0-flash']){
@@ -2605,6 +2654,10 @@ function screenSettings(){
     ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
     <button class="btn ghost block">Edit food preferences</button>
   </div>
+  ${data.key?`${sec('Instagram')}
+  <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. The app can look them up on Google for you.</p>
+    <button class="btn block" onclick="findAllIg()" ${state.igAll?'disabled':''}>${state.igAll?`Looking… ${state.igAll.done} of ${state.igAll.total}`:'Find Instagram for all places'}</button>
+    <p class="small flush" style="margin-top:6px">Clear matches are saved straight away; places where it’s not sure ask you on their page.</p></div>`:''}
   ${sec('Ask Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
     <p style="font-size:14px;margin:0">Adds an <b>✦ Ask Claude</b> button to Home that opens your Xàbia trip chat in Claude. It’s only saved on this phone, so phones without your Claude account don’t get the button.</p>
@@ -2738,6 +2791,7 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
+  if(top&&top.startsWith('detail:')){const dp=byId(top.slice(7));if(dp&&!dp.ig&&!dp.disc&&data.key&&!dp.igTried&&state.igBusy!==dp.id)autoIg(dp.id)}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
