@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v47';
+const APP_VERSION='v48';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1186,7 +1186,8 @@ function screenDetail(id){
     </div>
     ${state.igAsk===id&&!p.ig?`<div class="pcard" style="margin-top:12px"><p style="font-size:14px;margin:0"><b>No Instagram saved for ${esc(p.name)}.</b> Add their handle and this button will open their page.</p>
       <form class="frow" onsubmit="event.preventDefault();saveIg('${id}',this.h.value)"><input class="field" name="h" id="igAsk" placeholder="@handle" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></form>
-      <a class="link" style="display:inline-block;margin-top:8px" href="https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(p.name.replace(/,.*$/,'')+' xabia')}" target="_blank" rel="noopener">Search Instagram for it →</a></div>`:''}
+      <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1" href="https://www.google.com/search?q=${encodeURIComponent('site:instagram.com "'+igName(p.name)+'" (Jávea OR Xàbia OR Javea)')}" target="_blank" rel="noopener">Find it with Google</a><a class="btn ghost" style="flex:1" href="https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(igName(p.name)+' javea')}" target="_blank" rel="noopener" data-q="${esc(igName(p.name))} jávea" onclick="igCopy(this)">Search in Instagram</a></div>
+      <p class="small" style="margin:6px 0 0">The handle is the name at the top of their Instagram page.</p></div>`:''}
     ${p.phone?`<p class="small" style="text-align:center;margin-top:8px">${esc(p.phone)} · <a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`:`<p class="small" style="text-align:center;margin-top:8px"><a href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Open in Google Maps</a></p>`}
     <div class="panel" style="margin-top:14px">${hoursList(p)}</div>
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
@@ -1236,6 +1237,9 @@ function galDots(el){const d=document.getElementById('dots');if(!d)return;const 
 function setField(id,k,v){const p=byId(id);p[k]=v;p.touched=true;save();toast('Saved')}
 function addMenu(id,inp){const v=inp.value.trim();if(!v)return;const p=byId(id);p.touched=true;(p.menu=p.menu||[]).push(v);save();render(true);document.getElementById('menuAdd')?.focus()}
 function rmMenu(id,i){byId(id).menu.splice(i,1);save();render(true)}
+// Name to search for: drop the town and words like Restaurante so the search finds the account
+const igName=n=>String(n||'').replace(/,.*$/,'').replace(/\b(restaurante?|restaurant|bar|cafeter[ií]a|j[aá]vea|x[aà]bia)\b/gi,' ').replace(/\s+/g,' ').trim()||String(n||'');
+function igCopy(a){try{const r=navigator.clipboard&&navigator.clipboard.writeText(a.dataset.q);r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Name copied. Paste it into Instagram search')}
 function saveIg(id,v){let h=String(v||'').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/^@/,'').split(/[\/?#\s]/)[0];
   if(!h){toast('Type their Instagram handle');return}const p=byId(id);p.ig='@'+h;p.touched=true;state.igAsk=null;save();toast('Instagram saved. The button now opens it');render(true)}
 function toggleTag(id,t){const p=byId(id);p.touched=true;const i=p.tags.indexOf(t);i>=0?p.tags.splice(i,1):p.tags.push(t);save();render(true)}
