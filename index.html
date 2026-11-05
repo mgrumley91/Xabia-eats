@@ -115,6 +115,11 @@ input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
 .seg3{grid-template-columns:1fr 1fr 1fr}
 .seg2 button,.seg3 button{border:0;background:none;border-radius:99px;padding:7px 4px;font-size:13px;font-weight:600;cursor:pointer}
 .seg2 button.on,.seg3 button.on{background:var(--ink);color:#fff}
+.bvr summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none}.bvr summary::-webkit-details-marker{display:none}.bvr[open] summary>.small:last-child{transform:rotate(90deg)}
+.bvrv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.bvrc{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:2px}.bvrc.buy{border-top:4px solid #b07a1f}.bvrc.rent{border-top:4px solid #1f7a72}.bvrc b{font-size:22px;font-variant-numeric:tabular-nums}
+.bsw{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}.bvrsvg{margin-top:6px}.bvrsvg text{fill:var(--muted);font-size:21px}.pcard.bvr .small{display:block;text-align:left;margin:4px 0 0}.pcard.bvr .bvrc .small{margin:0}.pcard.bvr .bvrlg .small,.bvrlg span{display:inline}
+.bvrs{display:grid;grid-template-columns:1fr auto;gap:0 10px;font-size:14px;padding:4px 0}.bvrs output{font-variant-numeric:tabular-nums;font-weight:600}.bvrs input{grid-column:1/-1;width:100%;accent-color:#1f7a72}
+.bvrt{border-collapse:collapse;width:100%;min-width:480px;font-size:13px}.bvrt th,.bvrt td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}.bvrt th:first-child,.bvrt td:first-child{text-align:left}.bvrt th{color:var(--muted);font-weight:600}
 .riskchips{padding:0!important;margin-top:4px;gap:6px}.riskchips .chip{padding:6px 11px;font-size:13px}
 .riskleg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;font-size:12.5px}
 .riskleg div{display:flex;align-items:center;gap:8px;padding:2px 0}.riskleg img{width:20px;height:20px;flex:none}.riskleg i{width:20px;height:20px;flex:none}
@@ -496,7 +501,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v73';
+const APP_VERSION='v74';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1477,7 +1482,8 @@ function savedHomesHtml(){const L=HOMES();
     <button class="btn block" onclick="newHome()">${I.plus} Add a home</button>
     ${L.length?grp('short','Shortlist')+grp('view','Viewed')+grp('look','Considering')+(L.some(h=>h.status==='no')?`<details style="margin-top:8px"><summary class="link" style="cursor:pointer">Ruled out · ${L.filter(h=>h.status==='no').length}</summary>${grp('no','Ruled out')}</details>`:'')
       +`<button class="btn ghost block" style="margin-top:14px" onclick="state.mapGroup='homes';state.risk=state.risk||'flood';go('map')">🗺 Compare on the risk map</button>`
-      :'<div class="empty">No homes yet. Add one from a listing, or tap Add a home while you’re standing outside it.</div>'}`}
+      :'<div class="empty">No homes yet. Add one from a listing, or tap Add a home while you’re standing outside it.</div>'}
+    ${bvrHtml()}`}
 function newHome(){const h={id:uid(),name:'',kind:'Apartment',status:'look',at:Date.now()};HOMES().push(h);save();state.homeNew=h.id;push('home:'+h.id)}
 function setHome(id,k,v){const h=homeById(id);if(!h)return;h[k]=v;save()}
 function delHome(id){if(state.confirmDel!=='h'+id){state.confirmDel='h'+id;render(true);return}data.homes=HOMES().filter(h=>h.id!==id);state.confirmDel=null;save();toast('Home removed');pop()}
@@ -1531,6 +1537,62 @@ async function drawHomeMap(el,id){
     map.addListener('click',e=>{if(e.latLng)placeHome(id,e.latLng.lat(),e.latLng.lng(),'Location saved. Checking climate risk…')});
   }catch(e){}
 }
+
+/* ---------- BUY OR RENT (ported from the "Xàbia Buy or Rent" artifact; settings kept on this phone) ---------- */
+const BVR_DEF={price:415000,buy:13.5,g:3,own:4400,sell:5,rent:1650,months:4,rg:3,r:6,years:30,inf:2.5,fx:0.837};
+const BVR_PRE={base:{},boom:{g:5},weak:{r:4},rentup:{rg:5}};
+const BVR_F=[['The flat',[['price','Price',250000,800000,5000],['buy','Buying costs (VAT, stamp duty, fees)',8,16,.5],['g','Price growth per year',-2,10,.25],['own','Owner running costs per year (today)',2000,10000,100],['sell','Selling / inheritance costs at the end',0,10,.5]]],
+  ['Renting instead',[['rent','Winter rent per month (today, bills incl.)',800,3500,50],['months','Months rented each year',1,8,.5],['rg','Rent growth per year',0,8,.25],['r','Investment return per year',1,10,.25]]],
+  ['Time and money',[['years','Years until Zach inherits',10,50,1],['inf','Inflation per year',0,5,.25],['fx','£ per €1',.7,1,.005]]]];
+const bvrE=v=>'€'+Math.round(v).toLocaleString('en-GB'), bvrP=v=>'£'+Math.round(v).toLocaleString('en-GB');
+const bvrPk=v=>{const a=Math.abs(v);return (v<0?'−':'')+(a>=1e6?'£'+(a/1e6).toFixed(2)+'m':'£'+Math.round(a/1000)+'k')};
+const BVR_FMT={price:bvrE,buy:v=>v+'%',g:v=>v+'%',own:bvrE,sell:v=>v+'%',rent:bvrE,months:v=>v,rg:v=>v+'%',r:v=>v+'%',years:v=>v,inf:v=>v+'%',fx:v=>'£'+Number(v).toFixed(3)};
+function bvrGet(){if(!state.bvr){let s={};try{s=JSON.parse(localStorage.getItem('xe.bvr')||'{}')}catch(e){}state.bvr={...BVR_DEF,...(s.p||{})};state.bvrPre=s.pre||'base';state.bvrHome=s.home||''}return state.bvr}
+function bvrSave(){try{localStorage.setItem('xe.bvr',JSON.stringify({p:state.bvr,pre:state.bvrPre,home:state.bvrHome}))}catch(e){}}
+function bvrModel(p){const g=p.g/100,r=p.r/100,inf=p.inf/100,rg=p.rg/100;let port=p.price*(1+p.buy/100),P=p.price,rows=[];
+  for(let t=1;t<=p.years;t++){const rent=p.rent*p.months*Math.pow(1+rg,t-1),own=p.own*Math.pow(1+inf,t-1);port=(port-(rent-own))*(1+r);P*=1+g;const d=Math.pow(1+inf,t);
+    rows.push({t,flat:P*(1-p.sell/100)/d*p.fx,port:port/d*p.fx,own,rent})}return rows}
+function bvrSolve(p,key,lo,hi){const end=q=>{const x=bvrModel(q).at(-1);return x.flat-x.port};let a=lo,b=hi,fa=end({...p,[key]:a}),fb=end({...p,[key]:b});if(fa*fb>0)return null;
+  for(let i=0;i<60;i++){const m=(a+b)/2,fm=end({...p,[key]:m});if(fa*fm<=0){b=m;fb=fm}else{a=m;fa=fm}}return (a+b)/2}
+function bvrChart(rows){const W=640,H=260,L=92,R=14,T=12,B=28,max=Math.max(...rows.map(x=>Math.max(x.flat,x.port)),1);
+  const step=[50e3,100e3,200e3,250e3,500e3,1e6,2e6].find(s=>max/s<=6)||5e6,top=Math.ceil(max/step)*step;
+  const x=t=>L+(t-1)/(rows.length-1||1)*(W-L-R),y=v=>T+(1-v/top)*(H-T-B);let s='';
+  for(let v=0;v<=top+1;v+=step)s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end">${bvrPk(v)}</text>`;
+  rows.filter(r=>r.t===1||r.t%5===0).forEach(r=>{s+=`<text x="${x(r.t)}" y="${H-8}" text-anchor="middle">${r.t===1?'Yr 1':r.t}</text>`});
+  const path=k=>rows.map((r,i)=>(i?'L':'M')+x(r.t).toFixed(1)+','+y(r[k]).toFixed(1)).join(''),e=rows.at(-1);
+  return s+`<path d="${path('port')}" fill="none" stroke="#1f7a72" stroke-width="2.5"/><path d="${path('flat')}" fill="none" stroke="#b07a1f" stroke-width="2.5"/><circle cx="${x(e.t)}" cy="${y(e.port)}" r="4" fill="#1f7a72"/><circle cx="${x(e.t)}" cy="${y(e.flat)}" r="4" fill="#b07a1f"/>`}
+function bvrUpdate(){const p=bvrGet(),$=id=>document.getElementById(id);if(!$('bvrBuy'))return;
+  Object.keys(BVR_DEF).forEach(k=>{const o=$('bo_'+k);if(o)o.textContent=BVR_FMT[k](p[k])});
+  const rows=bvrModel(p),e=rows.at(-1),d=Math.pow(1+p.inf/100,p.years);
+  $('bvrBuy').textContent=bvrP(e.flat);$('bvrRent').textContent=bvrP(e.port);
+  $('bvrBuySub').textContent=`After ${p.years} years, in today’s money (${bvrE(e.flat*d/p.fx)} at future prices)`;
+  $('bvrRentSub').textContent=`After ${p.years} years, in today’s money (${bvrE(e.port*d/p.fx)} at future prices)`;
+  const gap=e.port-e.flat,gb=bvrSolve(p,'g',-5,20),rb=bvrSolve(p,'r',-5,20);
+  $('bvrCall').innerHTML=`<b>${gap>=0?'Renting and investing':'Buying'} leaves Zach about ${bvrP(Math.abs(gap))} more</b> in today’s money. `+(gb!==null?`Buying only comes out ahead if Xàbia prices grow faster than <b>${gb.toFixed(1)}% a year</b> with these other settings`:'With these settings the price-growth break-even is outside −5% to 20%')+(rb!==null?`, or if investments return less than <b>${rb.toFixed(1)}% a year</b>.`:'.');
+  $('bvrSvg').innerHTML=bvrChart(rows);
+  $('bvrRows').innerHTML=rows.filter(r=>r.t%5===0||r.t===1).map(r=>`<tr><td>${r.t}</td><td style="color:#b07a1f">${bvrP(r.flat)}</td><td style="color:#1f7a72">${bvrP(r.port)}</td><td>${bvrP(r.port-r.flat)}</td><td>${bvrE(r.own)}</td><td>${bvrE(r.rent)}</td></tr>`).join('');
+  document.querySelectorAll('[data-bpre]').forEach(b=>b.classList.toggle('on',b.dataset.bpre===state.bvrPre));
+  document.querySelectorAll('[data-bhome]').forEach(b=>b.classList.toggle('on',b.dataset.bhome===state.bvrHome));
+}
+function bvrSet(k,v){bvrGet()[k]=parseFloat(v);state.bvrPre='';if(k==='price')state.bvrHome='';bvrSave();bvrUpdate()}
+function bvrPreset(n){state.bvr={...BVR_DEF,...BVR_PRE[n]};state.bvrPre=n;state.bvrHome='';bvrSave();bvrSync();bvrUpdate()}
+function bvrUseHome(id){const h=homeById(id);if(!h||!h.price)return;const p=bvrGet();p.price=Math.max(250000,Math.min(800000,+h.price));state.bvrHome=id;state.bvrPre='';bvrSave();bvrSync();bvrUpdate();toast(`Using ${h.name||'this home'}: ${bvrE(+h.price)}`)}
+function bvrSync(){const p=bvrGet();Object.keys(BVR_DEF).forEach(k=>{const i=document.getElementById('bi_'+k);if(i)i.value=p[k]})}
+function bvrHtml(){const p=bvrGet(),hs=HOMES().filter(h=>+h.price>0);
+  return `<details class="pcard bvr" style="margin-top:16px" ${state.bvrOpen?'open':''} ontoggle="state.bvrOpen=this.open;if(this.open)bvrUpdate()"><summary><span style="text-align:left"><b>Buy or rent?</b><span class="small">Buy a flat, or rent each winter and invest the money</span></span><span class="small">›</span></summary>
+    <p class="small" style="margin:10px 0 0">Both paths start with the same pot: the flat’s price plus buying costs. Buying spends it on the flat; renting invests it and pays each winter’s rent from it. Owner running costs come from income either way.</p>
+    ${hs.length?`<span class="lab">Use a home’s price</span><div class="chips wrap" style="padding:0">${hs.map(h=>`<button class="chip" data-bhome="${h.id}" onclick="bvrUseHome('${h.id}')">${esc(h.name||'Home')} · ${bvrE(+h.price)}</button>`).join('')}</div>`:''}
+    <div class="bvrv"><div class="bvrc buy"><span class="lab" style="margin:0">Buy · flat left to Zach</span><b id="bvrBuy">–</b><span class="small" id="bvrBuySub"></span></div>
+      <div class="bvrc rent"><span class="lab" style="margin:0">Rent &amp; invest · portfolio</span><b id="bvrRent">–</b><span class="small" id="bvrRentSub"></span></div></div>
+    <p id="bvrCall" style="font-size:14px;margin:10px 0"></p>
+    <div class="small bvrlg" style="display:flex!important;gap:14px"><span><i class="bsw" style="background:#b07a1f"></i>Buy: flat value</span><span><i class="bsw" style="background:#1f7a72"></i>Rent &amp; invest</span></div>
+    <svg id="bvrSvg" class="bvrsvg" viewBox="0 0 640 260" width="100%" role="img" aria-label="Wealth left for Zach over time"></svg>
+    <div class="chips wrap" style="padding:0;margin-top:6px">${[['base','Base case'],['boom','Xàbia booms (5%)'],['weak','Weak markets (4%)'],['rentup','Rents rise fast (5%)']].map(([k,l])=>`<button class="chip" data-bpre="${k}" onclick="bvrPreset('${k}')">${l}</button>`).join('')}</div>
+    ${BVR_F.map(([t,fs])=>`<span class="lab" style="margin-top:14px">${t}</span>${fs.map(([k,l,mn,mx,st])=>`<label class="bvrs"><span>${l}</span><output id="bo_${k}"></output><input type="range" id="bi_${k}" min="${mn}" max="${mx}" step="${st}" value="${p[k]}" oninput="bvrSet('${k}',this.value)"></label>`).join('')}`).join('')}
+    <span class="lab" style="margin-top:14px">Every five years (today’s £; yearly costs in €)</span>
+    <div style="overflow-x:auto"><table class="bvrt"><thead><tr><th>Year</th><th>Flat</th><th>Portfolio</th><th>Gap</th><th>Owner costs</th><th>Rent</th></tr></thead><tbody id="bvrRows"></tbody></table></div>
+    <p class="small" style="margin-top:10px">Assumes the pot sits in an ISA or pension (no tax on growth), no currency moves, the flat is never let out and the portfolio never spent. Inheritance tax applies to both, so it’s left out; a Spanish flat also needs a Spanish will and probate. A planning tool, not financial advice.</p>
+  </details>`}
 
 /* ---------- PLAN ---------- */
 // Two plans: today's (a fresh list each day, kept by date) and the whole trip
@@ -3195,6 +3257,7 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
+  if(document.getElementById('bvrBuy'))bvrUpdate();
   if(top&&top.startsWith('home:')){const hm=document.getElementById('hmap');if(hm)drawHomeMap(hm,top.slice(5))}
   if(state.risk&&document.getElementById('riskLeg'))riskLegHtml(state.risk).then(h=>{const l=document.getElementById('riskLeg');if(l)l.innerHTML=h});
   if(top&&top.startsWith('outing:')){swipeRows();const om=document.getElementById('omap'),oo=outById(top.slice(7));if(om&&oo)drawRoute(om,oo)}
