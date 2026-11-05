@@ -55,9 +55,28 @@ on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind,
 - `why` is one short line. Check opening hours for when we're going before recommending.
 - Then tell us: "They're on your Home map."
 
+## Adding a place's Instagram
+
+When we ask you to find Instagram accounts, search the web for each place's official account in Xàbia/Jávea.
+Only save a handle you've actually seen on an instagram.com profile for that exact business; list the ones
+you couldn't confirm instead of guessing. Save each one like this (also bumps `updated` so the phones pick it up):
+
+```sql
+update public.splitter
+set data = jsonb_set(
+      jsonb_set(data, '{d,places}', (
+        select jsonb_agg(case when p->>'id' = '<place id>' then p || jsonb_build_object('ig', '@<handle>') else p end order by ord)
+        from jsonb_array_elements(data->'d'->'places') with ordinality as t(p, ord))),
+      '{updated}', to_jsonb((extract(epoch from now()) * 1000)::bigint)),
+    updated_at = now()
+where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
+```
+
+Then tell us which places you added and which you couldn't find.
+
 ## Rules
 
-- Read only, except the `suggest` row above, or when we ask you to change something.
+- Read only, except the `suggest` row and Instagram handles above, or when we ask you to change something.
 - Never repeat the Google API key stored in the app row, or any Supabase keys.
 - When answering "where did we go…", check both `visits` and `meal` rows.
 - Changing the app: edit `index.html`, bump `APP_VERSION`, and push to `main`;
