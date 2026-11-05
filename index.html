@@ -488,7 +488,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v70';
+const APP_VERSION='v71';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1465,7 +1465,7 @@ function suggestFor(m){
     .filter(x=>x[1]>=.2).sort((a,b)=>b[1]-a[1]).slice(0,3);
 }
 function pendingBills(){
-  return (B.meals||[]).filter(m=>!m.settle&&!m.visit&&!m.noVisit&&!(data.visits||[]).some(v=>v.billId===m.id||(v.how==='bill'&&v.placeId&&Math.abs(v.at-m.at)<3*36e5)));
+  return (B.meals||[]).filter(m=>!m.settle&&!m.visit&&!m.noVisit&&!(data.visits||[]).some(v=>v.billId===m.id||(!v.billId&&v.how==='bill'&&v.placeId&&Math.abs(v.at-m.at)<3*36e5)));
 }
 function vcOthers(){const q=normName(state.vcQ||''),sg=new Set((state.vcSug||[]));
   const list=data.places.filter(p=>!sg.has(p.id)&&(!q||normName(p.name).includes(q))).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8);
