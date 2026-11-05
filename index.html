@@ -236,6 +236,9 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .youdot{width:22px;height:22px;display:grid;place-items:center;transform:translateY(11px)}
 .youdot i{width:16px;height:16px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 0 rgba(26,115,232,.45),0 1px 4px rgba(0,0,0,.3);animation:youpulse 2s infinite}
 @keyframes youpulse{0%{box-shadow:0 0 0 0 rgba(26,115,232,.45),0 1px 4px rgba(0,0,0,.3)}70%{box-shadow:0 0 0 14px rgba(26,115,232,0),0 1px 4px rgba(0,0,0,.3)}100%{box-shadow:0 0 0 0 rgba(26,115,232,0),0 1px 4px rgba(0,0,0,.3)}}
+.trippanel{border:1.5px solid #9fd1c3;background:#f3faf7;margin-top:12px}.trippanel .lbl{color:#1f7a6c;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tnum{border:0;cursor:pointer;font:inherit;font-weight:700}.trippanel .clnum,.tripstops .clnum{background:#1f7a6c}.trippanel .sdone .clnum{background:#9aa3ad}.sdone .tnum{background:#9aa3ad}.sdone .rname{text-decoration:line-through;color:var(--muted)}
+.omap{height:280px;border-radius:18px;overflow:hidden;margin-top:12px;background:#ece6dc}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -480,7 +483,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v63';
+const APP_VERSION='v64';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -911,7 +914,7 @@ function screenToday(){
     <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<a class="askc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" aria-label="Ask Claude about the trip" style="text-decoration:none"><span aria-hidden="true">✦</span> Ask Claude</a>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
-    <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
+    <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
      <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
      <span class="t" id="tm">${fmt(w.min)}</span>
@@ -962,6 +965,8 @@ function heroCard(p,kind,st){
 }
 function renderList(){
   const el=document.getElementById('list'); if(!el) return;
+  const at=activeOut();
+  if(at){el.innerHTML=tripPanelHtml();state.recPins=[];const rm=document.getElementById('recmap');if(rm){rm.dataset.sig='trip';drawRoute(rm,at.o)}renderDiscNote();return}
   const cat=catOf(), all=candidates(cat), R=data.radius||3;
   const D=new Map(all.map(p=>[p.id,distKm(p)]));
   let list=all.filter(p=>D.get(p.id)!=null&&D.get(p.id)<=R), widened=false;
@@ -1006,6 +1011,8 @@ function renderList(){
 }
 async function drawRecMap(){
   const el=document.getElementById('recmap'); if(!el) return;
+  if(activeOut()) return;
+  if(el._omks){el._omks.forEach(m=>{m.map=null});el._omks=null;if(el._line){try{el._line.setMap(null)}catch(e){}}el._fit=0;el._ck=null}
   const sig=(state.recPins||[]).map(([p,k])=>(p.id||p.name)+k).join()+'|'+data.spots.map(s=>s.id).join();
   if(el.dataset.sig===sig&&el.dataset.drawn) return; el.dataset.sig=sig;
   try{
@@ -1391,6 +1398,7 @@ function screenPlan(){
       ${done.length?`<button class="link" onclick="clearDone('${v}')">Clear ticked-off stops</button>`:''}`:''}
    ${extra.length?`${sec('Add from your trip list',`${extra.length}`)}<div class="chips wrap">${extra.map(p=>`<button class="chip" onclick="toggleToday('${p.id}')">＋ ${esc(p.name)}</button>`).join('')}</div>`:''}
    ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours('${v}')">${I.clock} Check hours for ${v==='today'?'today’s':'my'} plan</button>`:''}
+   ${savedTripsHtml()}
    ${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
  ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
@@ -1742,7 +1750,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','gemKey','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','gemKey','outings','activeOuting','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2709,6 +2717,74 @@ function claudePicks(){
     return {i,x,p,n:i+1,name:p?p.name:String(x.name||'Place'),lat:p&&p.lat!=null&&!p.approx?p.lat:+x.lat||null,lng:p&&p.lng!=null&&!p.approx?p.lng:+x.lng||null,picked:picked.includes(i)}});
   return {s,items};
 }
+/* --- Saved trips (outings): a route of stops you can save now and start later --- */
+const MODES={bicycling:{lbl:'Bike',icon:'🚲',kmh:13},walking:{lbl:'Walk',icon:'🚶',kmh:4.5},driving:{lbl:'Car',icon:'🚗',kmh:30}};
+const guessMode=t=>/bike|cycl|bici/i.test(t)?'bicycling':/drive|car\b|coche/i.test(t)?'driving':'walking';
+const OUT=()=>data.outings||(data.outings=[]);
+const outById=id=>OUT().find(o=>o.id===id);
+function outingFromSuggest(s){
+  return {id:uid(),title:String(s.title||'Claude’s picks'),summary:String(s.summary||''),mode:MODES[s.mode]?s.mode:guessMode(String(s.title||'')+' '+String(s.summary||'')),at:Date.now(),src:'claude',
+    stops:(s.items||[]).slice(0,10).map(x=>{let p=x.placeId&&byId(x.placeId);if(!p&&x.name)p=data.places.find(q=>simil(q.name,x.name)>=.8);
+      return {name:String(p?p.name:x.name||'Stop'),why:String(x.why||''),lat:p&&!p.approx&&p.lat!=null?p.lat:(+x.lat||null),lng:p&&!p.approx&&p.lng!=null?p.lng:(+x.lng||null),placeId:p?p.id:null}})};
+}
+function saveTripFromPicks(start){
+  const cp=claudePicks(); if(!cp) return; const o=outingFromSuggest(cp.s); OUT().push(o);
+  lsSet('xe.sugDone',+cp.s.at); save();
+  if(start) startOuting(o.id); else {toast('Saved. Find it in Plan → Saved trips');render(true)}
+}
+const stopsWithPos=o=>o.stops.filter(x=>x.lat!=null&&x.lng!=null);
+function routeKm(o){const s=stopsWithPos(o);let d=0;for(let i=1;i<s.length;i++)d+=km(s[i-1],s[i]);return d*1.25}
+function routeLine(o){const d=routeKm(o),m=MODES[o.mode]||MODES.walking,min=Math.round(d/m.kmh*60);return d?`${m.icon} about ${d<1?Math.round(d*1000/50)*50+' m':d.toFixed(1)+' km'} · roughly ${min<60?min+' min':Math.floor(min/60)+' h '+(min%60?min%60+' min':'')} by ${m.lbl.toLowerCase()}, plus stops`:''}
+function routeUrl2(o,fromIdx){const s=stopsWithPos(o).slice(fromIdx||0);if(!s.length)return'#';const ll=x=>`${x.lat},${x.lng}`;
+  return `https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${ll(s.at(-1))}`+(s.length>1?`&waypoints=${encodeURIComponent(s.slice(0,-1).map(ll).join('|'))}`:'')}
+const navUrl=(o,x)=>`https://www.google.com/maps/dir/?api=1&travelmode=${o.mode||'walking'}&destination=${x.lat},${x.lng}`;
+function startOuting(id){data.activeOuting={id,at:Date.now(),done:[]};save();state.stack=[];state.tab='today';render();toast('Trip started. It’s on your Home map')}
+function finishOuting(){const a=data.activeOuting,o=a&&outById(a.id);if(o){o.lastDone=Date.now();o.stops.forEach((x,i)=>{if(a.done.includes(i)&&x.placeId&&byId(x.placeId))logVisit(byId(x.placeId),'trip')})}data.activeOuting=null;save();toast('Trip finished');render(true)}
+function stopDone(i){const a=data.activeOuting;if(!a)return;a.done=a.done.includes(i)?a.done.filter(x=>x!==i):[...a.done,i];save();renderList()}
+function delOuting(id){if(state.confirmDel!=='o'+id){state.confirmDel='o'+id;render(true);setTimeout(()=>{if(state.confirmDel==='o'+id){state.confirmDel=null;renderSoft()}},4000);return}
+  data.outings=OUT().filter(o=>o.id!==id);if(data.activeOuting&&data.activeOuting.id===id)data.activeOuting=null;state.confirmDel=null;save();toast('Trip deleted');pop()}
+const activeOut=()=>{const a=data.activeOuting;const o=a&&outById(a.id);return o?{a,o}:null};
+function tripPanelHtml(){
+  const t=activeOut(); if(!t) return ''; const {a,o}=t, m=MODES[o.mode]||MODES.walking, next=o.stops.findIndex((x,i)=>!a.done.includes(i));
+  return `<div class="pcard trippanel"><div class="clhead"><span class="lbl">${m.icon} Trip in progress</span><button class="link" onclick="push('outing:${o.id}')">Details</button></div>
+    <h3 style="font-size:20px;margin-top:2px">${esc(o.title)}</h3><p class="small" style="margin:2px 0 6px">${next<0?'All stops done':`Stop ${next+1} of ${o.stops.length}`} · ${esc(routeLine(o).replace(/^\S+ /,''))}</p>
+    ${o.stops.map((x,i)=>`<div class="clrow ${a.done.includes(i)?'sdone':''}"><button class="clnum tnum" onclick="stopDone(${i})" aria-label="${a.done.includes(i)?'Not done':'Done'}">${a.done.includes(i)?'✓':i+1}</button>
+      <div class="grow" ${x.placeId?`onclick="openDetail('${x.placeId}')" style="cursor:pointer"`:''}><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="small" style="margin:2px 0 0">${esc(x.why)}</div>`:''}</div>
+      ${i===next&&x.lat!=null?`<a class="btn" style="padding:9px 14px;font-size:14px;text-decoration:none" href="${esc(navUrl(o,x))}" target="_blank" rel="noopener">Navigate</a>`:''}</div>`).join('')}
+    <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1;text-decoration:none;text-align:center" href="${esc(routeUrl2(o,Math.max(0,next)))}" target="_blank" rel="noopener">Whole route in Maps</a><button class="btn ghost" style="flex:1" onclick="finishOuting()">Finish trip</button></div></div>`;
+}
+function screenOuting(id){
+  const o=outById(id); const head=subbar('Trip','pop()');
+  if(!o) return head+'<div class="pad"><div class="empty">This trip was deleted.</div></div>';
+  const m=MODES[o.mode]||MODES.walking, act=data.activeOuting&&data.activeOuting.id===id;
+  return head+`<div class="pad"><h1 class="pagetitle">${esc(o.title)}</h1>
+    <p class="lead">${o.summary?esc(o.summary)+' ':''}${o.src==='claude'?'Planned with Claude.':''}</p>
+    <div class="chips wrap" style="margin-top:10px">${Object.entries(MODES).map(([k,v])=>`<button class="chip ${o.mode===k?'on':''}" onclick="outById('${id}').mode='${k}';save();render(true)">${v.icon} ${v.lbl}</button>`).join('')}</div>
+    <p class="small" style="margin-top:8px">${esc(routeLine(o))}</p>
+    ${data.key?'<div id="omap" class="omap"></div>':''}
+    ${sec('Stops',`${o.stops.length}`)}
+    <div class="list tripstops">${o.stops.map((x,i)=>`<div class="row" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
+    <button class="btn block" style="margin-top:16px" onclick="${act?`go('today')`:`startOuting('${id}')`}">${act?'Trip in progress · show on Home':'Start trip'}</button>
+    <a class="btn ghost block" style="text-decoration:none;text-align:center" href="${esc(routeUrl2(o))}" target="_blank" rel="noopener">Open route in Google Maps</a>
+    <button class="link danger" style="display:block;margin:18px auto 0" onclick="delOuting('${id}')">${state.confirmDel==='o'+id?'Tap again to delete':'Delete this trip'}</button></div>`;
+}
+async function drawRoute(el,o,pins){
+  try{
+    const g=await gmaps(); if(!document.body.contains(el)) return;
+    let map=el._map; if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});addYou(g,map)}
+    (el._mks||[]).forEach(m=>{m.map=null});(el._omks||[]).forEach(m=>{m.map=null});el._omks=[]; if(el._line){try{el._line.setMap(null)}catch(e){}}
+    const s=stopsWithPos(o), b=new window.google.maps.LatLngBounds(), done=(data.activeOuting&&data.activeOuting.id===o.id)?data.activeOuting.done:[];
+    s.forEach(x=>{const i=o.stops.indexOf(x);const pin=new g.Pin({background:done.includes(i)?'#9aa3ad':'#1f7a6c',borderColor:'#fff',glyphColor:'#fff',glyph:String(i+1),scale:1.2});
+      const mk=new g.Marker({map,position:{lat:x.lat,lng:x.lng},title:x.name,content:pin.element||pin,zIndex:150});el._omks.push(mk);b.extend({lat:x.lat,lng:x.lng})});
+    if(window.google.maps.Polyline&&s.length>1) el._line=new window.google.maps.Polyline({map,path:s.map(x=>({lat:x.lat,lng:x.lng})),strokeColor:'#1f7a6c',strokeOpacity:.85,strokeWeight:4});
+    if(s.length>1&&!el._fit){map.fitBounds(b,{top:60,right:40,bottom:40,left:40});el._fit=1}else if(s.length===1&&!el._fit){map.setCenter(b.getCenter());map.setZoom(15);el._fit=1}
+  }catch(e){}
+}
+function savedTripsHtml(){
+  const L=OUT(); if(!L.length) return '';
+  return `${sec('Saved trips',`${L.length}`)}<div class="list">${L.slice().reverse().map(o=>{const m=MODES[o.mode]||MODES.walking,act=data.activeOuting&&data.activeOuting.id===o.id;
+    return `<div class="row" onclick="push('outing:${o.id}')"><span style="font-size:22px">${m.icon}</span><div class="grow"><div class="rname" style="font-size:16px">${esc(o.title)}</div><div class="rmeta"><span>${o.stops.length} stops</span>${act?'<span style="color:var(--accent);font-weight:700">In progress</span>':o.lastDone?'<span>Done</span>':''}</div></div><span class="small">›</span></div>`}).join('')}</div>`;
+}
 function claudeCardHtml(){
   const cp=claudePicks(); if(!cp) return '';
   return `<div class="pcard clpicks" id="clpicks"><div class="clhead"><span class="lbl">✦ Claude’s picks</span><button class="link" onclick="dismissPicks()">Dismiss</button></div>
@@ -2717,7 +2793,8 @@ function claudeCardHtml(){
       <div class="grow" ${it.p?`onclick="openDetail('${it.p.id}')" style="cursor:pointer"`:''}><div class="rname" style="font-size:16px">${esc(it.name)}</div>
       <div class="small" style="margin:2px 0 0">${[it.x.why?esc(it.x.why):'',st?`<span class="s-${st.s}">${esc(st.txt)}</span>`:'',it.p?'':'new place'].filter(Boolean).join(' · ')}</div></div>
       <button class="btn ${it.picked?'ghost':''}" style="padding:9px 14px;font-size:14px" onclick="pickClaude(${it.i})">${it.picked?'✓ Planned':'Go here'}</button></div>`}).join('')}
-    <p class="small" style="margin:8px 0 0">Tap <b>Go here</b> to add it to today’s plan and the map.</p></div>`;
+    ${cp.items.length>1?`<div class="frow" style="margin-top:10px"><button class="btn" style="flex:1" onclick="saveTripFromPicks(true)">Start trip</button><button class="btn ghost" style="flex:1" onclick="saveTripFromPicks(false)">Save for later</button></div>`:''}
+    <p class="small" style="margin:8px 0 0">${cp.items.length>1?'Start it as a route now, save it for another day, or tap <b>Go here</b> for single stops.':'Tap <b>Go here</b> to add it to today’s plan and the map.'}</p></div>`;
 }
 async function pickClaude(i){
   const cp=claudePicks(); if(!cp) return; const it=cp.items[i]; let p=it.p;
@@ -2884,6 +2961,7 @@ function render(keepScroll){
   else if(top==='prefs') html=screenPrefs();
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
+  else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
   const rails=[...document.querySelectorAll('.rail')].map(r=>r.scrollLeft);
@@ -2894,6 +2972,7 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
+  if(top&&top.startsWith('outing:')){const om=document.getElementById('omap'),oo=outById(top.slice(7));if(om&&oo)drawRoute(om,oo)}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();

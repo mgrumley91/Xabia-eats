@@ -50,6 +50,9 @@ values ('<current trip>', 'suggest', 'suggest', jsonb_build_object(
 on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind, updated_at = now();
 ```
 
+- For a day out or route (a bike ride, a walk, a tour), put the stops in the order to visit them and add
+  `"mode": "bicycling" | "walking" | "driving"` and a one-line `"summary"` next to `title`. We can then start it
+  as a trip or save it for later in the app (saved trips live in `data->'d'->'outings'`).
 - Use 1–5 items, best first. Prefer places already in `places` (give `placeId`); for a new place give `name`,
   `lat`, `lng` and, if you know it, `gid` (its Google place id).
 - `why` is one short line. Check opening hours for when we're going before recommending.
