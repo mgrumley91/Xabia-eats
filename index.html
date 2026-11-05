@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v38';
+const APP_VERSION='v39';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1116,6 +1116,7 @@ async function pickResult(i,relinkId){
   }
   save(); toast('Getting details from Google…');
   try{applyDetails(p,await gDetails(p.gid));if(!relinkId&&p.gname)p.name=p.gname;await resolvePhoto(p);save();toast(relinkId?'Linked to Google':`${p.name} saved`)}catch(e){toast('Saved, but Google details didn’t load')}
+  if(state.vcAdd&&!relinkId){state.vcAdd=null;state.vcPlace=p.id;state.vcOther=false;state.stack.pop();render();toast(`${p.name} saved. Now confirm the bill`);return}
   state.stack.pop(); if(!relinkId) state.stack.push('detail:'+p.id); render();
 }
 function addManual(f){
@@ -1367,24 +1368,66 @@ function visitNow(id){const p=byId(id);if(!p)return;if(p.disc)id=saveDisc(id);
   toast(`Logged: ${MEAL_LBL[meal].toLowerCase()} at ${byId(id).name}${date!==now.date?', '+pretty(date):''}`);render(true)}
 // Milliseconds for a Xàbia (Europe/Madrid) wall-clock time
 function madridMs(y,m,d,h,mi){const guess=Date.UTC(y,m-1,d,h,mi);const off=(t)=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(t));const g=k=>+p.find(x=>x.type===k).value;return Date.UTC(g('year'),g('month')-1,g('day'),g('hour'),g('minute'))-t};return guess-off(guess-off(guess))}
-// Every bill in the tally is a visit too: rebuild history from them
-function billVisits(){
-  return (B.meals||[]).filter(m=>!m.settle&&m.place&&!/^Meal \d+$/.test(m.place)).map(m=>{
-    const p=data.places.find(x=>x.name&&x.name.toLowerCase()===m.place.toLowerCase())||data.places.find(x=>x.name&&(x.name.toLowerCase().includes(m.place.toLowerCase())||m.place.toLowerCase().includes(x.name.toLowerCase())));
-    const hm=new Date(m.at).toLocaleTimeString('en-GB',{timeZone:TZ,hourCycle:'h23',hour:'2-digit',minute:'2-digit'}).split(':').map(Number);
-    return {id:'vb_'+m.id,placeId:p?p.id:null,name:p?p.name:m.place,area:p?areaOf(p):'',tags:p?p.tags.slice(0,4):[],at:m.at,how:'bill',meal:guessMeal(hm[0]*60+hm[1])}});
+// After a bill: "Did you eat here?" Confirm the place, meal and day so the visit links to the map
+const madridDate=ms=>new Date(ms).toLocaleDateString('en-CA',{timeZone:TZ});
+const madridMin=ms=>{const [h,m]=new Date(ms).toLocaleTimeString('en-GB',{timeZone:TZ,hourCycle:'h23',hour:'2-digit',minute:'2-digit'}).split(':').map(Number);return h*60+m};
+const normName=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\b(restaurante?|rest|bar|cafe|cafeteria|s ?l ?u?|s ?a|sl|slu|sa|the|el|la|los|las|de|del|y|en|av|avda|avenida|calle|c|plaza|pl|n|no)\b/g,' ').replace(/\s+/g,' ').trim();
+function simil(a,b){a=normName(a);b=normName(b);if(!a||!b)return 0;if(a===b)return 1;if(a.length>3&&b.length>3&&(a.includes(b)||b.includes(a)))return .8;
+  const A=a.split(' ').filter(x=>x.length>2),S=new Set(b.split(' ').filter(x=>x.length>2));if(!A.length||!S.size)return 0;return .7*A.filter(x=>S.has(x)).length/Math.max(A.length,S.size)}
+function addrSim(a,b){const t=x=>normName(x).replace(/\b(xabia|javea|alicante|alacant|espana|spain|\d{5})\b/g,' ').split(' ').filter(w=>w.length>2);
+  const A=t(a),S=new Set(t(b));if(A.length<2||S.size<2)return 0;return A.filter(x=>S.has(x)).length/Math.min(A.length,S.size)}
+function suggestFor(m){
+  const day=madridDate(m.at);
+  return data.places.map(p=>[p,Math.max(simil(m.billName||m.place,p.name),m.addr&&p.addr?.9*addrSim(m.addr,p.addr):0)
+      +((data.dayPlans||{})[day]&&data.dayPlans[day].ids.includes(p.id)?.25:0)+(data.plan.includes(p.id)?.05:0)])
+    .filter(x=>x[1]>=.2).sort((a,b)=>b[1]-a[1]).slice(0,3);
 }
-function fillVisits(){const have=new Set((data.visits||[]).map(v=>v.id)),add=billVisits().filter(v=>!have.has(v.id));
-  data.visits=[...(data.visits||[]),...add];save();toast(`Added ${add.length} visit${add.length>1?'s':''} from your bills`);render(true)}
+function pendingBills(){
+  return (B.meals||[]).filter(m=>!m.settle&&!m.visit&&!m.noVisit&&!(data.visits||[]).some(v=>v.billId===m.id||(v.how==='bill'&&v.placeId&&Math.abs(v.at-m.at)<3*36e5)));
+}
+function vcOthers(){const q=normName(state.vcQ||''),sg=new Set((state.vcSug||[]));
+  const list=data.places.filter(p=>!sg.has(p.id)&&(!q||normName(p.name).includes(q))).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8);
+  return list.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')||'<span class="small">No saved place matches. Find it on Google below.</span>'}
+function vcHtml(){
+  const pend=pendingBills(); if(!pend.length) return '';
+  const m=pend[pend.length-1];
+  if(state.vcFor!==m.id){const sg=suggestFor(m);state.vcFor=m.id;state.vcMeal=guessMeal(madridMin(m.at));state.vcDate=madridDate(m.at);state.vcPlace=sg[0]&&sg[0][1]>=.5?sg[0][0].id:null;state.vcQ='';state.vcOther=!sg.length}
+  const sg=suggestFor(m).map(x=>x[0]); if(state.vcPlace&&!sg.some(p=>p.id===state.vcPlace)&&byId(state.vcPlace)) sg.unshift(byId(state.vcPlace));
+  state.vcSug=sg.map(p=>p.id); const today=madridNow().date, nm=m.billName||m.place;
+  return `<div class="pcard rateask" id="vcCard"><p class="small" style="margin:0">From a bill${pend.length>1?` · ${pend.length} to check`:''} · ${esc(mMoney(Object.values(m.shares||{}).reduce((a,b)=>a+b,0)||(m.detail&&m.detail.t&&m.detail.t.paidC)||Math.abs(m.net||0),m.cur))}</p>
+    <h3 style="font-size:19px;margin-top:2px">Did you eat at ${/^Meal \d+$/.test(nm)?'this place':esc(nm)}?</h3>${m.addr?`<p class="small" style="margin:2px 0 0">${esc(m.addr)}</p>`:''}
+    <span class="lab">Which place is it?</span>
+    <div class="chips wrap">${sg.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')}<button class="chip ${state.vcOther?'on':''}" onclick="state.vcOther=!state.vcOther;render(true)">${sg.length?'Somewhere else…':'Pick a place…'}</button></div>
+    ${state.vcOther?`<input class="field" id="vcQ" style="margin-top:8px" placeholder="Search your places" value="${esc(state.vcQ||'')}" autocomplete="off" oninput="state.vcQ=this.value;document.getElementById('vcList').innerHTML=vcOthers()"><div class="chips wrap" id="vcList" style="margin-top:6px">${vcOthers()}</div>
+      ${data.key?`<button class="link" style="margin-top:6px" onclick="vcFind()">Not saved yet? Find it on Google →</button>`:''}`:''}
+    <span class="lab">What was it?</span>
+    <div class="chips wrap">${MEALS.map(([k,l])=>`<button class="chip ${state.vcMeal===k?'on':''}" onclick="state.vcMeal='${k}';render(true)">${l}</button>`).join('')}</div>
+    <label class="lab" for="vcDate">When</label><input class="field" type="date" id="vcDate" value="${state.vcDate}" max="${today}" onchange="state.vcDate=this.value">
+    <div class="frow"><button class="btn" style="flex:1" onclick="vcYes()" ${state.vcPlace?'':'disabled'}>${state.vcPlace?`Yes, add ${esc(byId(state.vcPlace).name)}`:'Pick the place first'}</button><button class="btn ghost" onclick="vcSkip()">Skip</button></div></div>`;
+}
+function vcYes(){
+  const m=B.meals.find(x=>x.id===state.vcFor),p=byId(state.vcPlace); if(!m||!p){toast('Pick the place first');return}
+  const meal=state.vcMeal||'lunch', date=(document.getElementById('vcDate')||{}).value||state.vcDate;
+  const v=logVisit(p,'bill'); v.meal=meal; v.billId=m.id;
+  if(date===madridDate(m.at)) v.at=m.at; else {const [y,mo,d]=date.split('-').map(Number),mi=MEAL_HOUR[meal];v.at=madridMs(y,mo,d,Math.floor(mi/60),mi%60)}
+  data.visits=data.visits.filter(x=>x.id!=='vb_'+m.id);
+  if(!m.billName) m.billName=m.place; m.place=p.name; m.placeId=p.id; m.visit=v.id;
+  save(); saveMeals(); state.vcFor=null; toast(`Added: ${MEAL_LBL[meal].toLowerCase()} at ${p.name}`); render(true);
+}
+function vcSkip(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;m.noVisit=true;saveMeals();state.vcFor=null;render(true)}
+function vcFind(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;const nm=m.billName||m.place;
+  state.vcAdd=m.id;state.addResults=null;state.addMsg='';const q=(/^Meal \d+$/.test(nm)?'':nm)+(m.addr?' '+m.addr:'')||'restaurant';push('add');smartAdd(q.trim()||'restaurant Xàbia','')}
 function rmVisit(vid){data.visits=data.visits.filter(v=>v.id!==vid);save();render(true)}
 const visitDay=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 function historyHtml(){
   const vs=[...(data.visits||[])].sort((a,b)=>b.at-a.at);
-  const fromBills=billVisits().filter(v=>!vs.some(x=>x.id===v.id));
-  const fill=fromBills.length?`<button class="btn ghost block" onclick="fillVisits()">Add ${fromBills.length} visit${fromBills.length>1?'s':''} from our bills</button>`:'';
-  if(!vs.length) return `<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>${fill}`;
+  const fill=vcHtml();
+  if(!vs.length) return `${fill}<p class="small">Tap “We went here” on a place, tick off a plan stop, or add a bill to the tally, and it shows up here.</p>`;
+  const groups={};if(fill)return fill+historyList(vs);return historyList(vs);
+}
+function historyList(vs){
   const groups={};vs.forEach(v=>{const k=new Date(v.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'});(groups[k]=groups[k]||[]).push(v)});
-  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${v.meal?MEAL_LBL[v.meal]:new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('')+fill;
+  return Object.entries(groups).map(([d,list])=>`<p class="lab" style="margin-top:14px">${d}</p><div class="list">${list.map(v=>`<div class="row" ${v.placeId&&byId(v.placeId)?`onclick="openDetail('${v.placeId}')"`:'style="cursor:default"'}><div class="grow"><div class="rname" style="font-size:16px">${esc(v.name)}</div><div class="rmeta"><span>${v.meal?MEAL_LBL[v.meal]:new Date(v.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}</span>${v.area?`<span>${esc(v.area)}</span>`:''}${v.how==='bill'?'<span>from a bill</span>':''}${v.placeId&&byId(v.placeId)?(byId(v.placeId).ours?oursTag(byId(v.placeId)):'<span style="color:var(--accent)">Tap to rate</span>'):''}</div></div><button class="mini" onclick="event.stopPropagation();rmVisit('${v.id}')" aria-label="Remove">×</button></div>`).join('')}</div>`).join('');
 }
 // Our own ratings: 5 definitely go back · 4 good if in the area · 3 only if desperate · 1-2 not going back
 const ourRank=p=>p.ours?(p.ours<=2?p.ours-3:p.ours):2.5;
@@ -1929,6 +1972,7 @@ function renderBillsBody(){
   <div class="${g?'gsplit':'split'}" id="bSplit"></div>
   <div class="verdict pending" id="bVerdict"></div>
   <button class="btn block" id="bTally" disabled>Add to trip tally</button>
+  ${vcHtml()}
   ${sec('Trip summary',`${B.meals.length} meal${B.meals.length===1?'':'s'}`)}
   <div id="bTrip"></div>`;
   renderBillItems(); renderBillChoices(); renderBillTotals(); renderBillTip(); renderBillTrip(); wireBills();
@@ -2009,10 +2053,10 @@ function tallyGroup(){
   const per={};P.forEach(p=>{const o=r.per[p.id];per[p.id]={food:Math.round(o.food),unc:Math.round(o.unc),extra:Math.round(o.extra),tot:o.tot,items:o.items}});
   const detail={group:true,items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,parties:JSON.parse(JSON.stringify(P)),
     t:{items:r.items,paidC:r.paidC,extra:r.extra,unc:Math.round(r.unc),per}};
-  B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
+  B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,addr:S.addr||undefined,place:S.place||'Meal '+(B.meals.length+1),group:true,payer:S.payer,shares,net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
   if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
     if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
-  const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill').meal=guessMeal(madridNow().min);save();
+  
   S.tallied=true;saveBill();saveMeals();renderBillsBody();renderTabs();toast('Added to the trip tally');
 }
 function renderBillItems(){
@@ -2171,10 +2215,10 @@ function wireBills(){
     const r=calc(),net=S.payer==='us'?r.wTot:-r.uTot,id=uid();
     const detail={items:JSON.parse(JSON.stringify(S.items)),paid:S.paid,payer:S.payer,tipMode:S.tipMode,bill:S.bill||null,names:NM(),
       t:{items:r.items,paidC:r.paidC,extra:r.extra,uTot:r.uTot,wTot:r.wTot,us:r.us,wass:r.wass,shared:r.shared,sharedW:Math.round(r.sharedW),uExtra:Math.round(r.uExtra),wExtra:Math.round(r.wExtra)}};
-    B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
+    B.meals.push({id,ref:refOf(S.uid||id),billUid:S.uid,addr:S.addr||undefined,place:S.place||'Meal '+(B.meals.length+1),net,cur:S.cur,at:Date.now(),detail,hasPhoto:!!B.photoData});
     if(B.photoData){try{localStorage.setItem('xe.ph.'+id,B.photoData)}catch(_){}
       if(SB()) sbUpsert([sbRow('photo_'+id,'photo',{src:B.photoData})]).catch(()=>{B.photoPending=(B.photoPending||[]).concat(id)})}
-    const vp=data.places.find(p=>p.name&&S.place&&p.name.toLowerCase()===S.place.toLowerCase());logVisit(vp||{id:null,name:S.place||'Meal',tags:[]},'bill').meal=guessMeal(madridNow().min);save();
+    
     S.tallied=true;saveBill();saveMeals();renderBillsBody();toast('Added to the trip tally');
   };
   $('bPhoto').onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;B.photo=f;B.photoUrl=URL.createObjectURL(f);try{B.photoData='data:image/jpeg;base64,'+await shrinkB64(f,1100,.7)}catch(_){B.photoData=null}B.readMsg=data.key?'Photo ready. Tap Read bill.':'';B.readErr=false;renderBillsBody()};
@@ -2201,7 +2245,7 @@ function wireBills(){
 function shrinkB64(file,max=1600,q=.85){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',q).split(',')[1])};im.onerror=rej;im.src=u})}
 const BILL_PROMPT=`This photo is a restaurant bill or receipt, probably in Spanish. Extract every ordered line item.
 Reply with ONLY JSON in this shape:
-{"place":"Restaurant name or empty string","currency":"EUR","items":[{"name":"Patatas bravas","en":"Spicy fried potatoes","qty":2,"total":13.00}],"billTotal":45.60,"serviceIncluded":false,"serviceAmount":null,"serviceNote":""}
+{"place":"Restaurant name or empty string","address":"Street address printed on the bill, or empty string","currency":"EUR","items":[{"name":"Patatas bravas","en":"Spicy fried potatoes","qty":2,"total":13.00}],"billTotal":45.60,"serviceIncluded":false,"serviceAmount":null,"serviceNote":""}
 Rules:
 - "name" is the item exactly as printed. "en" is a short, natural English translation a tourist would understand (same as name if already English).
 - "total" is the LINE total as printed (qty × unit price), a number with no currency sign.
@@ -2236,7 +2280,7 @@ async function readBill(){
       const cur={EUR:'€',GBP:'£',USD:'$'}[String(d.currency||'').toUpperCase()]||B.bill.cur;
       const its=items.map(x=>({id:uid(),name:String(x.en||x.name||'Item'),orig:String(x.name||''),qty:Math.max(1,parseInt(x.qty)||1),c:Math.round((+x.total||0)*100),side:null}));
       const sum=its.reduce((t,i)=>t+i.c,0), total=d.billTotal!=null?Math.round(+d.billTotal*100):sum;
-      clearClaims();B.bill={...blankBill(cur,B.bill.mode),place:d.place||B.bill.place||'',items:its,bill:{total,inc:d.serviceIncluded===true?true:d.serviceIncluded===false?false:null,svc:d.serviceAmount?Math.round(+d.serviceAmount*100):0,note:d.serviceNote||''}};
+      clearClaims();B.bill={...blankBill(cur,B.bill.mode),addr:String(d.address||''),place:d.place||B.bill.place||'',items:its,bill:{total,inc:d.serviceIncluded===true?true:d.serviceIncluded===false?false:null,svc:d.serviceAmount?Math.round(+d.serviceAmount*100):0,note:d.serviceNote||''}};
       B.readMsg=`Found ${its.length} item${its.length>1?'s':''}${Math.abs(total-sum-(B.bill.bill.svc||0))>5?` (they add up to ${bMoney(sum)}; the bill says ${bMoney(total)}, so check for a missed line)`:''}. Now swipe each one.`;
       saveBill();
     }

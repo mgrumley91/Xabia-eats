@@ -19,7 +19,8 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
   - `visits`: where we went (name, placeId, at, how, meal = breakfast/coffee/lunch/dinner) · `prefs`: food preferences
   - sports places (golf, tennis, padel, gym, water sports) are in `places` too, tagged Sport, Golf, Tennis, Padel, Gym or Watersports
   - `trip` dates and `holidays`
-- `kind = 'meal'` rows: bills in the trip tally. `data` has place, at, cur and `net` in cents
+- `kind = 'meal'` rows: bills in the trip tally. `data` has place (the restaurant, once confirmed; `billName` is the
+  name printed on the bill and `placeId` links to `places`), addr, at, cur and `net` in cents
   (negative = we owed Wass, positive = Wass owed us), plus `detail` with items
   (name, orig, qty, c in cents, side us/wass/shared, ws = Wass's share), payer, paid and totals.
 - `data->'d'->'parties'`: households splitting bills (id, name, heads, optional monzo / revolut usernames).
