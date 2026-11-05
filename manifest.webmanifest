@@ -1,6 +1,6 @@
 {
-  "name": "Xàbia Eats",
-  "short_name": "Xàbia Eats",
+  "name": "Xàbia Guide",
+  "short_name": "Xàbia Guide",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

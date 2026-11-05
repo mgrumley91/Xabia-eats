@@ -1,4 +1,4 @@
-# Xàbia Eats — notes for Claude
+# Xàbia Guide — notes for Claude
 
 This repo is our holiday web app for Xàbia (Jávea), Spain. `index.html` is the whole app,
 served at https://mgrumley91.github.io/Xabia-eats/.

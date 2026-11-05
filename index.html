@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Xàbia Eats">
+<meta name="apple-mobile-web-app-title" content="Xàbia Guide">
 <meta name="theme-color" content="#f5f3ef">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
 <link rel="icon" type="image/png" href="favicon-64.png?v=1">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="referrer" content="no-referrer-when-downgrade">
-<title>Xàbia Eats</title>
+<title>Xàbia Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -458,7 +458,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v43';
+const APP_VERSION='v44';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -763,18 +763,18 @@ function routeUrl(list){
 }
 function kml(list){
   const x=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Xàbia Eats</name>\n${list.filter(p=>p.lat!=null).map(p=>`<Placemark><name>${x(p.name)}</name><description>${x([p.tags.join(', '),p.addr,p.note,mapsLink(p)].filter(Boolean).join(' — '))}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join('\n')}\n</Document></kml>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Xàbia Guide</name>\n${list.filter(p=>p.lat!=null).map(p=>`<Placemark><name>${x(p.name)}</name><description>${x([p.tags.join(', '),p.addr,p.note,mapsLink(p)].filter(Boolean).join(' — '))}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join('\n')}\n</Document></kml>`;
 }
 function download(name,text,type){
   try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast(`${name} saved`)}
   catch(e){toast('Download isn’t available here')}
 }
 const csvRow=a=>a.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',');
-function exportCSV(){download('xabia-eats.csv',csvRow(['Name','Tags','Michelin','Address','Latitude','Longitude','Phone','Website','Google Maps','Notes'])+'\n'+data.places.map(p=>csvRow([p.name,p.tags.join('; '),p.michelin?MICH[p.michelin]:'',p.addr,p.lat,p.lng,p.phone,p.web,mapsLink(p),p.note])).join('\n'),'text/csv')}
-function exportBackup(){download(`xabia-eats-backup-${madridNow().date}.json`,JSON.stringify({...data,key:''},null,1),'application/json')}
+function exportCSV(){download('xabia-guide.csv',csvRow(['Name','Tags','Michelin','Address','Latitude','Longitude','Phone','Website','Google Maps','Notes'])+'\n'+data.places.map(p=>csvRow([p.name,p.tags.join('; '),p.michelin?MICH[p.michelin]:'',p.addr,p.lat,p.lng,p.phone,p.web,mapsLink(p),p.note])).join('\n'),'text/csv')}
+function exportBackup(){download(`xabia-guide-backup-${madridNow().date}.json`,JSON.stringify({...data,key:''},null,1),'application/json')}
 function importBackup(input){
   const f=input.files&&input.files[0]; if(!f) return;
-  f.text().then(t=>{const d=JSON.parse(t);if(!Array.isArray(d.places))throw 0;const key=data.key;data=Object.assign(defaultData(),d,{key:d.key||key});save();toast(`Restored ${data.places.length} places`);render()}).catch(()=>toast('That file isn’t a Xàbia Eats backup'));
+  f.text().then(t=>{const d=JSON.parse(t);if(!Array.isArray(d.places))throw 0;const key=data.key;data=Object.assign(defaultData(),d,{key:d.key||key});save();toast(`Restored ${data.places.length} places`);render()}).catch(()=>toast('That file isn’t a Xàbia Guide backup'));
 }
 async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(msg)}catch(e){toast('Copy isn’t available here')}}
 
@@ -1347,7 +1347,7 @@ function screenPlan(){
    ${historyHtml()}
    ${sec('Export everything')}
    <div class="pcard">
-     <button class="btn ghost block" style="margin-top:0" onclick="download('xabia-eats.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Download KML for Google My Maps</button>
+     <button class="btn ghost block" style="margin-top:0" onclick="download('xabia-guide.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Download KML for Google My Maps</button>
      <button class="btn ghost block" onclick="exportCSV()">Download CSV</button>
      <ol class="steps" style="margin-top:12px"><li>Download the KML.</li><li>On a computer, open <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a>, create a map and choose Import.</li><li>In the Google Maps app it appears under You → Maps.</li></ol>
    </div></div>`;
@@ -2457,7 +2457,7 @@ function inviteLink(toBills){
 }
 async function shareInvite(){
   const link=inviteLink(),text=`Join our Xàbia trip: ${link}`;
-  if(navigator.share){try{await navigator.share({title:'Xàbia Eats',text:'Join our Xàbia trip',url:link});return}catch(e){if(e.name==='AbortError')return}}
+  if(navigator.share){try{await navigator.share({title:'Xàbia Guide',text:'Join our Xàbia trip',url:link});return}catch(e){if(e.name==='AbortError')return}}
   copyText(text,'Invite link copied. Paste it to '+NM().b+'.');
 }
 function leaveTrip(){if(state.confirmDel!=='LEAVE'){state.confirmDel='LEAVE';render(true);return}state.confirmDel=null;data.sb=null;save();setB('local');toast('Stopped sharing on this phone');render(true)}
