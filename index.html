@@ -476,7 +476,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v58';
+const APP_VERSION='v59';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -903,7 +903,7 @@ function screenToday(){
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<a class="askc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" aria-label="Ask Claude about the trip" style="text-decoration:none"><span aria-hidden="true">✦</span> Ask Claude</a>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
@@ -2683,8 +2683,8 @@ async function pickClaude(i){
 }
 function dismissPicks(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);render(true)}
 const IG_ASK='Find the Instagram accounts for all our places in the app that don’t have one yet and add them to the app. Only save handles you’ve confirmed on the business’s instagram.com profile, and tell me which ones you couldn’t find.';
-function askClaudeIg(){try{const r=navigator.clipboard&&navigator.clipboard.writeText(IG_ASK);r&&r.catch&&r.catch(()=>{})}catch(e){}
-  if(data.claudeUrl){toast('Request copied. Paste it in Claude');window.open(data.claudeUrl,'_blank','noopener')}
+function askClaudeIg(viaLink){try{const r=navigator.clipboard&&navigator.clipboard.writeText(IG_ASK);r&&r.catch&&r.catch(()=>{})}catch(e){}
+  if(data.claudeUrl){toast('Request copied. Paste it in Claude');if(!viaLink)window.open(data.claudeUrl,'_blank','noopener')}
   else{toast('Request copied. Add your Claude link below to open it from here');setTimeout(()=>document.getElementById('claudeUrl')?.focus(),50)}}
 async function saveGemKey(v){v=String(v||'').replace(/\s/g,'');
   if(v.length<20){toast('Paste the whole key from AI Studio');return}
@@ -2713,7 +2713,7 @@ function screenSettings(){
   </div>
   ${sec('Instagram')}
   <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. Your Xàbia chat in Claude can find them and add them to the app.</p>
-    <button class="btn block" onclick="askClaudeIg()">Ask Claude to find them</button>
+    ${data.claudeUrl?`<a class="btn block" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="askClaudeIg(true)" style="text-decoration:none;text-align:center">Ask Claude to find them</a>`:`<button class="btn block" onclick="askClaudeIg()">Ask Claude to find them</button>`}
     <p class="small flush" style="margin-top:6px">Copies the request, then opens your Claude chat: paste it there. Handles appear here once Claude saves them. You can also add one yourself from a place’s Instagram button.</p></div>
   ${sec('Ask Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
