@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v36';
+const APP_VERSION='v37';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -987,6 +987,19 @@ async function drawRecMap(){
 }
 
 /* ---------- SAVED ---------- */
+// All places in three groups: been, want to go, recommended
+const lastVisit=id=>(data.visits||[]).filter(v=>v.placeId===id).reduce((a,v)=>Math.max(a,v.at),0);
+const beenTo=p=>!!(p.ours||lastVisit(p.id));
+const wantTo=p=>!beenTo(p)&&(data.plan.includes(p.id)||inToday(p.id)||p.fav);
+function savedGroups(list){
+  const been=list.filter(beenTo).sort((a,b)=>(ourRank(b)-ourRank(a))||(lastVisit(b.id)-lastVisit(a.id)));
+  const want=list.filter(wantTo).sort((a,b)=>((inToday(b.id)?2:0)+(data.plan.includes(b.id)?1:0))-((inToday(a.id)?2:0)+(data.plan.includes(a.id)?1:0))||(score(b)-score(a)));
+  const rec=list.filter(p=>!beenTo(p)&&!wantTo(p)).sort((a,b)=>score(b)-score(a));
+  const grp=(t,sub,arr,empty)=>`${sec(t,`${arr.length}`)}${sub?`<p class="small" style="margin:-6px 0 8px">${sub}</p>`:''}<div class="list">${arr.map(row).join('')||`<div class="empty">${empty}</div>`}</div>`;
+  return grp('Been','Places you’ve logged, added a bill for or rated',been,'Nowhere yet. Tap “We went here” on a place after you go.')
+    +grp('Want to go','On your plan or ♥ favourites you haven’t tried yet',want,'Tap the bookmark or ♥ on a place to add it here.')
+    +grp('Recommended','Everything else, best first',rec,'You’ve covered everything!');
+}
 function screenSaved(){
   const q=state.q.toLowerCase();
   const nf=data.places.filter(p=>p.fav).length;
@@ -997,8 +1010,8 @@ function screenSaved(){
    <button class="btn block" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">${I.plus} Add a place</button>
    ${data.places.some(p=>p.seed&&!p.touched&&!data.plan.includes(p.id))?`<div class="note" style="margin-top:14px">Your list includes ${data.places.filter(p=>p.seed).length} starter places from local guides. <button class="link" onclick="removeStarters()">${state.confirmDel==='SEEDS'?'Tap again to remove them':'Remove the ones you haven’t touched'}</button></div>`:''}
    <div class="seg" style="grid-template-columns:1fr 1fr;margin-top:18px"><button class="${state.favOnly?'':'on'}" onclick="state.favOnly=false;render(true)">All · ${data.places.length}</button><button class="${state.favOnly?'on':''}" onclick="state.favOnly=true;render(true)">♥ Favourites · ${nf}</button></div>
-   ${sec(q?'Results':state.favOnly?'Favourites':'All places',`${list.length}`)}
-   <div class="list">${list.map(row).join('')||`<div class="empty">${state.favOnly?'No favourites yet. Tap ♥ on a place you love.':'No matches.'}</div>`}</div></div>`;
+   ${q||state.favOnly?`${sec(q?'Results':'Favourites',`${list.length}`)}
+   <div class="list">${list.map(row).join('')||`<div class="empty">${state.favOnly?'No favourites yet. Tap ♥ on a place you love.':'No matches.'}</div>`}</div>`:savedGroups(list)}</div>`;
 }
 
 /* ---------- ADD / RELINK ---------- */
