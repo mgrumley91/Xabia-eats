@@ -450,7 +450,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v37';
+const APP_VERSION='v38';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -988,6 +988,7 @@ async function drawRecMap(){
 
 /* ---------- SAVED ---------- */
 // All places in three groups: been, want to go, recommended
+const inGroup=(p,k)=>k==='been'?beenTo(p):k==='want'?wantTo(p):k==='rec'?!beenTo(p)&&!wantTo(p):true;
 const lastVisit=id=>(data.visits||[]).filter(v=>v.placeId===id).reduce((a,v)=>Math.max(a,v.at),0);
 const beenTo=p=>!!(p.ours||lastVisit(p.id));
 const wantTo=p=>!beenTo(p)&&(data.plan.includes(p.id)||inToday(p.id)||p.fav);
@@ -1244,7 +1245,8 @@ function rmPhoto(id,i){byId(id).myPhotos.splice(i,1);save();render(true)}
 function screenMap(){
   const w=when();
   return topbar('Map')+`<div class="pad"><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
-  ${data.key?`<div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
+  ${data.key?`<div class="seg" style="grid-template-columns:.7fr .8fr 1.15fr 1.35fr;margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended']].map(([k,l])=>`<button style="font-size:12px;line-height:1.2;padding:6px 2px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
+  <div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
    :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
   ${spotsSection()}
@@ -1280,7 +1282,7 @@ async function drawMap(){
     map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});
     const b=new window.google.maps.LatLngBounds(); let n=0;
     data.places.forEach(p=>{
-      if(p.lat==null||p.approx) return;
+      if(p.lat==null||p.approx||!inGroup(p,state.mapGroup||'all')) return;
       const st=status(p), big=data.plan.includes(p.id);
       const pin=new g.Pin({background:big?'#d4622e':COL[st.s],borderColor:'#ffffff',glyphColor:'#ffffff',scale:big?1.25:1});
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
