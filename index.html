@@ -233,6 +233,9 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .snapA img{width:100%;max-height:300px;object-fit:cover;display:block}
 .snapin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:196px;color:#7a6c58;text-align:center}
 .nearrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.nearrow .chip{padding:6px 12px;font-size:13px}
+.youdot{width:22px;height:22px;display:grid;place-items:center;transform:translateY(11px)}
+.youdot i{width:16px;height:16px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 0 rgba(26,115,232,.45),0 1px 4px rgba(0,0,0,.3);animation:youpulse 2s infinite}
+@keyframes youpulse{0%{box-shadow:0 0 0 0 rgba(26,115,232,.45),0 1px 4px rgba(0,0,0,.3)}70%{box-shadow:0 0 0 14px rgba(26,115,232,0),0 1px 4px rgba(0,0,0,.3)}100%{box-shadow:0 0 0 0 rgba(26,115,232,0),0 1px 4px rgba(0,0,0,.3)}}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -477,7 +480,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v60';
+const APP_VERSION='v61';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1017,7 +1020,7 @@ async function drawRecMap(){
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='cl'?100:k==='pick'?99:k==='wait'?98:1});
       mk.addListener('click',()=>{if(p.id)openDetail(p.id);else document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})}); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    n+=addSpotMarkers(g,map,b);
+    n+=addSpotMarkers(g,map,b); addYou(g,map);
     if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
     el.dataset.drawn='1';
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:100px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
@@ -1300,6 +1303,7 @@ function rmPhoto(id,i){byId(id).myPhotos.splice(i,1);save();render(true)}
 
 /* ---------- MAP ---------- */
 function screenMap(){
+  locate();
   const w=when();
   return topbar('Map')+`<div class="pad"><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
   ${data.key?`<div class="seg" style="grid-template-columns:.7fr .8fr 1.15fr 1.35fr;margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended']].map(([k,l])=>`<button style="font-size:12px;line-height:1.2;padding:6px 2px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
@@ -1345,7 +1349,7 @@ async function drawMap(){
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    n+=addSpotMarkers(g,map,b);
+    n+=addSpotMarkers(g,map,b); addYou(g,map);
     if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
@@ -1525,13 +1529,24 @@ function locate(force){
   if(!navigator.geolocation||state.locating) return;
   if(!force&&(data.noLoc||(state.here&&Date.now()-state.here.at<4*6e4))) return;
   state.locating=true;
-  navigator.geolocation.getCurrentPosition(pos=>{state.locating=false;state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};if(data.noLoc){data.noLoc=false;save()}if(state.tab==='today'&&!state.stack.length)render(true)},
+  navigator.geolocation.getCurrentPosition(pos=>{state.locating=false;state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};updateYou();if(data.noLoc){data.noLoc=false;save()}if(state.tab==='today'&&!state.stack.length)render(true)},
     err=>{state.locating=false;if(err.code===1&&!data.noLoc){data.noLoc=true;save()}if(force)toast(err.code===1?'Location is off for this app. Using your apartment instead':'Couldn’t get your location');renderSoft()},
-    {enableHighAccuracy:false,timeout:9000,maximumAge:120000});
+    {enableHighAccuracy:!!force,timeout:9000,maximumAge:force?0:60000});
 }
 const distKm=p=>p.lat==null||p.approx?null:km(origin(),p);
 function distTxt(p){const b=origin();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
 // Your accommodation and friends' places: always on every map, with a name label
+// Blue "you are here" dot, kept up to date as your location changes
+const youMarkers=[];
+setInterval(()=>{if(document.visibilityState==='visible'&&!state.stack.length&&(state.tab==='today'||state.tab==='map')&&!data.noLoc)locate()},60000);
+function youEl(){const d=document.createElement('div');d.className='youdot';d.innerHTML='<i></i>';d.title='You are here';return d}
+function addYou(g,map){
+  for(let i=youMarkers.length-1;i>=0;i--) if(!document.body.contains(youMarkers[i].el)) youMarkers.splice(i,1);
+  const h=state.here; const mk=new g.Marker({map,position:h?{lat:h.lat,lng:h.lng}:{lat:0,lng:0},content:youEl(),zIndex:200,title:'You are here'});
+  const el=mk.content||mk.element; if(!h&&mk.map!==undefined) mk.map=null;
+  youMarkers.push({mk,map,el:map.getDiv?map.getDiv():document.body});
+}
+function updateYou(){const h=state.here;if(!h)return;youMarkers.forEach(y=>{try{y.mk.position={lat:h.lat,lng:h.lng};if(!y.mk.map)y.mk.map=y.map}catch(e){}})}
 function addSpotMarkers(g,map,bounds,skipId){
   let n=0;
   data.spots.forEach(s=>{if(s.id===skipId)return;const k=kindOf(s);
