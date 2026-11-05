@@ -232,6 +232,7 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .snapA{display:block;width:100%;min-height:200px;border-radius:14px;border:2px dashed #d9cbb6;background:linear-gradient(160deg,#fbf8f2,#efe7da);overflow:hidden;cursor:pointer}
 .snapA img{width:100%;max-height:300px;object-fit:cover;display:block}
 .snapin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:196px;color:#7a6c58;text-align:center}
+.nearrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.nearrow .chip{padding:6px 12px;font-size:13px}
 .refchip{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .tab .bdot{position:absolute;top:2px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
 .hhrow{padding:12px 0;border-bottom:1px dashed var(--line)}.hhrow:first-child{padding-top:0}
@@ -476,7 +477,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v59';
+const APP_VERSION='v60';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -901,6 +902,7 @@ function screenToday(){
   const w=when(), isNow=!state.when, today=madridNow().date, cat=catOf();
   const hol=holidayOn(w.date);
   if(data.key) discover(cat);
+  locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
     <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<a class="askc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" aria-label="Ask Claude about the trip" style="text-decoration:none"><span aria-hidden="true">✦</span> Ask Claude</a>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
@@ -913,6 +915,7 @@ function screenToday(){
      <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
     <div class="chipsA">${CATS.map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    <div class="nearrow"><button class="chip" onclick="locate(true)">📍 ${state.locating?'Finding you…':'Near '+esc(nearLbl())}</button>${[1,3,10].map(r=>`<button class="chip ${(data.radius||3)===r?'on':''}" onclick="data.radius=${r};save();render(true)">${r} km</button>`).join('')}</div>
     ${(()=>{const pc=CATS.find(c=>c.k===(cat.parent||cat.k));return pc&&pc.subs?`<div class="chips wrap" style="margin-top:8px">${[{k:'',label:'All '+pc.label.toLowerCase()},...pc.subs].map(sb=>`<button class="chip ${(state.sub||'')===sb.k?'on':''}" onclick="state.sub='${sb.k}'||null;state.showMore=false;render(true)">${sb.label}</button>`).join('')}</div>`:''})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
       <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
@@ -928,7 +931,7 @@ function screenToday(){
     <div id="list"></div>
     <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
     ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
-    <p class="small" style="margin-top:14px">Times are Xàbia time. Picks weigh your own star ratings, Google rating, your ♥ preferences and Michelin.</p>
+    <p class="small" style="margin-top:14px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p>
   </div></div>`;
 }
 function renderDiscNote(){const el=document.getElementById('discnote');if(el)el.textContent=state.discBusy?`Looking on Google for top-rated ${catOf().label.toLowerCase()}…`:''}
@@ -941,7 +944,7 @@ function why(p,st){
   const dt=distTxt(p);
   return [p.rating?`★ ${p.rating.toFixed(1)}${p.ratingCount?` from ${p.ratingCount.toLocaleString('en-GB')} reviews`:''}`:'',st.txt,dt?`${dt} from ${baseSpot().name}`:'',m.length?`♥ ${m.slice(0,2).join(', ')}`:'',p.disc?'found on Google':'in your places'].filter(Boolean).join(' · ');
 }
-function walkMin(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return null;return Math.max(1,Math.round(km(b,p)*1.3/4.8*60))}
+function walkMin(p){const b=origin();if(!b||p.lat==null||p.approx)return null;return Math.max(1,Math.round(km(b,p)*1.3/4.8*60))}
 function heroCard(p,kind,st){
   const inPlan=data.plan.includes(p.id), m=matches(p), dt=distTxt(p);
   if(kind==='pick'||kind==='fav'||kind==='alt') return `<div class="pickA k-${kind}" onclick="openDetail('${p.id}')" role="link" tabindex="0">
@@ -956,9 +959,13 @@ function heroCard(p,kind,st){
 }
 function renderList(){
   const el=document.getElementById('list'); if(!el) return;
-  const cat=catOf(), list=candidates(cat);
+  const cat=catOf(), all=candidates(cat), R=data.radius||3;
+  const D=new Map(all.map(p=>[p.id,distKm(p)]));
+  let list=all.filter(p=>D.get(p.id)!=null&&D.get(p.id)<=R), widened=false;
+  if(!list.length&&all.length){list=all.filter(p=>D.get(p.id)!=null).sort((a,b)=>D.get(a.id)-D.get(b.id)).slice(0,8);widened=true}
   const S=new Map(list.map(p=>[p.id,status(p)])), SC=new Map(list.map(p=>[p.id,score(p)]));
-  const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>SC.get(b.id)-SC.get(a.id));
+  const tier=p=>p.fav||p.ours===5?0:(p.ours>=4||(!p.ours&&(p.rating||0)>=4))?1:2;
+  const by=s=>list.filter(p=>S.get(p.id).s===s).sort((a,b)=>(tier(a)-tier(b))||(D.get(a.id)-D.get(b.id))||(SC.get(b.id)-SC.get(a.id)));
   const open=by('open'), soon=by('soon'), closed=by('closed'), unk=by('unknown');
   const favOpen=open.filter(p=>p.fav||p.ours===5), fav=favOpen[0]||null;
   const alt=fav?(open.find(p=>!p.fav&&p.ours!==5&&p.ours!==3)||null):null;
@@ -974,6 +981,7 @@ function renderList(){
   state.recPins=[...(cp?cp.items.filter(it=>it.lat!=null).map(it=>[{id:it.p?it.p.id:null,name:it.name,lat:it.lat,lng:it.lng,_n:it.n},'cl']):[]),...(pick?[[pick,fav?'fav':'pick']]:[]),...(alt?[[alt,'alt']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
+  if(widened) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> within ${R} km of ${esc(nearLbl())}. Here are the nearest.</div>`;
   if(pick) html+=heroCard(pick,fav?'fav':'pick',S.get(pick.id));
   if(alt) html+=heroCard(alt,'alt',S.get(alt.id));
   if(!pick&&list.length&&!unk.length) html+=`<div class="note">Nothing in <b>${esc(cat.label.toLowerCase())}</b> is open ${label}${data.only4?' with 4★ or more':''}.${soon.length?' Here’s what opens first.':''}</div>`;
@@ -1510,7 +1518,19 @@ function areaFor(lat,lng,fallback){let best=null,bd=1.6;for(const[a,[la,ln]]of O
 const nearHome=p=>p.lat!=null&&!p.approx&&km(HOME,p)<12;
 const baseSpot=()=>data.spots.find(s=>s.id===data.base)||null;
 function km(a,b){const R=6371,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dn=r(b.lng-a.lng);const h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
-function distTxt(p){const b=baseSpot();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
+// "Near" is measured from the phone's location when allowed, otherwise from the apartment
+function origin(){return state.here&&Date.now()-state.here.at<20*6e4?state.here:(baseSpot()||HOME)}
+const nearLbl=()=>state.here&&origin()===state.here?'you':(baseSpot()?baseSpot().name:'Xàbia');
+function locate(force){
+  if(!navigator.geolocation||state.locating) return;
+  if(!force&&(data.noLoc||(state.here&&Date.now()-state.here.at<4*6e4))) return;
+  state.locating=true;
+  navigator.geolocation.getCurrentPosition(pos=>{state.locating=false;state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};if(data.noLoc){data.noLoc=false;save()}if(state.tab==='today'&&!state.stack.length)render(true)},
+    err=>{state.locating=false;if(err.code===1&&!data.noLoc){data.noLoc=true;save()}if(force)toast(err.code===1?'Location is off for this app. Using your apartment instead':'Couldn’t get your location');renderSoft()},
+    {enableHighAccuracy:false,timeout:9000,maximumAge:120000});
+}
+const distKm=p=>p.lat==null||p.approx?null:km(origin(),p);
+function distTxt(p){const b=origin();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
 // Your accommodation and friends' places: always on every map, with a name label
 function addSpotMarkers(g,map,bounds,skipId){
   let n=0;
