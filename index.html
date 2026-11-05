@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v53';
+const APP_VERSION='v54';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2648,6 +2648,10 @@ async function pickClaude(i){
   if(p.gid&&data.key&&!p.updated){try{applyDetails(p,await gDetails(p.gid));await resolvePhoto(p);save();renderSoft()}catch(e){}}
 }
 function dismissPicks(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);render(true)}
+const IG_ASK='Find the Instagram accounts for all our places in the app that don’t have one yet and add them to the app. Only save handles you’ve confirmed on the business’s instagram.com profile, and tell me which ones you couldn’t find.';
+function askClaudeIg(){try{const r=navigator.clipboard&&navigator.clipboard.writeText(IG_ASK);r&&r.catch&&r.catch(()=>{})}catch(e){}
+  if(data.claudeUrl){toast('Request copied. Paste it in Claude');window.open(data.claudeUrl,'_blank','noopener')}
+  else{toast('Request copied. Add your Claude link below to open it from here');setTimeout(()=>document.getElementById('claudeUrl')?.focus(),50)}}
 function openClaude(){
   if(!data.claudeUrl){state.stack=['settings'];render();setTimeout(()=>{const el=document.getElementById('claudeUrl');if(el){el.scrollIntoView({block:'center'});el.focus()}},80);toast('Paste the link to your Claude trip project once');return}
   window.open(data.claudeUrl,'_blank','noopener');
@@ -2666,12 +2670,10 @@ function screenSettings(){
     ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
     <button class="btn ghost block">Edit food preferences</button>
   </div>
-  ${data.key?`${sec('Instagram')}
-  <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. The app can look them up on Google for you.</p>
-    <button class="btn block" onclick="findAllIg()" ${state.igAll?'disabled':''}>${state.igAll?`Looking… ${state.igAll.done} of ${state.igAll.total}`:'Find Instagram for all places'}</button>
-    <p class="small flush" style="margin-top:6px">Clear matches are saved straight away; places where it’s not sure ask you on their page.</p>
-    ${state.igErr?`<p class="small flush err" style="margin-top:6px">Google said: ${esc(state.igErr)}</p>`:''}
-    ${state.igReport&&!state.igErr&&state.igLast?`<p class="small flush" style="margin-top:6px">Last answer from Google: “${esc(state.igLast)}”</p>`:''}</div>`:''}
+  ${sec('Instagram')}
+  <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. Your Xàbia chat in Claude can find them and add them to the app.</p>
+    <button class="btn block" onclick="askClaudeIg()">Ask Claude to find them</button>
+    <p class="small flush" style="margin-top:6px">Copies the request, then opens your Claude chat: paste it there. Handles appear here once Claude saves them. You can also add one yourself from a place’s Instagram button.</p></div>
   ${sec('Ask Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
     <p style="font-size:14px;margin:0">Adds an <b>✦ Ask Claude</b> button to Home that opens your Xàbia trip chat in Claude. It’s only saved on this phone, so phones without your Claude account don’t get the button.</p>
@@ -2805,7 +2807,6 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
-  if(top&&top.startsWith('detail:')){const dp=byId(top.slice(7));if(dp&&!dp.ig&&!dp.disc&&data.key&&!dp.igTried&&!state.igBlocked&&state.igBusy!==dp.id)autoIg(dp.id,'page')}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
