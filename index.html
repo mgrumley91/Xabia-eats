@@ -455,7 +455,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v41';
+const APP_VERSION='v42';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -882,7 +882,7 @@ function screenToday(){
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat"><button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${data.claudeUrl?`<button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
@@ -1651,7 +1651,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','claudeUrl','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2529,7 +2529,7 @@ function screenSettings(){
   </div>
   ${sec('Ask Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
-    <p style="font-size:14px;margin:0">The <b>✦ Ask Claude</b> button on Home opens your Xàbia trip chat in Claude.</p>
+    <p style="font-size:14px;margin:0">Adds an <b>✦ Ask Claude</b> button to Home that opens your Xàbia trip chat in Claude. It’s only saved on this phone, so phones without your Claude account don’t get the button.</p>
     <label class="lab" for="claudeUrl">Link to your Claude project or chat</label>
     <div class="frow" style="margin-top:0"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
     <p class="small flush" style="margin-top:6px">To get it: in Safari, sign in at claude.ai, open your Xàbia trip project and copy the address from the address bar. On a computer, copy it from the browser’s address bar.</p>
