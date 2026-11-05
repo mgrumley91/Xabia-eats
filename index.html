@@ -458,7 +458,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v45';
+const APP_VERSION='v46';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2436,11 +2436,12 @@ async function checkTrips(){
     const rows=await sbFetch('splitter?id=eq.app&select=trip,updated_at,data');
     const cur=rows.find(r=>r.trip===SB().trip), cs=tripScore(cur&&cur.data&&cur.data.d);
     const best=rows.filter(r=>r.trip!==SB().trip).map(r=>({trip:r.trip,s:tripScore(r.data&&r.data.d),d:r.data&&r.data.d||{}})).sort((a,b)=>b.s-a.s)[0];
-    if(best&&best.s>=cs+3){state.betterTrip={trip:best.trip,visits:(best.d.visits||[]).length,rated:(best.d.places||[]).filter(p=>p.ours).length};renderSoft()}
+    if(best&&best.s>=3&&cs===0){toast('This phone was on an empty trip. Moving you back to yours…');return switchTrip(best.trip)}
+    if(best&&best.s>=cs+3){state.betterTrip={trip:best.trip,visits:(best.d.visits||[]).length,rated:(best.d.places||[]).filter(p=>p.ours).length};renderSoft();renderTripBar()}
   }catch(e){}
 }
 async function switchTrip(t){
-  data.sb={...data.sb,trip:t};data.appUpdated=0;state.takeRemote=true;state.betterTrip=null;appDirty=false;clearTimeout(appT);
+  data.sb={...data.sb,trip:t};data.appUpdated=0;state.takeRemote=true;state.betterTrip=null;renderTripBar();appDirty=false;clearTimeout(appT);
   try{localStorage.removeItem('xe.base')}catch(e){}
   B.seeded=true;B.bill=blankBill();B.meals=[];B.claims={};B.deleted=[];localBills();save({remote:true});
   toast('Switching to your trip…');await pullBills();toast(B.status==='live'?'You’re back on your trip':'Couldn’t connect: '+B.err);state.stack=[];render();
@@ -2693,6 +2694,9 @@ function renderTabs(){
       :`<button class="tab ${on?'on':''}" onclick="go('${k}')">${ic}${l}${k==='bills'&&needsMyPick()?'<em class="bdot" aria-label="Your picks are needed"></em>':''}</button>`}).join('');
 }
 function go(k){state.tab=k;state.stack=[];state.confirmDel=null;render()}
+function renderTripBar(){let bar=document.getElementById('tripbar');if(!state.betterTrip){if(bar)bar.hidden=true;return}
+  if(!bar){bar=document.createElement('div');bar.id='tripbar';bar.className='upd';document.body.append(bar)}
+  bar.hidden=false;bar.innerHTML=`<span>Your trip is saved separately</span><button class="btn" onclick="switchTrip('${state.betterTrip.trip}')">Switch</button>`}
 function renderSync(){const el=document.getElementById('sync');if(el)el.textContent=state.sync}
 // re-render after background work, but never while someone is typing
 function renderSoft(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return renderSync();if(['billsetup','settings','spot','add','prefs'].includes(state.stack.at(-1))||String(state.stack.at(-1)).startsWith('relink'))return renderSync();if(state.tab==='map'&&!state.stack.length)return renderSync();render(true)}
