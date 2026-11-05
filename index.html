@@ -476,7 +476,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v56';
+const APP_VERSION='v57';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1686,7 +1686,8 @@ const sbUpsert=rows=>sbFetch('splitter?on_conflict=trip,id',{method:'POST',heade
 const sbDelete=id=>sbFetch(`splitter?${tripQ()}&id=eq.${encodeURIComponent(id)}`,{method:'DELETE'});
 const sbAll=()=>sbFetch(`splitter?${tripQ()}&kind=neq.photo&select=id,kind,data,updated_at`);
 const sbPhoto=id=>sbFetch(`splitter?${tripQ()}&id=eq.${encodeURIComponent('photo_'+id)}&select=data`);
-const sbRow=(id,kind,d)=>({trip:SB().trip,id,kind,data:d,updated_at:new Date().toISOString()});
+const SYNC_CV=57; // the server only accepts saves from this version on
+const sbRow=(id,kind,d)=>({trip:SB().trip,id,kind,data:d,cv:SYNC_CV,updated_at:new Date().toISOString()});
 function setB(st,err){B.status=st;B.err=err||'';const el=document.getElementById('bsync');if(el)el.outerHTML=bSyncHtml()}
 function bSyncHtml(){
   const n=NM(), t={live:`Shared with ${esc(PT().slice(1).map(p=>p.name).join(', '))} · live`,saving:'Saving…',offline:'Offline. Saved on this phone and will send when you’re back online.',local:'Only on this screen. Turn on sync in Settings.',error:'Couldn’t reach shared bills: '+esc(B.err)}[B.status]||'';
@@ -1793,7 +1794,7 @@ async function pullBills(){
     if(B.photoPending&&B.photoPending.length){for(const id of B.photoPending.splice(0)){const src=localStorage.getItem('xe.ph.'+id);if(src)await sbUpsert([sbRow('photo_'+id,'photo',{src})]).catch(()=>B.photoPending.push(id))}}
     localBills(); setB('live'); checkTrips();
     if(changed){billsRefresh();renderTabs()}
-  }catch(e){setB(navigator.onLine?'error':'offline',e.message)}
+  }catch(e){setB(navigator.onLine?'error':'offline',e.message);if(/closed/i.test(e.message)){state.tripChecked=false;checkTrips()}}
   pulling=false;
 }
 let billT;
