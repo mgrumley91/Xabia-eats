@@ -223,7 +223,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .poi .pcard h3 i{display:none}
 .tile{height:12px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Crect width='24' height='12' fill='%23d4622e'/%3E%3Cpath d='M12 1L15 6L12 11L9 6Z' fill='%23fbeadf'/%3E%3Ccircle cx='0' cy='6' r='2.4' fill='%231d2229'/%3E%3Ccircle cx='24' cy='6' r='2.4' fill='%231d2229'/%3E%3C/svg%3E");background-repeat:repeat-x;background-size:24px 12px}
 /* Home: map first, sliding panel */
-.hmap{position:relative;height:46vh;min-height:320px;max-height:440px;background:#ece6dc}
+.hmap{position:relative;height:66vh;min-height:420px;max-height:720px;background:#ece6dc}
 .hmap #recmap{height:100%;margin:0;border-radius:0;box-shadow:none}
 .hmap .nomap{height:100%;display:grid;place-items:center;text-align:center;padding:0 30px;color:var(--muted);font-size:14px}
 .hfloat{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:calc(14px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));pointer-events:none;z-index:2}
@@ -277,6 +277,9 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .ctaA{display:flex;gap:10px;align-items:center}
 .ctaA .btn{padding:14px 16px}
 .ctaA .go{flex:1}
+.clpicks{border:1.5px solid #c9b6f0;background:#faf7ff;margin-top:12px}.clhead{display:flex;justify-content:space-between;align-items:center}.clpicks .lbl{color:#6a3fc9;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.clrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #ece4fb}.clrow:first-of-type{border-top:0}
+.clnum{flex:none;width:28px;height:28px;border-radius:50%;background:#7b4fd6;color:#fff;display:grid;place-items:center;font-size:14px}
 .grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:10px auto 0}
 .top{align-items:center}
 .ptitle{font-size:28px;line-height:1.1;margin:0}
@@ -455,7 +458,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v42';
+const APP_VERSION='v43';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -882,7 +885,7 @@ function screenToday(){
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${data.claudeUrl?`<button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
@@ -901,6 +904,7 @@ function screenToday(){
     ${(()=>{const a=rateAsk();if(!a)return'';return `<div class="pcard rateask"><p class="small" style="margin:0">You went ${visitDay(a.v.at)}</p><h3 style="font-size:19px;margin-top:2px">How was ${esc(a.p.name)}?</h3>
       ${rateHtml(a.p.id,0)}<p class="small" style="margin-top:4px">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</p>
       <button class="link" style="margin-top:6px" onclick="skipRate('${a.v.id}')">Not now</button></div>`})()}
+    ${claudeCardHtml()}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
     <div id="list"></div>
     <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
@@ -947,7 +951,8 @@ function renderList(){
   const waitKind=pick?'wait':'first';
   const rest=open.filter(p=>p!==pick&&p!==alt), later=soon.filter(p=>p!==wait);
   [pick,wait].forEach(x=>{if(x&&x.photo&&!x.photo.resolved&&!x.photo.tried)resolvePhoto(x).then(ok=>{if(ok)renderList()})});
-  state.recPins=[...(pick?[[pick,fav?'fav':'pick']]:[]),...(alt?[[alt,'alt']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
+  const cp=claudePicks();
+  state.recPins=[...(cp?cp.items.filter(it=>it.lat!=null).map(it=>[{id:it.p?it.p.id:null,name:it.name,lat:it.lat,lng:it.lng,_n:it.n},'cl']):[]),...(pick?[[pick,fav?'fav':'pick']]:[]),...(alt?[[alt,'alt']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
   if(pick) html+=heroCard(pick,fav?'fav':'pick',S.get(pick.id));
@@ -971,19 +976,19 @@ function renderList(){
 }
 async function drawRecMap(){
   const el=document.getElementById('recmap'); if(!el) return;
-  const sig=(state.recPins||[]).map(([p,k])=>p.id+k).join()+'|'+data.spots.map(s=>s.id).join();
+  const sig=(state.recPins||[]).map(([p,k])=>(p.id||p.name)+k).join()+'|'+data.spots.map(s=>s.id).join();
   if(el.dataset.sig===sig&&el.dataset.drawn) return; el.dataset.sig=sig;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
     el.innerHTML='';
     const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});
     const b=new window.google.maps.LatLngBounds(); let n=0;
-    const style={fav:{bg:'#d4622e',sc:1.45,gl:'♥'},alt:{bg:'#b94f1f',sc:1.15,gl:'★'},pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
+    const style={fav:{bg:'#d4622e',sc:1.45,gl:'♥'},alt:{bg:'#b94f1f',sc:1.15,gl:'★'},pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},cl:{bg:'#7b4fd6',sc:1.45},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
     [...(state.recPins||[])].reverse().forEach(([p,k])=>{
       if(p.lat==null||p.approx) return;
-      const s=style[k], pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(s.gl?{glyph:s.gl}:{})});
-      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='pick'?99:k==='wait'?98:1});
-      mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
+      const s=style[k], gl=k==='cl'?String(p._n):s.gl, pin=new g.Pin({background:s.bg,borderColor:'#ffffff',glyphColor:'#ffffff',scale:s.sc,...(gl?{glyph:gl}:{})});
+      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true,zIndex:k==='cl'?100:k==='pick'?99:k==='wait'?98:1});
+      mk.addListener('click',()=>{if(p.id)openDetail(p.id);else document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})}); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
     n+=addSpotMarkers(g,map,b);
     if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
@@ -1728,6 +1733,9 @@ async function pullBills(){
     else if((data.appUpdated||0)>(ar.data.updated||0)){if(!data.key&&ar.data.d&&ar.data.d.key){data.key=ar.data.d.key;save({remote:true});state.keyStatus='loading';gmaps().then(()=>{renderSoft();syncAll()}).catch(()=>{})}await pushApp()}
     if(!rows.some(r=>r.kind!=='app')&&!B.seeded){B.seeded=true;setB('saving');await pushAll();setB('live');pulling=false;return}
     B.seeded=true;
+    const sr=rows.find(r=>r.id==='suggest');
+    if(sr&&sr.data&&JSON.stringify(sr.data)!==JSON.stringify(B.suggest)){B.suggest=sr.data;lsSet('xe.suggest',sr.data);
+      if(claudePicks()){toast(`✦ Claude sent ${sr.data.items.length} pick${sr.data.items.length>1?'s':''}. See Home`);if(state.tab==='today'&&!state.stack.length)renderSoft()}}
     const br=rows.find(r=>r.id==='bill'), meals=rows.filter(r=>r.kind==='meal').map(r=>r.data).sort((a,b)=>a.at-b.at);
     let changed=false;
     if(br&&!B.dirtyBill&&(br.data.updated||0)>(B.bill.updated||0)){B.bill=br.data;changed=true}
@@ -2509,6 +2517,40 @@ function addPref(ci,inp){const v=inp.value.trim();if(!v)return;const c=PREF_CATS
 function rmPref(ci,i){data.prefs[PREF_CATS[ci]].splice(i,1);save();render(true)}
 
 /* ---------- SETTINGS ---------- */
+// Claude's picks: the Claude trip chat saves a row (id 'suggest') with a few places; Home shows them on the map to confirm
+try{B.suggest=JSON.parse(localStorage.getItem('xe.suggest')||'null')}catch(e){B.suggest=null}
+const lsGet=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'null')??d}catch(e){return d}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+function claudePicks(){
+  const s=B.suggest; if(!s||!Array.isArray(s.items)||!s.items.length) return null;
+  if(Date.now()-(+s.at||0)>18*36e5||lsGet('xe.sugDone',0)>=+s.at) return null;
+  const picked=lsGet('xe.sugPicked',{})[s.at]||[];
+  const items=s.items.slice(0,6).map((x,i)=>{
+    let p=x.placeId&&byId(x.placeId);
+    if(!p&&x.gid) p=data.places.find(q=>q.gid===x.gid);
+    if(!p&&x.name) p=data.places.find(q=>simil(q.name,x.name)>=.8);
+    return {i,x,p,n:i+1,name:p?p.name:String(x.name||'Place'),lat:p&&p.lat!=null&&!p.approx?p.lat:+x.lat||null,lng:p&&p.lng!=null&&!p.approx?p.lng:+x.lng||null,picked:picked.includes(i)}});
+  return {s,items};
+}
+function claudeCardHtml(){
+  const cp=claudePicks(); if(!cp) return '';
+  return `<div class="pcard clpicks" id="clpicks"><div class="clhead"><span class="lbl">✦ Claude’s picks</span><button class="link" onclick="dismissPicks()">Dismiss</button></div>
+    ${cp.s.title?`<h3 style="font-size:19px;margin-top:2px">${esc(cp.s.title)}</h3>`:''}
+    ${cp.items.map(it=>{const st=it.p?status(it.p):null;return `<div class="clrow"><b class="clnum">${it.n}</b>
+      <div class="grow" ${it.p?`onclick="openDetail('${it.p.id}')" style="cursor:pointer"`:''}><div class="rname" style="font-size:16px">${esc(it.name)}</div>
+      <div class="small" style="margin:2px 0 0">${[it.x.why?esc(it.x.why):'',st?`<span class="s-${st.s}">${esc(st.txt)}</span>`:'',it.p?'':'new place'].filter(Boolean).join(' · ')}</div></div>
+      <button class="btn ${it.picked?'ghost':''}" style="padding:9px 14px;font-size:14px" onclick="pickClaude(${it.i})">${it.picked?'✓ Planned':'Go here'}</button></div>`}).join('')}
+    <p class="small" style="margin:8px 0 0">Tap <b>Go here</b> to add it to today’s plan and the map.</p></div>`;
+}
+async function pickClaude(i){
+  const cp=claudePicks(); if(!cp) return; const it=cp.items[i]; let p=it.p;
+  if(!p){const x=it.x;p={id:uid(),name:it.name,area:it.lat!=null?areaFor(it.lat,it.lng):'Xàbia',tags:[...(catOf().tags.slice(0,1))],menu:[],note:x.why?String(x.why):'',lat:it.lat,lng:it.lng,approx:it.lat==null,gid:x.gid||'',addr:x.addr||'',michelin:'',touched:true};data.places.push(p)}
+  if(!inToday(p.id)) TPw().ids.push(p.id);
+  const all=lsGet('xe.sugPicked',{});all[cp.s.at]=[...new Set([...(all[cp.s.at]||[]),i])];lsSet('xe.sugPicked',all);
+  save(); toast(`${p.name} is in today’s plan`); render(true);
+  if(p.gid&&data.key&&!p.updated){try{applyDetails(p,await gDetails(p.gid));await resolvePhoto(p);save();renderSoft()}catch(e){}}
+}
+function dismissPicks(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);render(true)}
 function openClaude(){
   if(!data.claudeUrl){state.stack=['settings'];render();setTimeout(()=>{const el=document.getElementById('claudeUrl');if(el){el.scrollIntoView({block:'center'});el.focus()}},80);toast('Paste the link to your Claude trip project once');return}
   window.open(data.claudeUrl,'_blank','noopener');

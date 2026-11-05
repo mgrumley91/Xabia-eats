@@ -34,9 +34,31 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
   Ignore `kind = 'photo'` rows.
 - `at` values are milliseconds since 1970: show dates and times in Europe/Madrid.
 
+## Sending recommendations to the app ("Claude's picks")
+
+When we ask for recommendations, also save them so the app shows them on the Home map as numbered
+purple pins we can confirm. Write one row (it replaces the previous picks):
+
+```sql
+insert into public.splitter (trip, id, kind, data, updated_at)
+values ('<current trip>', 'suggest', 'suggest', jsonb_build_object(
+  'at', (extract(epoch from now()) * 1000)::bigint,
+  'title', 'Lunch near the old town',
+  'items', jsonb_build_array(
+    jsonb_build_object('placeId', '<id from places>', 'name', 'La Cantina de Jávea', 'why', 'Rice by the fish market, open till 16:00'),
+    jsonb_build_object('name', 'New place', 'lat', 38.79, 'lng', 0.17, 'why', 'Not saved yet, well reviewed')
+  )), now())
+on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind, updated_at = now();
+```
+
+- Use 1–5 items, best first. Prefer places already in `places` (give `placeId`); for a new place give `name`,
+  `lat`, `lng` and, if you know it, `gid` (its Google place id).
+- `why` is one short line. Check opening hours for when we're going before recommending.
+- Then tell us: "They're on your Home map."
+
 ## Rules
 
-- Read only, unless we ask you to change something.
+- Read only, except the `suggest` row above, or when we ask you to change something.
 - Never repeat the Google API key stored in the app row, or any Supabase keys.
 - When answering "where did we go…", check both `visits` and `meal` rows.
 - Changing the app: edit `index.html`, bump `APP_VERSION`, and push to `main`;
