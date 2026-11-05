@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v52';
+const APP_VERSION='v53';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2329,8 +2329,9 @@ Use "high" only if you found an instagram.com profile that clearly belongs to th
 // Look up once per place; a clear match is saved straight away, a maybe is offered to confirm
 async function autoIg(id,quiet){
   const p=byId(id); if(!p||p.ig||p.disc||!data.key) return null;
+  const page=quiet==='page'; if(page) quiet=false;
   p.igTried=Date.now(); state.igBusy=id; if(!quiet) renderSoft();
-  let res=null; try{res=await findIg(p)}catch(e){state.igErr=e.message;delete p.igTried;if(!quiet)toast('Couldn’t search right now: '+e.message)}
+  let res=null; try{res=await findIg(p)}catch(e){state.igErr=e.message;delete p.igTried;if(/blocked|not been used|disabled|PERMISSION|API key/i.test(e.message))state.igBlocked=true;if(!quiet&&!page)toast('Couldn’t search right now: '+e.message)}
   state.igBusy=null; const q=byId(id); if(!q) return null;
   if(res&&res.conf==='high'&&!q.ig){q.ig='@'+res.handle;q.igAuto=true;delete q.igGuess;q.touched=true;save();if(!quiet)toast(`Found their Instagram: @${res.handle}`)}
   else if(res){q.igGuess=res.handle;save()}
@@ -2342,7 +2343,7 @@ function takeGuess(id){const p=byId(id);if(!p||!p.igGuess)return;p.ig='@'+p.igGu
 async function findAllIg(){
   if(state.igAll) return; const list=data.places.filter(p=>!p.ig&&!p.disc);
   if(!list.length){toast('Every place already has its Instagram');return}
-  state.igAll={done:0,total:list.length,found:0,maybe:0};state.igErr=null;state.igLast=null;render(true);
+  state.igBlocked=false;state.igAll={done:0,total:list.length,found:0,maybe:0};state.igErr=null;state.igLast=null;render(true);
   for(const p of list){const r=await autoIg(p.id,true);state.igAll.done++;if(byId(p.id)&&byId(p.id).ig)state.igAll.found++;else if(r)state.igAll.maybe++;if(state.stack.at(-1)==='settings'&&!typing())render(true);else renderSoft()}
   const s=state.igAll;state.igAll=null;state.igReport=s;toast(state.igErr&&!s.found&&!s.maybe?'Google refused the search: '+state.igErr:`Instagram: found ${s.found} of ${s.total}${s.maybe?`, ${s.maybe} to confirm`:''}`);render(true);
 }
@@ -2804,7 +2805,7 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
-  if(top&&top.startsWith('detail:')){const dp=byId(top.slice(7));if(dp&&!dp.ig&&!dp.disc&&data.key&&!dp.igTried&&state.igBusy!==dp.id)autoIg(dp.id)}
+  if(top&&top.startsWith('detail:')){const dp=byId(top.slice(7));if(dp&&!dp.ig&&!dp.disc&&data.key&&!dp.igTried&&!state.igBlocked&&state.igBusy!==dp.id)autoIg(dp.id,'page')}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);
   renderTabs();
