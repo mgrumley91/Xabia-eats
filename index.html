@@ -228,6 +228,8 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .hmap .nomap{height:100%;display:grid;place-items:center;text-align:center;padding:0 30px;color:var(--muted);font-size:14px}
 .hfloat{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:calc(14px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));pointer-events:none;z-index:2}
 .hfloat>*{pointer-events:auto}
+.askc{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.askc span{color:var(--accent)}
 .bpill{background:var(--card);border-radius:14px;padding:9px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(40,30,20,.14);font-family:var(--display);font-weight:800;font-size:18px}
 .bpill i{width:16px;height:16px;border-radius:4px;background:var(--accent);display:block}
 .sqbtn{width:44px;height:44px;border-radius:14px;border:0;background:var(--card);display:grid;place-items:center;box-shadow:0 4px 14px rgba(40,30,20,.14);cursor:pointer}
@@ -453,7 +455,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v40';
+const APP_VERSION='v41';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -880,7 +882,7 @@ function screenToday(){
   if(data.key) discover(cat);
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat"><span></span><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat"><button class="askc" onclick="openClaude()" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button><button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${esc(cat.label)}, near you</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
@@ -1649,7 +1651,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','claudeUrl','travel','only4','discover','showPhotos'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2507,6 +2509,13 @@ function addPref(ci,inp){const v=inp.value.trim();if(!v)return;const c=PREF_CATS
 function rmPref(ci,i){data.prefs[PREF_CATS[ci]].splice(i,1);save();render(true)}
 
 /* ---------- SETTINGS ---------- */
+function openClaude(){
+  if(!data.claudeUrl){state.stack=['settings'];render();setTimeout(()=>{const el=document.getElementById('claudeUrl');if(el){el.scrollIntoView({block:'center'});el.focus()}},80);toast('Paste the link to your Claude trip project once');return}
+  window.open(data.claudeUrl,'_blank','noopener');
+}
+function saveClaude(v){v=String(v||'').trim();const m=v.match(/https:\/\/claude\.ai\/\S*/);
+  if(v&&!m){toast('That should be a claude.ai link');return}
+  data.claudeUrl=m?m[0]:'';save();toast(m?'Saved. Tap ✦ Ask Claude on Home':'Link removed');render(true)}
 function screenSettings(){
   const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
   const {from,to}=data.trip;
@@ -2518,6 +2527,13 @@ function screenSettings(){
     ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
     <button class="btn ghost block">Edit food preferences</button>
   </div>
+  ${sec('Ask Claude')}
+  <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
+    <p style="font-size:14px;margin:0">The <b>✦ Ask Claude</b> button on Home opens your Xàbia trip chat in Claude.</p>
+    <label class="lab" for="claudeUrl">Link to your Claude project or chat</label>
+    <div class="frow" style="margin-top:0"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
+    <p class="small flush" style="margin-top:6px">To get it: in Safari, sign in at claude.ai, open your Xàbia trip project and copy the address from the address bar. On a computer, copy it from the browser’s address bar.</p>
+  </form>
   ${sec('Sync & sharing')}
   <div class="pcard" style="cursor:pointer" onclick="push('billsetup')"><div class="srow" style="padding:0"><span>${SB()?'Everything syncs across your screens and with '+esc(NM().b):'Only on this screen'}</span><span class="ks ${SB()?'ok':'none'}">${SB()?'On':'Off'}</span></div><button class="btn ghost block">${SB()?'Trip link & settings':'Connect or set up'}</button></div>
   ${sec('Google Maps')}
