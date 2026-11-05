@@ -464,7 +464,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v51';
+const APP_VERSION='v52';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1196,6 +1196,7 @@ function screenDetail(id){
     <p class="small" style="margin-top:8px">${p.gid?`From Google${p.updated?', checked '+new Date(p.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}. Tap Check hours before you go.`:'Connect Google in Settings to load hours.'}</p>
     ${p.note?`<div class="noteA"><b>Your note · </b>${esc(p.note)}</div>`:''}
     ${(()=>{const vs=(data.visits||[]).filter(v=>v.placeId===id).sort((a,b)=>b.at-a.at);return `<div class="pcard" style="margin-top:14px"><div class="srow" style="padding:0"><span><b>${vs.length?`Been ${vs.length} time${vs.length>1?'s':''}`:'Not been yet'}</b>${vs.length?`<br><span class="small">Last: ${vs[0].meal?MEAL_LBL[vs[0].meal]+', ':''}${visitDay(vs[0].at)}</span>`:''}</span><button class="btn" style="padding:10px 16px" onclick="askVisit('${id}')">We went here</button></div>
+      ${vs.length?`<div style="margin-top:8px">${vs.map(v=>`<div class="srow" style="padding:6px 0;font-size:14px"><span>${v.meal?MEAL_LBL[v.meal]+' · ':''}${visitDay(v.at)}${v.how==='bill'?' <span class="small">· from a bill</span>':''}</span><button class="link danger" style="font-size:13px" onclick="rmVisit('${v.id}',true)">${state.rmV===v.id?'Tap again to remove':'Remove'}</button></div>`).join('')}</div>`:''}
       ${state.visitAsk===id?visitAskHtml(id):''}
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><span class="lab" style="margin:0 0 4px">Our rating</span>${rateHtml(id,(byId(id)||{}).ours||0)}
       <div class="ratelbl" style="color:${{5:'#1f7a4c',3:'#8a6a1f',2:'#a63a3a',1:'#a63a3a'}[(byId(id)||{}).ours]||'var(--ink)'}">${(byId(id)||{}).ours?RATE_LBL[byId(id).ours]:'<span class="small" style="font-weight:500">5 definitely go back · 4 good if in the area · 3 only if desperate · 1–2 not going back</span>'}</div></div></div>`})()}
@@ -1261,7 +1262,11 @@ async function checkPlanHours(v){
 async function refreshOne(id){const p=byId(id);toast('Refreshing…');try{applyDetails(p,await gDetails(p.gid));save();toast('Hours updated');render(true)}catch(e){toast('Google didn’t respond')}}
 function delPlace(id){
   if(state.confirmDel!==id){state.confirmDel=id;render(true);setTimeout(()=>{if(state.confirmDel===id){state.confirmDel=null;renderSoft()}},4000);return}
-  const p=byId(id);data.places=data.places.filter(x=>x.id!==id);data.plan=data.plan.filter(x=>x!==id);state.confirmDel=null;save();toast(`${p.name} deleted`);pop();
+  const p=byId(id);data.places=data.places.filter(x=>x.id!==id);data.plan=data.plan.filter(x=>x!==id);
+  const gone=(data.visits||[]).filter(v=>v.placeId===id);gone.forEach(v=>{if(v.billId)unlinkBill(v.billId)});data.visits=(data.visits||[]).filter(v=>v.placeId!==id);
+  (B.meals||[]).filter(m=>m.placeId===id).forEach(m=>unlinkBill(m.id));
+  Object.values(data.dayPlans||{}).forEach(d=>{d.ids=(d.ids||[]).filter(x=>x!==id)});
+  state.confirmDel=null;save();toast(`${p.name} deleted${gone.length?` with its ${gone.length} visit${gone.length>1?'s':''}`:''}`);pop();
 }
 // Shrinks photos to ~800px JPEGs so they fit in the phone's storage
 function shrink(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.72))};im.onerror=rej;im.src=u})}
@@ -1448,7 +1453,13 @@ function vcYes(){
 function vcSkip(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;m.noVisit=true;saveMeals();state.vcFor=null;render(true)}
 function vcFind(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;const nm=m.billName||m.place;
   state.vcAdd=m.id;state.addResults=null;state.addMsg='';const q=(/^Meal \d+$/.test(nm)?'':nm)+(m.addr?' '+m.addr:'')||'restaurant';push('add');smartAdd(q.trim()||'restaurant Xàbia','')}
-function rmVisit(vid){data.visits=data.visits.filter(v=>v.id!==vid);save();render(true)}
+// Removing a visit that came from a bill unlinks the bill, so it asks "Did you eat here?" again
+function unlinkBill(billId){const m=(B.meals||[]).find(x=>x.id===billId);if(!m)return false;delete m.visit;delete m.placeId;delete m.noVisit;if(m.billName)m.place=m.billName;state.vcFor=null;saveMeals();return true}
+function rmVisit(vid,confirm){
+  const v=(data.visits||[]).find(x=>x.id===vid);if(!v)return;
+  if(confirm&&state.rmV!==vid){state.rmV=vid;render(true);setTimeout(()=>{if(state.rmV===vid){state.rmV=null;renderSoft()}},4000);return}
+  state.rmV=null;data.visits=data.visits.filter(x=>x.id!==vid);const ub=v.billId&&unlinkBill(v.billId);save();
+  toast(ub?'Visit removed. The bill will ask where you ate again':'Visit removed');render(true)}
 const visitDay=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 function historyHtml(){
   const vs=[...(data.visits||[])].sort((a,b)=>b.at-a.at);
