@@ -114,7 +114,15 @@ input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
 .seg2,.seg3{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px;gap:3px;margin-top:4px}
 .seg3{grid-template-columns:1fr 1fr 1fr}
 .seg2 button,.seg3 button{border:0;background:none;border-radius:99px;padding:7px 4px;font-size:13px;font-weight:600;cursor:pointer}
-.seg2 button.on{background:var(--ink);color:#fff}
+.seg2 button.on,.seg3 button.on{background:var(--ink);color:#fff}
+.riskchips{padding:0!important;margin-top:4px;gap:6px}.riskchips .chip{padding:6px 11px;font-size:13px}
+.riskleg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;font-size:12.5px}
+.riskleg div{display:flex;align-items:center;gap:8px;padding:2px 0}.riskleg img{width:20px;height:20px;flex:none}.riskleg i{width:20px;height:20px;flex:none}
+.rbs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.rbs>span{font-size:11.5px;color:var(--muted)}
+.rb{border-radius:8px;padding:2px 7px;font-weight:600}.rb.s0{background:#e3f2ea;color:#1f7a4c!important}.rb.s1{background:#f6efd9;color:#7a5a12!important}.rb.s2{background:#fbe6d6;color:#a8501c!important}.rb.s3{background:#f8dcdc;color:#a63a3a!important}
+.riskline{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}.riskline>span{font-size:20px}.riskline.s3 b{color:#a63a3a}.riskline.s2 b{color:#a8501c}.riskline.s0 b{color:#1f7a4c}
+.homepin{display:flex;flex-direction:column;align-items:center;transform:translateY(4px)}.homepin i{font-style:normal;font-size:17px;background:#5b4bb7;border:2px solid #fff;border-radius:10px;padding:2px 4px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.homepin.short i{background:#d4622e}.homepin.no i{background:#9aa3ad}.homepin span{font-size:11px;font-weight:700;background:#fff;border-radius:6px;padding:1px 5px;margin-top:2px;box-shadow:0 1px 3px rgba(0,0,0,.2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seg3 button.u.on{background:#1f7a6c;color:#fff}.seg3 button.w.on{background:#c8681c;color:#fff}.seg3 button.s.on{background:#5b5f9e;color:#fff}
 .money{text-align:right;font-variant-numeric:tabular-nums}
 .receipt{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 0 14px;overflow:hidden}
@@ -488,7 +496,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v71';
+const APP_VERSION='v72';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -697,7 +705,7 @@ function gmaps(){
   gPromise=new Promise((res,rej)=>{
     window.__gmInit=async()=>{try{
       const [pl,mp,mk]=await Promise.all([window.google.maps.importLibrary('places'),window.google.maps.importLibrary('maps'),window.google.maps.importLibrary('marker')]);
-      state.keyStatus='ok';res({Place:pl.Place,Map:mp.Map,Marker:mk.AdvancedMarkerElement,Pin:mk.PinElement});
+      window.__IMT=mp.ImageMapType;state.keyStatus='ok';res({Place:pl.Place,Map:mp.Map,Marker:mk.AdvancedMarkerElement,Pin:mk.PinElement});
     }catch(e){state.keyStatus='bad';rej(e)}};
     window.gm_authFailure=()=>{state.keyStatus='bad';toast('Google rejected the API key. Check it in Settings.');renderSoft()};
     const s=document.createElement('script');
@@ -1065,7 +1073,8 @@ function screenSaved(){
   const nf=data.places.filter(p=>p.fav).length;
   const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||(ourRank(b)-ourRank(a))||a.name.localeCompare(b.name));
   const sv=state.savedView||'places', nt=OUT().length;
-  const seg=`<div class="seg2" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button></div>`;
+  const nh=HOMES().length, seg=`<div class="seg3" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button><button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button></div>`;
+  if(sv==='homes') return topbar('Saved')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
   if(sv==='trips') return topbar('Saved')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
   return topbar('Saved')+`<div class="pad">${seg}
    <p class="lead">${data.places.length} places in Xàbia</p>
@@ -1328,7 +1337,8 @@ function screenMap(){
   locate();
   const w=when();
   return topbar('Map')+`<div class="pad"><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
-  ${data.key?`<div class="seg" style="grid-template-columns:.7fr .8fr 1.15fr 1.35fr;margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended']].map(([k,l])=>`<button style="font-size:12px;line-height:1.2;padding:6px 2px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
+  ${data.key?`<div class="seg" style="grid-template-columns:.65fr .75fr 1.05fr 1.3fr .85fr;margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended'],['homes','Homes']].map(([k,l])=>`<button style="font-size:11.5px;line-height:1.2;padding:6px 1px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${k==='homes'?HOMES().filter(h=>h.lat!=null).length:data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
+  ${riskChipsHtml()}
   <div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
    :`<div class="note">Add your Google key in Settings to see your places on a live map.<br><button class="link" onclick="push('settings')">Open Settings →</button></div>`}
@@ -1361,19 +1371,151 @@ async function drawMap(){
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
     el.innerHTML='';
-    const map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
+    const map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
     map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});
-    const b=new window.google.maps.LatLngBounds(); let n=0;
+    applyRisk(map);
+    const b=new window.google.maps.LatLngBounds(); let n=0; const hm=(state.mapGroup||'all')==='homes';
+    HOMES().forEach(h=>{if(h.lat==null||(!hm&&(state.mapGroup||'all')!=='all'))return;
+      const mk=new g.Marker({map,position:{lat:h.lat,lng:h.lng},title:h.name||'Home',content:homePinEl(h),gmpClickable:true,zIndex:120});
+      mk.addListener('click',()=>push('home:'+h.id)); if(hm){b.extend({lat:h.lat,lng:h.lng});n++}});
     data.places.forEach(p=>{
-      if(p.lat==null||p.approx||!inGroup(p,state.mapGroup||'all')) return;
+      if(hm||p.lat==null||p.approx||!inGroup(p,state.mapGroup||'all')) return;
       const st=status(p), big=data.plan.includes(p.id);
       const pin=new g.Pin({background:big?'#d4622e':COL[st.s],borderColor:'#ffffff',glyphColor:'#ffffff',scale:big?1.25:1});
       const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    n+=addSpotMarkers(g,map,b); addYou(g,map);
+    const ns=addSpotMarkers(g,map,b); if(!hm||!n) n+=ns; addYou(g,map);
     if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
+}
+
+/* ---------- HOMES (property search) + CLIMATE RISK ---------- */
+const HOMES=()=>data.homes||(data.homes=[]);
+const homeById=id=>HOMES().find(h=>h.id===id);
+const HSTAT={look:'Considering',view:'Viewed',short:'Shortlist',no:'Ruled out'};
+const HKIND=['Apartment','Villa','Townhouse','Plot'];
+const ICV='https://carto.icv.gva.es/arcgis/rest/services/';
+const RISK={
+  flood:{lbl:'Flood',icon:'🌊',svc:'tm_infraestructuras/ordenacion_territorial',show:'4,5,6,7,8,9,10',
+    leg:[[4,'Level 1 · floods about every 25 years, over 80 cm deep'],[5,'Level 2 · about every 100 years, over 80 cm'],[6,'Level 3 · about every 25 years, under 80 cm'],[7,'Level 4 · about every 100 years, under 80 cm'],[8,'Level 5 · about every 500 years, over 80 cm'],[9,'Level 6 · about every 500 years, under 80 cm'],[10,'The landform suggests it can flood']],
+    src:'PATRICOVA flood plan, Generalitat Valenciana'},
+  fire:{lbl:'Wildfire',icon:'🔥',svc:'tm_medio_ambiente/prevencion_de_incendios',show:'103,107,91',
+    leg:[[90,'Within 500 m of forest (wildfire interface zone)'],[100,'Within 100 m of forest'],[121,'Burned in a wildfire since 1993']],
+    src:'Wildfire prevention maps, Generalitat Valenciana'},
+  coast:{lbl:'Coast',icon:'🏖',svc:'tm_infraestructuras/ordenacion_territorial',show:'32,30,31,34,50',
+    leg:[[32,'Protected coastal strip, first 500 m'],[30,'Extended coastal zone, 500 m–1 km'],[31,'Coastal connection zone'],[34,'Protected coastal land'],[50,'Where the shoreline was in 1956/57']],
+    src:'PATIVEL coastal plan, Generalitat Valenciana'}
+};
+const FIRE_YEARS='1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,101,102,120,121';
+const RLEG={};
+async function riskLegend(svc){
+  if(RLEG[svc]) return RLEG[svc];
+  try{const j=await (await fetch(ICV+svc+'/MapServer/legend?f=json')).json();const o={};
+    (j.layers||[]).forEach(l=>{const x=(l.legend||[])[0];if(x&&x.imageData)o[l.layerId]=`data:${x.contentType||'image/png'};base64,${x.imageData}`});
+    return RLEG[svc]=o}catch(e){return {}}
+}
+function riskTiles(k){const r=RISK[k],G=window.google.maps,IMT=G.ImageMapType||window.__IMT;
+  return new IMT({tileSize:new G.Size(256,256),opacity:.7,name:'risk-'+k,getTileUrl:(c,z)=>{
+    const n=1<<z,E=20037508.342789244,s=2*E/n,x=((c.x%n)+n)%n,minx=-E+x*s,maxy=E-c.y*s;
+    return `${ICV}${r.svc}/MapServer/export?bbox=${minx},${maxy-s},${minx+s},${maxy}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:${r.show}&f=image`}})}
+async function riskLegHtml(k){const r=RISK[k];if(!r)return '';const L=await riskLegend(r.svc);
+  return `<div class="riskleg">${r.leg.map(([id,t])=>`<div>${L[id]?`<img src="${L[id]}" alt="">`:'<i></i>'}<span>${t}</span></div>`).join('')}<p class="small" style="margin:6px 0 0">${r.src}. Official planning maps: a guide, not a survey.</p></div>`}
+function riskChipsHtml(){return `<div class="chips wrap riskchips" id="riskChips"><span class="small" style="align-self:center">Climate risk</span>${[['','Off'],...Object.entries(RISK).map(([k,r])=>[k,r.icon+' '+r.lbl])].map(([k,l])=>`<button class="chip ${(state.risk||'')===k?'on':''}" onclick="setRisk('${k}')">${l}</button>`).join('')}</div><div id="riskLeg"></div>`}
+function applyRisk(map){try{if(!map||!map.overlayMapTypes)return;map.overlayMapTypes.clear();if(state.risk&&RISK[state.risk])map.overlayMapTypes.push(riskTiles(state.risk))}catch(e){}}
+async function setRisk(k){state.risk=k||'';
+  document.querySelectorAll('#riskChips .chip').forEach((b,i)=>b.classList.toggle('on',(['',...Object.keys(RISK)][i]||'')===state.risk));
+  ['gmap','hmap'].forEach(id=>{const el=document.getElementById(id);if(el&&el._map)applyRisk(el._map)});
+  const lg=document.getElementById('riskLeg');if(lg)lg.innerHTML=state.risk?await riskLegHtml(state.risk):'';
+}
+function mercXY(lat,lng){return [lng*20037508.342789244/180,Math.log(Math.tan((90+lat)*Math.PI/360))*20037508.342789244/Math.PI]}
+async function identify(svc,layers,lat,lng,tol){const [x,y]=mercXY(lat,lng);
+  const u=`${ICV}${svc}/MapServer/identify?geometry=${x},${y}&geometryType=esriGeometryPoint&sr=3857&layers=all:${layers}&tolerance=${tol||2}&mapExtent=${x-1000},${y-1000},${x+1000},${y+1000}&imageDisplay=400,400,96&returnGeometry=false&f=json`;
+  const j=await (await fetch(u)).json(); if(j.error) throw new Error(j.error.message||'error'); return j.results||[]}
+async function checkRisk(id){
+  const h=homeById(id); if(!h||h.lat==null) return; state.riskBusy=id; render(true);
+  try{
+    const F=RISK.flood.svc,W=RISK.fire.svc;
+    const [fl,zf,bOn,bNear,co]=await Promise.all([identify(F,'4,5,6,7,8,9,10',h.lat,h.lng),identify(W,'90,100',h.lat,h.lng),identify(W,FIRE_YEARS,h.lat,h.lng),identify(W,FIRE_YEARS,h.lat,h.lng,100),identify(F,'32,30,31,34',h.lat,h.lng)]);
+    const lv=fl.map(r=>r.layerId).sort((a,b)=>a-b)[0];
+    const yrs=a=>[...new Set(a.map(r=>+(r.attributes['Año']||r.attributes['Ano']||0)).filter(Boolean))].sort((a,b)=>a-b);
+    const on=yrs(bOn), near=yrs(bNear).filter(y=>!on.includes(y));
+    const h2=homeById(id); if(!h2) return;
+    h2.risk={at:Date.now(),lat:h.lat,lng:h.lng,flood:lv||0,zif:zf.some(r=>r.layerId===100)?100:zf.some(r=>r.layerId===90)?500:0,burnOn:on,burnNear:near,coast:[...new Set(co.map(r=>r.layerId))]};
+    save();
+  }catch(e){toast('The risk maps didn’t respond. Try again in a minute')}
+  state.riskBusy=null; render(true);
+}
+const floodSev=l=>!l?0:l<=5?3:l<=7?2:1; // levels 1-2 high, 3-4 medium, 5-6 & landform low
+function riskBadges(h){const r=h.risk; if(!r) return h.lat==null?'<span>No location yet</span>':'<span>Risk not checked</span>';
+  const b=[];
+  if(r.flood) b.push(`<span class="rb s${floodSev(r.flood)}">🌊 ${r.flood===10?'Landform':'L'+(r.flood-3)}</span>`);
+  if(r.zif) b.push(`<span class="rb s${r.zif===100?2:1}">🔥 ${r.zif} m</span>`);
+  if(r.burnOn.length) b.push(`<span class="rb s3">🔥 Burned ${r.burnOn.at(-1)}</span>`);
+  if(r.coast.length) b.push(`<span class="rb s1">🏖 Coastal zone</span>`);
+  return b.join('')||'<span class="rb s0">✓ No mapped risks</span>'}
+function homeRow(h){const nm=h.name||'New home';
+  return `<div class="row" onclick="push('home:${h.id}')"><span style="font-size:24px;width:34px;text-align:center">${h.kind==='Villa'?'🏡':h.kind==='Plot'?'🌳':'🏠'}</span><div class="grow"><div class="rname">${esc(nm)}</div>
+    <div class="rmeta"><span>${esc([h.kind,h.beds?h.beds+' bed':'',h.price?'€'+Number(h.price).toLocaleString('en-GB'):'',h.lat!=null?areaFor(h.lat,h.lng):''].filter(Boolean).join(' · '))}</span></div>
+    <div class="rbs">${riskBadges(h)}</div></div><span class="small">›</span></div>`}
+function savedHomesHtml(){const L=HOMES();
+  const grp=(k,t)=>{const a=L.filter(h=>(h.status||'look')===k).sort((x,y)=>(y.at||0)-(x.at||0));return a.length?`${sec(t,`${a.length}`)}<div class="list">${a.map(homeRow).join('')}</div>`:''};
+  return `<p class="lead">Apartments and villas you’re looking at. Turn on Climate risk on the Map to compare them.</p>
+    <button class="btn block" onclick="newHome()">${I.plus} Add a home</button>
+    ${L.length?grp('short','Shortlist')+grp('view','Viewed')+grp('look','Considering')+(L.some(h=>h.status==='no')?`<details style="margin-top:8px"><summary class="link" style="cursor:pointer">Ruled out · ${L.filter(h=>h.status==='no').length}</summary>${grp('no','Ruled out')}</details>`:'')
+      +`<button class="btn ghost block" style="margin-top:14px" onclick="state.mapGroup='homes';state.risk=state.risk||'flood';go('map')">🗺 Compare on the risk map</button>`
+      :'<div class="empty">No homes yet. Add one from a listing, or tap Add a home while you’re standing outside it.</div>'}`}
+function newHome(){const h={id:uid(),name:'',kind:'Apartment',status:'look',at:Date.now()};HOMES().push(h);save();state.homeNew=h.id;push('home:'+h.id)}
+function setHome(id,k,v){const h=homeById(id);if(!h)return;h[k]=v;save()}
+function delHome(id){if(state.confirmDel!=='h'+id){state.confirmDel='h'+id;render(true);return}data.homes=HOMES().filter(h=>h.id!==id);state.confirmDel=null;save();toast('Home removed');pop()}
+function placeHome(id,lat,lng,how){const h=homeById(id);if(!h)return;h.lat=lat;h.lng=lng;delete h.risk;save();toast(how||'Location saved. Checking climate risk…');render(true);checkRisk(id)}
+function homeHere(id){if(!navigator.geolocation)return toast('Location isn’t available on this phone');toast('Finding you…');
+  navigator.geolocation.getCurrentPosition(p=>placeHome(id,p.coords.latitude,p.coords.longitude,'Pinned where you’re standing. Checking climate risk…'),()=>toast('Couldn’t get your location'),{enableHighAccuracy:true,timeout:12000,maximumAge:0})}
+async function homeLink(id,text){text=String(text||'').trim();if(!text)return;
+  const url=(text.match(/https?:\/\/\S+/)||[])[0]||text;let full=url;
+  try{if(/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(url))full=await resolveShort(url);const i=parseMapsUrl(full);
+    if(i.lat!=null) return placeHome(id,i.lat,i.lng);
+    if(data.key){const r=await gSearch(/x[aà]bia|j[aá]vea/i.test(text)?text:text+', Xàbia',1);if(r&&r[0]&&r[0].lat!=null)return placeHome(id,r[0].lat,r[0].lng,`Pinned at ${r[0].name}. Checking climate risk…`)}
+    toast('Couldn’t find a location in that. Drop the pin on the map instead')}catch(e){toast('Couldn’t read that. Drop the pin on the map instead')}}
+function screenHome(id){const h=homeById(id);const head=subbar('Home','pop()');
+  if(!h) return head+'<div class="pad"><div class="empty">This home was removed.</div></div>';
+  const r=h.risk, busy=state.riskBusy===id, fresh=state.homeNew===id; state.homeNew=null;
+  const line=(ic,t,s)=>`<div class="riskline s${s}"><span>${ic}</span><div>${t}</div></div>`;
+  let rk='';
+  if(h.lat==null) rk='<p class="small">Set the location above and the flood, wildfire and coastal maps are checked automatically.</p>';
+  else if(busy) rk='<p class="small">Checking the official risk maps…</p>';
+  else if(!r) rk=`<button class="btn ghost block" onclick="checkRisk('${id}')">Check climate risk</button>`;
+  else rk=line('🌊',r.flood?`<b>Flood: ${r.flood===10?'landform suggests it can flood':'hazard level '+(r.flood-3)+' of 6'}</b><br><span class="small">${RISK.flood.leg.find(x=>x[0]===r.flood)[1]}</span>`:'<b>Flood: not in a mapped flood zone</b>',floodSev(r.flood))
+    +line('🔥',(r.zif?`<b>Wildfire: within ${r.zif} m of forest</b><br><span class="small">Stricter fire-safety rules apply (clearing, firebreaks).</span>`:'<b>Wildfire: not in the forest interface zone</b>')
+      +(r.burnOn.length?`<br><span class="small"><b>Burned here:</b> ${r.burnOn.join(', ')}</span>`:'')+(r.burnNear.length?`<br><span class="small">Fires within about 500 m: ${r.burnNear.join(', ')}</span>`:''),r.burnOn.length?3:r.zif===100?2:r.zif||r.burnNear.length?1:0)
+    +line('🏖',r.coast.length?`<b>Coast: inside the protected coastal zone</b><br><span class="small">${r.coast.map(c=>(RISK.coast.leg.find(x=>x[0]===c)||[0,''])[1]).join(' · ')}. Limits on building and extensions.</span>`:'<b>Coast: outside the protected coastal zone</b>',r.coast.length?1:0)
+    +`<p class="small" style="margin-top:8px">From Generalitat Valenciana planning maps, checked ${new Date(r.at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}. A guide, not a survey: ask the agent for the property’s flood and fire reports too. <button class="link" style="font-size:12px" onclick="checkRisk('${id}')">Check again</button></p>`;
+  return head+`<div class="pad">
+    <input class="field" style="font-size:22px;font-weight:700" id="hName" placeholder="Name, e.g. Villa in Portitxol" value="${esc(h.name||'')}" onchange="setHome('${id}','name',this.value.trim())" ${fresh?'autofocus':''}>
+    <div class="seg3" style="grid-template-columns:repeat(4,1fr);margin-top:10px">${Object.entries(HSTAT).map(([k,l])=>`<button style="font-size:12px" class="${(h.status||'look')===k?'on':''}" onclick="setHome('${id}','status','${k}');render(true)">${l}</button>`).join('')}</div>
+    <div class="chips wrap" style="padding:0;margin-top:10px">${HKIND.map(k=>`<button class="chip ${h.kind===k?'on':''}" onclick="setHome('${id}','kind','${k}');render(true)">${k}</button>`).join('')}</div>
+    <div class="frow" style="margin-top:6px"><div style="flex:1.4"><label class="lab" for="hPrice">Price (€)</label><input class="field" id="hPrice" inputmode="numeric" placeholder="450000" value="${esc(h.price||'')}" onchange="setHome('${id}','price',this.value.replace(/[^0-9]/g,''))"></div>
+      <div style="flex:1"><label class="lab" for="hBeds">Bedrooms</label><input class="field" id="hBeds" inputmode="numeric" value="${esc(h.beds||'')}" onchange="setHome('${id}','beds',this.value.replace(/[^0-9]/g,''))"></div></div>
+    <label class="lab" for="hUrl">Listing link</label>
+    <div class="frow" style="margin-top:0"><input class="field" id="hUrl" placeholder="Idealista, Rightmove, agent…" value="${esc(h.url||'')}" onchange="setHome('${id}','url',this.value.trim());render(true)" autocapitalize="off">${h.url?`<a class="btn ghost" href="${esc(h.url)}" target="_blank" rel="noopener">Open</a>`:''}</div>
+    ${sec('Location')}
+    ${data.key?`<div id="hmap" class="omap"></div><p class="small" style="margin-top:6px">${h.lat==null?'Tap the map where the home is, or use a button below.':'Tap the map or drag the pin to move it.'}</p>${riskChipsHtml()}`:''}
+    <div class="frow"><button class="btn ghost" style="flex:1" onclick="homeHere('${id}')">📍 I’m outside it</button></div>
+    <form class="frow" onsubmit="event.preventDefault();homeLink('${id}',this.q.value)"><input class="field" name="q" placeholder="Paste a Google Maps link or address" autocapitalize="off"><button class="btn">Find</button></form>
+    ${sec('Climate risk')}<div class="pcard">${rk}</div>
+    ${sec('Notes')}<textarea class="field" id="hNote" placeholder="Agent, viewing time, what we liked…" onchange="setHome('${id}','note',this.value)">${esc(h.note||'')}</textarea>
+    <button class="link danger" style="display:block;margin:18px auto 0" onclick="delHome('${id}')">${state.confirmDel==='h'+id?'Tap again to remove':'Remove this home'}</button></div>`;
+}
+function homePinEl(h){const d=document.createElement('div');d.className='homepin'+(h.status==='no'?' no':h.status==='short'?' short':'');d.innerHTML=`<i>${h.kind==='Villa'?'🏡':h.kind==='Plot'?'🌳':'🏠'}</i>${h.name?`<span>${esc(h.name)}</span>`:''}`;return d}
+async function drawHomeMap(el,id){
+  try{const g=await gmaps(); if(!document.body.contains(el)) return; const h=homeById(id); if(!h) return;
+    el.innerHTML=''; const pos=h.lat!=null?{lat:h.lat,lng:h.lng}:null;
+    const map=el._map=new g.Map(el,{center:pos||HOME,zoom:pos?16:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+    applyRisk(map); addYou(g,map);
+    if(pos){const mk=new g.Marker({map,position:pos,content:homePinEl(h),gmpDraggable:true,title:h.name||'Home'});
+      mk.addListener('dragend',()=>{const p=mk.position;placeHome(id,typeof p.lat==='function'?p.lat():p.lat,typeof p.lng==='function'?p.lng():p.lng,'Pin moved. Checking climate risk…')})}
+    map.addListener('click',e=>{if(e.latLng)placeHome(id,e.latLng.lat(),e.latLng.lng(),'Location saved. Checking climate risk…')});
+  }catch(e){}
 }
 
 /* ---------- PLAN ---------- */
@@ -1762,7 +1904,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','gemKey','outings','activeOuting','travel','only4','discover','showPhotos'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','gemKey','outings','activeOuting','travel','only4','discover','showPhotos','homes'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -3028,6 +3170,7 @@ function render(keepScroll){
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
+  else if(top&&top.startsWith('home:')) html=screenHome(top.slice(5));
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
   const rails=[...document.querySelectorAll('.rail')].map(r=>r.scrollLeft);
@@ -3038,6 +3181,8 @@ function render(keepScroll){
   if(top==='spot') drawSpotMap();
   if(!top&&state.tab==='bills'){renderBillsBody();pullBills()}
   if(top&&top.startsWith('meal:')) loadMealPhoto(top.slice(5));
+  if(top&&top.startsWith('home:')){const hm=document.getElementById('hmap');if(hm)drawHomeMap(hm,top.slice(5))}
+  if(state.risk&&document.getElementById('riskLeg'))riskLegHtml(state.risk).then(h=>{const l=document.getElementById('riskLeg');if(l)l.innerHTML=h});
   if(top&&top.startsWith('outing:')){swipeRows();const om=document.getElementById('omap'),oo=outById(top.slice(7));if(om&&oo)drawRoute(om,oo)}
   if(fid){const el=document.getElementById(fid);if(el){el.focus({preventScroll:true});if(pos!=null&&el.setSelectionRange)try{el.setSelectionRange(pos,pos)}catch(e){}}}
   window.scrollTo(0,keepScroll?y:0);

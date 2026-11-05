@@ -101,6 +101,17 @@ where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
 
 Then tell us which places you added and which you couldn't find.
 
+## Homes we're looking at (property search)
+
+`data->'d'->'homes'`: apartments and villas we're considering buying. Each has `id`, `name`, `kind`
+(Apartment / Villa / Townhouse / Plot), `status` (look = considering, view = viewed, short = shortlist, no = ruled out),
+`price` (euros), `beds`, `url` (the listing), `note`, `lat`, `lng`, and `risk` once the app has checked the
+official Generalitat Valenciana maps: `flood` (0 = not in a mapped flood zone; 4–9 = PATRICOVA hazard level 1–6,
+i.e. the value minus 3; 10 = landform suggests flooding), `zif` (0, 500 or 100: within that many metres of forest,
+the wildfire interface zone), `burnOn` / `burnNear` (years a wildfire burned the plot / within about 500 m),
+`coast` (PATIVEL coastal-protection zone layer ids; empty = outside).
+When comparing homes, use these and say they are planning maps, not a survey.
+
 ## Rules
 
 - Read only, except the `suggest` row and Instagram handles above, or when we ask you to change something.
