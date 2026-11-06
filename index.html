@@ -520,7 +520,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v89';
+const APP_VERSION='v90';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -771,10 +771,10 @@ ${revs.join('\n')||'(none available)'}`;
   state.whyBusy=null;render(true)}
 function whyHtml(p){const w=p.why,busy=state.whyBusy===p.id;
   const lines=w?w.text.split(/\n+/).map(l=>l.replace(/^[\s*\-•]+/,'').trim()).filter(Boolean):[];
-  const ask=`Read the reviews for ${p.name} in Xàbia and tell me why it only gets ${p.rating} stars on Google. Is it the food, the staff, the prices or the crowd? Would it suit us?`;
+  const ask=`Read the reviews for ${p.name} in Xàbia and tell me why it gets ${p.rating} stars on Google. Is it the food, the staff, the prices or the crowd? Would it suit us? Then save your summary to the app as its review summary (place id ${p.id}, see “Review summaries” in the repo’s CLAUDE.md).`;
   return `<div class="pcard whyc"><div class="srow" style="padding-top:0"><b>Why ★ ${p.rating.toFixed(1)}?</b><button class="mini" onclick="state.whyOpen=null;render(true)" aria-label="Close">×</button></div>
     ${busy?'<p class="small">Reading the reviews… this takes about 20 seconds.</p>':w?lines.map(l=>{const m=l.match(/^\**(Loved|Complaints|Recent trend|Verdict)\**:\s*(.*)$/i);return m?`<p class="whyl"><span>${esc(m[1])}</span>${esc(m[2].replace(/\*\*/g,''))}</p>`:`<p class="whyl">${esc(l.replace(/\*\*/g,''))}</p>`}).join('')
-      +`<p class="small" style="margin-top:8px">Summed up by Google’s Gemini from ${w.n?w.n+' Google reviews and ':''}a web search, ${new Date(w.at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})}. <button class="link" style="font-size:12px" onclick="whyRating('${p.id}',true)">Refresh</button></p>`:'<p class="small">Couldn’t read the reviews just now.</p>'}
+      +`<p class="small" style="margin-top:8px">${w.by==='claude'?'Summed up by Claude':`Summed up by Google’s Gemini from ${w.n?w.n+' Google reviews and ':''}a web search`}, ${new Date(w.at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})}. <button class="link" style="font-size:12px" onclick="whyRating('${p.id}',true)">Refresh</button></p>`:'<p class="small">Couldn’t read the reviews just now.</p>'}
     ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:8px" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" data-q="${esc(ask)}" onclick="igCopy(this);toast('Question copied. Paste it in Claude')">✦ Ask Claude for more</a>`:''}</div>`}
 async function gDetails(gid){
   const g=await gmaps(), pl=new g.Place({id:gid});

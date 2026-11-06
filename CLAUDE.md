@@ -99,6 +99,34 @@ where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
 
 Then tell us what changed. The app shows it on the trip page (Saved → Trips) and on Home if the trip is running.
 
+## Review summaries ("Why ★ 3.7?")
+
+Each place can have `why` = `{at, rating, by, text}`: a short summary of its reviews that the app shows when we tap
+the Google rating. The app makes a quick one with Gemini; when we ask you about a place's reviews, read them properly
+(Google, TripAdvisor, recent ones first) and replace it with yours. Keep `text` to these four lines, each one short:
+
+```
+Loved: …
+Complaints: … (be specific: service/staff, prices, waits, food, noise, crowd/clientele, cleanliness, portions)
+Recent trend: …
+Verdict: … (for our family: two adults, a young child, Maria not drinking)
+```
+
+```sql
+update public.splitter
+set data = jsonb_set(
+      jsonb_set(data, '{d,places}', (
+        select jsonb_agg(case when p->>'id' = '<place id>' then p || jsonb_build_object('why', jsonb_build_object(
+          'at', (extract(epoch from now())*1000)::bigint, 'rating', p->'rating', 'by', 'claude',
+          'text', E'Loved: …\nComplaints: …\nRecent trend: …\nVerdict: …')) else p end order by ord)
+        from jsonb_array_elements(data->'d'->'places') with ordinality as t(p, ord))),
+      '{updated}', to_jsonb((extract(epoch from now())*1000)::bigint)),
+    updated_at = now()
+where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
+```
+
+Then tell us: "It's on the place's page under the rating."
+
 ## Adding a place's Instagram
 
 When we ask you to find Instagram accounts, search the web for each place's official account in Xàbia/Jávea.
