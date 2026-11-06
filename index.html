@@ -501,7 +501,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v75';
+const APP_VERSION='v76';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1038,7 +1038,7 @@ async function drawRecMap(){
     const g=await gmaps(); if(!document.body.contains(el)) return;
     // keep the same map and just swap the pins, so updates don't flash
     let map=el._map; const first=!map;
-    if(first){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});el._mks=[]}
+    if(first){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});el._mks=[]}
     else{el._mks.forEach(m=>{m.map=null});el._mks=[]}
     const b=new window.google.maps.LatLngBounds(); let n=0;
     const style={fav:{bg:'#d4622e',sc:1.45,gl:'♥'},alt:{bg:'#b94f1f',sc:1.15,gl:'★'},pick:{bg:'#d4622e',sc:1.45,gl:'★'},wait:{bg:'#c0771a',sc:1.25,gl:'⏱'},first:{bg:'#c0771a',sc:1.25,gl:'⏱'},cl:{bg:'#7b4fd6',sc:1.45},open:{bg:'#2c8553',sc:.9},soon:{bg:'#a7adb4',sc:.8}};
@@ -3052,7 +3052,7 @@ function screenOuting(id){
 async function drawRoute(el,o,pins){
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
-    let map=el._map; if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'cooperative',clickableIcons:false});addYou(g,map)}
+    let map=el._map; if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});addYou(g,map)}
     (el._mks||[]).forEach(m=>{m.map=null});(el._omks||[]).forEach(m=>{m.map=null});el._omks=[]; if(el._line){try{el._line.setMap(null)}catch(e){}}
     const s=stopsWithPos(o), b=new window.google.maps.LatLngBounds(), done=(data.activeOuting&&data.activeOuting.id===o.id)?data.activeOuting.done:[];
     s.forEach(x=>{const i=o.stops.indexOf(x);const pin=new g.Pin({background:done.includes(i)?'#9aa3ad':'#1f7a6c',borderColor:'#fff',glyphColor:'#fff',glyph:String(i+1),scale:1.2});
