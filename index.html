@@ -517,7 +517,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v85';
+const APP_VERSION='v86';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2727,6 +2727,16 @@ async function gemCall(model,body,signal){
     return {ok:r.ok,status:r.status,j:await r.json().catch(()=>({}))}}
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal,headers:{'Content-Type':'application/json','x-goog-api-key':data.gemKey||data.key},body:JSON.stringify(body)});
   return {ok:r.ok,status:r.status,j:await r.json().catch(()=>({}))}}
+// What bill reading has cost this trip: counted on the server for every bill read since tracking began
+async function aiUsage(){if(!SB()||state.aiBusy)return;state.aiBusy=true;state.aiTry=Date.now();
+  try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'usage'})});if(r.ok){state.ai=await r.json();state.ai.at=Date.now()}}catch(e){}
+  state.aiBusy=false;if(state.stack.at(-1)==='settings')render(true)}
+function aiUsageHtml(){const u=state.ai;if(!SB())return '';if((!u||Date.now()-u.at>6e4)&&Date.now()-(state.aiTry||0)>3e4)setTimeout(aiUsage,0);
+  const since=u&&u.since?+new Date(u.since):Date.now(), earlier=(B.meals||[]).filter(m=>m.hasPhoto&&!m.settle&&m.at<since).length;
+  const per=u&&u.bills?u.usd/Math.max(1,u.n):0.0015, est=(u?u.usd:0)+earlier*per;
+  const money=v=>v<0.01?'less than 1 US cent':'about '+(v<1?Math.round(v*100)+' US cents':'US$'+v.toFixed(2));
+  return `<div class="srow"><span>Bill reading this trip<br><span class="small">${u?`${u.bills+earlier} bill${u.bills+earlier===1?'':'s'} read · ${money(est)}${earlier?` · ${earlier} estimated from before tracking started`:''}`:'Checking…'}</span></span></div>
+    <p class="small" style="margin:6px 0 0">Worked out from Gemini’s published price per bill. Your actual balance, free allowance and Maps usage are on <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">Google Cloud Billing</a>; the app can’t read your Google account.</p>`}
 async function srvKeyCheck(){if(!SB()||state.srvChecked)return;state.srvChecked=true;
   try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'status'})});const j=await r.json();
     if(r.ok){state.srvKey=!!j.hasKey;
@@ -3286,6 +3296,7 @@ function screenSettings(){
     <div class="srow" style="padding-top:0"><span>Maps &amp; opening hours</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
     <div class="srow"><span>Reading bill photos</span><span class="ks ${billOK?'ok':'none'}">${billOK?'On':'Not set'}</span></div>
     ${state.lastErr?`<div class="note warn" style="margin:8px 0 0;user-select:text">Last Google error: ${esc(state.lastErr)}</div>`:''}
+    ${aiUsageHtml()}
     <div class="srow"><label for="dscT">Suggest top-rated places we haven’t added</label><input type="checkbox" id="dscT" ${data.discover?'checked':''} onchange="data.discover=this.checked;save()"></div>
     <div class="srow"><label for="phT">Show a Google photo for each place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
     <details class="more"><summary>Change keys</summary>
