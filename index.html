@@ -242,6 +242,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .padd{width:9.5em;padding:6px 12px;margin:0;border-radius:999px;font-size:14px}
 .datef{width:auto;max-width:60%;min-width:0;margin:0;padding:8px 12px;-webkit-appearance:none;appearance:none;text-align:right}
 .draftc{margin:0 0 12px;border-style:solid;border-color:#e7c9b6;background:#fff8f3}.draftc .ic{color:var(--accent)}
+.phload{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);border:0;border-radius:999px;padding:8px 14px;background:rgba(0,0,0,.55);color:#fff;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
 details.more>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;font-family:var(--display);font-size:20px;font-weight:700}
@@ -517,7 +518,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v86';
+const APP_VERSION='v87';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -776,8 +777,10 @@ function applyDetails(p,pl){
   p.updated=Date.now(); p.linkFailed=false;
 }
 // Turn Google's photo link into a direct image address once, so showing it again costs nothing
-async function resolvePhoto(p){
-  if(!p.photo||p.photo.resolved||p.photo.tried||!data.key) return false;
+const photoWanted=p=>!!p&&!p.disc&&(wantTo(p)||!!p.photoAsk);
+async function resolvePhoto(p,force){
+  if(!p.photo||p.photo.resolved||p.photo.tried||!data.key||data.showPhotos===false) return false;
+  if(!force&&!photoWanted(p)) return false;
   p.photo.tried=true;
   try{
     const u=new URL(p.photo.src);
@@ -840,7 +843,7 @@ async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(
 /* ================= UI pieces ================= */
 function photoOf(p){
   if(p.myPhotos&&p.myPhotos.length) return p.myPhotos[0].src;
-  if(data.showPhotos!==false&&p.photo&&p.photo.src) return p.photo.src;
+  if(data.showPhotos!==false&&p.photo&&p.photo.resolved&&p.photo.src) return p.photo.src;
   return null;
 }
 function noph(p){const[t1,t2]=TINTS[Math.abs(hash(p.id))%TINTS.length];return `<div class="noph" style="--t1:${t1};--t2:${t2}">${esc(p.name.replace(/^(Restaurante|Cafetería|Chiringuito|Bar|La|El|The|Ca)\s+/i,'').charAt(0))}</div>`}
@@ -1017,7 +1020,7 @@ function heroCard(p,kind,st){
 function renderList(){
   const el=document.getElementById('list'); if(!el) return;
   const at=activeOut();
-  if(at){el.innerHTML=tripPanelHtml();swipeRows(el);state.recPins=[];const rm=document.getElementById('recmap');if(rm){rm.dataset.sig='trip';drawRoute(rm,at.o)}renderDiscNote();return}
+  if(at){el.innerHTML=tripPanelHtml();swipeRows(el);state.recPins=[];const rm=mapHost('recmap');if(rm){rm.dataset.sig='trip';drawRoute(rm,at.o)}renderDiscNote();return}
   const cat=catOf(), all=candidates(cat), R=data.radius||3;
   const D=new Map(all.map(p=>[p.id,distKm(p)]));
   let list=all.filter(p=>D.get(p.id)!=null&&D.get(p.id)<=R), widened=false;
@@ -1061,7 +1064,7 @@ function renderList(){
   drawRecMap();
 }
 async function drawRecMap(){
-  const el=document.getElementById('recmap'); if(!el) return;
+  const el=mapHost('recmap'); if(!el) return;
   if(activeOut()) return;
   if(el._omks){el._omks.forEach(m=>{m.map=null});el._omks=null;if(el._line){try{el._line.setMap(null)}catch(e){}}el._fit=0;el._ck=null}
   const sig=(state.recPins||[]).map(([p,k])=>(p.id||p.name)+k).join()+'|'+data.spots.map(s=>s.id).join();
@@ -1251,13 +1254,14 @@ function hoursList(p){
 function screenDetail(id){
   const p=byId(id); if(!p) return `<div class="pad"><button class="link" onclick="pop()">‹ Back</button><div class="empty">This place was deleted.</div></div>`;
   const st=status(p), inPlan=data.plan.includes(id), m=matches(p), D=when().date, closedD=(p.closedOn||[]).includes(D);
-  const gp=p.photo&&p.photo.src&&data.showPhotos!==false?[p.photo]:[], mine=p.myPhotos||[];
+  const gp=p.photo&&p.photo.resolved&&p.photo.src&&data.showPhotos!==false?[p.photo]:[], mine=p.myPhotos||[];
   if(p.photo&&!p.photo.resolved) resolvePhoto(p).then(ok=>{if(ok&&state.stack.at(-1)==='detail:'+id)render(true)});
   const slides=[...mine.map(x=>({src:x.src,by:[]})),...gp];
   const s=p.serves||{}, serv=[['coffee','Coffee'],['breakfast','Breakfast'],['brunch','Brunch'],['lunch','Lunch'],['dinner','Dinner'],['wine','Wine'],['beer','Beer'],['cocktails','Cocktails'],['dessert','Dessert'],['vegetarian','Vegetarian'],['outdoor','Outdoor seating']].filter(([k])=>s[k]).map(([,l])=>l);
   const credit=x=>x.by&&x.by.length?`<div class="credit">Photo: ${x.by.map(a=>a.uri?`<a href="${esc(a.uri)}" target="_blank" rel="noopener">${esc(a.name)}</a>`:esc(a.name)).join(', ')}</div>`:'';
   return `<div class="hero">
     <div class="gal" id="gal" onscroll="galDots(this)">${slides.length?slides.map(x=>`<div><img src="${esc(x.src)}" alt="Photo of ${esc(p.name)}">${credit(x)}</div>`).join(''):`<div>${noph(p)}</div>`}</div>
+    ${!slides.length&&p.photo&&!p.photo.resolved&&data.key&&data.showPhotos!==false?`<button class="phload" onclick="loadPhoto('${id}')">📷 Show Google photo</button>`:''}
     <button class="round l" onclick="pop()" aria-label="Back">${I.back}</button>
     <button class="round r2 ${p.fav?'on':''}" onclick="toggleFav('${id}')" aria-label="${p.fav?'Remove from':'Add to'} favourites">${p.fav?I.heartOn:I.heart}</button>
     <button class="round r ${inPlan?'on':''}" onclick="togglePlan('${id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.bookmarkOn:I.bookmark}</button>
@@ -1405,25 +1409,27 @@ async function addPoi(){
   if(state.tab==='map'&&!state.stack.length) drawMap();
 }
 async function drawMap(){
-  const el=document.getElementById('gmap'); if(!el) return;
+  const el=mapHost('gmap'); if(!el) return;
   try{
     const g=await gmaps(); if(!document.body.contains(el)) return;
-    el.innerHTML='';
-    const map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
-    map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});
+    // one map for the Map tab, kept between visits and filter changes: only the pins are swapped
+    let map=el._map;
+    if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
+      map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});addYou(g,map)}
+    (el._mks||[]).forEach(m=>{m.map=null});el._mks=[];const M=el._mks;
     const b=new window.google.maps.LatLngBounds(); let n=0; const hm=(state.mapGroup||'all')==='homes';
-    if(hm) applyRisk(map);
+    if(hm) applyRisk(map); else try{map.overlayMapTypes.clear()}catch(_){}
     HOMES().forEach(h=>{if(h.lat==null||(!hm&&(state.mapGroup||'all')!=='all'))return;
-      const mk=new g.Marker({map,position:{lat:h.lat,lng:h.lng},title:h.name||'Home',content:homePinEl(h),gmpClickable:true,zIndex:120});
+      const mk=new g.Marker({map,position:{lat:h.lat,lng:h.lng},title:h.name||'Home',content:homePinEl(h),gmpClickable:true,zIndex:120});M.push(mk);
       mk.addListener('click',()=>push('home:'+h.id)); if(hm){b.extend({lat:h.lat,lng:h.lng});n++}});
     data.places.forEach(p=>{
       if(hm||p.lat==null||p.approx||!inGroup(p,state.mapGroup||'all')) return;
       const st=status(p), big=data.plan.includes(p.id);
       const pin=new g.Pin({background:big?'#d4622e':COL[st.s],borderColor:'#ffffff',glyphColor:'#ffffff',scale:big?1.25:1});
-      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});
+      const mk=new g.Marker({map,position:{lat:p.lat,lng:p.lng},title:p.name,content:pin.element||pin,gmpClickable:true});M.push(mk);
       mk.addListener('click',()=>openDetail(p.id)); if(nearHome(p)){b.extend({lat:p.lat,lng:p.lng}); n++;}
     });
-    const ns=addSpotMarkers(g,map,b); if(!hm||!n) n+=ns; addYou(g,map);
+    const ns=addSpotMarkers(g,map,b,null,M); if(!hm||!n) n+=ns;
     if(n>1) map.fitBounds(b,{top:40,right:30,bottom:30,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}
   }catch(e){el.innerHTML=`<div class="empty" style="padding-top:150px">The map couldn’t load.<br>${esc(e.message||'')}</div>`}
 }
@@ -1638,7 +1644,7 @@ const inToday=id=>TPr().ids.includes(id);
 function toggleToday(id){
   if(byId(id)?.disc) id=saveDisc(id);
   const t=TPw(),i=t.ids.indexOf(id),p=byId(id);
-  if(i>=0){t.ids.splice(i,1);t.done=t.done.filter(x=>x!==id);toast('Removed from today’s plan')}else{t.ids.push(id);toast(`${p.name} added to today’s plan`)}
+  if(i>=0){t.ids.splice(i,1);t.done=t.done.filter(x=>x!==id);toast('Removed from today’s plan')}else{t.ids.push(id);toast(`${p.name} added to today’s plan`);setTimeout(wantPhotos,50)}
   save();render(true);
 }
 const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
@@ -1796,7 +1802,9 @@ function rateAsk(){
   for(const v of vs){const p=byId(v.placeId);if(p&&!rated(p)&&!(p.oursAt>v.at))return {v,p}}return null;
 }
 function skipRate(vid){const v=(data.visits||[]).find(x=>x.id===vid);if(v){v.noRate=true;save();render(true)}}
-function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
+function loadPhoto(id){const p=byId(id);if(!p)return;p.photoAsk=true;resolvePhoto(p,true).then(ok=>{toast(ok?'Photo loaded':'No Google photo for this place');render(true)})}
+function wantPhotos(){(data.places||[]).forEach(p=>{if(p.photo&&!p.photo.resolved&&photoWanted(p))resolvePhoto(p).then(ok=>{if(ok)renderSoft()})})}
+function toggleFav(id){let p=byId(id);if(!p)return;if(p.disc){id=saveDisc(id);p=byId(id)}p.fav=!p.fav;p.touched=true;save();if(p.fav)wantPhotos();toast(p.fav?`${p.name} is a favourite`:`Removed from favourites`);render(true)}
 function movePlan(i,d,v){if(v!=='today')data.plan=data.plan.filter(byId);const a=v==='today'?TPw().ids:data.plan,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render(true)}
 function toggleDone(id,v){const D=v==='today'?TPw().done:data.done,i=D.indexOf(id);if(i>=0)D.splice(i,1);else{D.push(id);if(v==='today'&&!data.done.includes(id))data.done.push(id);const p=byId(id);if(p&&!(data.visits||[]).some(v=>v.placeId===id&&Date.now()-v.at<6*36e5))logVisit(p,'plan')}save();render(true)}
 function clearDone(v){if(v==='today'){const t=TPw();t.ids=t.ids.filter(id=>!t.done.includes(id));t.done=[]}else{data.plan=data.plan.filter(id=>!data.done.includes(id));data.done=[]}save();render(true)}
@@ -1829,19 +1837,23 @@ function distTxt(p){const b=origin();if(!b||p.lat==null||p.approx)return '';cons
 const youMarkers=[];
 setInterval(()=>{if(document.visibilityState==='visible'&&!state.stack.length&&(state.tab==='today'||state.tab==='map')&&!data.noLoc)locate()},60000);
 function youEl(){const d=document.createElement('div');d.className='youdot';d.innerHTML='<i></i>';d.title='You are here';return d}
+const MAPKEEP={};
+function mapHost(id){const ph=document.getElementById(id);if(!ph)return null;const keep=MAPKEEP[id];
+  if(keep&&keep!==ph&&keep._map){ph.replaceWith(keep);if(keep._you&&!youMarkers.includes(keep._you))youMarkers.push(keep._you);updateYou();return keep}
+  MAPKEEP[id]=ph;return ph}
 function addYou(g,map){
   for(let i=youMarkers.length-1;i>=0;i--) if(!document.body.contains(youMarkers[i].el)) youMarkers.splice(i,1);
   const h=state.here; const mk=new g.Marker({map,position:h?{lat:h.lat,lng:h.lng}:{lat:0,lng:0},content:youEl(),zIndex:200,title:'You are here'});
   const el=mk.content||mk.element; if(!h&&mk.map!==undefined) mk.map=null;
-  youMarkers.push({mk,map,el:map.getDiv?map.getDiv():document.body});
+  const y={mk,map,el:map.getDiv?map.getDiv():document.body};youMarkers.push(y);if(map.getDiv)map.getDiv()._you=y;
 }
 function updateYou(){const h=state.here;if(!h)return;youMarkers.forEach(y=>{try{y.mk.position={lat:h.lat,lng:h.lng};if(!y.mk.map)y.mk.map=y.map}catch(e){}})}
-function addSpotMarkers(g,map,bounds,skipId){
+function addSpotMarkers(g,map,bounds,skipId,out){
   let n=0;
   data.spots.forEach(s=>{if(s.id===skipId)return;const k=kindOf(s);
     const el=document.createElement('div');el.className='spotpin';
     el.innerHTML=`<i style="background:${k.col}">${k.glyph}</i><span>${esc(s.name)}</span>`;
-    new g.Marker({map,position:{lat:s.lat,lng:s.lng},title:s.name,content:el,zIndex:500});
+    const smk=new g.Marker({map,position:{lat:s.lat,lng:s.lng},title:s.name,content:el,zIndex:500});if(out)out.push(smk);
     if(bounds&&km(HOME,s)<12){bounds.extend({lat:s.lat,lng:s.lng});n++}
   });
   return n;
@@ -3298,7 +3310,7 @@ function screenSettings(){
     ${state.lastErr?`<div class="note warn" style="margin:8px 0 0;user-select:text">Last Google error: ${esc(state.lastErr)}</div>`:''}
     ${aiUsageHtml()}
     <div class="srow"><label for="dscT">Suggest top-rated places we haven’t added</label><input type="checkbox" id="dscT" ${data.discover?'checked':''} onchange="data.discover=this.checked;save()"></div>
-    <div class="srow"><label for="phT">Show a Google photo for each place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
+    <div class="srow"><label for="phT">Google photos for places we want to go to<br><span class="small">Other places have a Show photo button</span></label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
     <details class="more"><summary>Change keys</summary>
       <form onsubmit="event.preventDefault();saveKey(this.k.value)"><label class="lab" for="keyBox">Google Maps key</label>
         <div class="frow" style="margin-top:0"><input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Starts AIza…" value="${esc(data.key)}"><button class="btn">Save</button></div></form>
@@ -3368,7 +3380,7 @@ function savePlace(id){const nid=saveDisc(id);toast(`${byId(nid).name} saved to 
 function togglePlan(id){
   if(byId(id)?.disc) id=saveDisc(id);
   const i=data.plan.indexOf(id), p=byId(id);
-  if(i>=0){data.plan.splice(i,1);data.done=data.done.filter(x=>x!==id);toast('Removed from your plan')}else{data.plan.push(id);toast(`${p.name} added to your plan`)}
+  if(i>=0){data.plan.splice(i,1);data.done=data.done.filter(x=>x!==id);toast('Removed from your plan')}else{data.plan.push(id);toast(`${p.name} added to your plan`);setTimeout(wantPhotos,50)}
   save(); render(true);
 }
 let toastT;
