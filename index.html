@@ -238,7 +238,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .askc.planc{display:inline-flex;margin:0 0 10px;text-decoration:none}
 .mepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:13px;color:var(--muted)}.mepick span{margin-right:4px}.mepick .chip{padding:5px 12px;font-size:13px}
 .tripp .pcard .small{margin:2px 0 0;display:block}.tripp .srow>span:first-child,.tripp .srow>label{flex:1}
-.grp .grpname{font-weight:700;font-size:17px;flex:1;min-width:0}.pchip{display:inline-flex;align-items:center;gap:4px}.pchip button{background:none;border:0;color:inherit;font-size:16px;padding:0 0 0 4px;cursor:pointer}
+.grp .grpname{font-weight:700;font-size:17px;flex:1;min-width:0}.pchip{display:inline-flex;align-items:center;gap:2px;padding-right:8px}.pchip button{background:none;border:0;color:inherit;font:inherit;font-size:16px;padding:0 0 0 4px;cursor:pointer}.pchip .pn{font-size:inherit;font-weight:inherit;padding:0}.pchip.kid{background:#f1e9ff;border-color:#d6c6f5;color:#4b3a8c}
 .padd{width:9.5em;padding:6px 12px;margin:0;border-radius:999px;font-size:14px}
 .datef{width:auto;max-width:60%;min-width:0;margin:0;padding:8px 12px;-webkit-appearance:none;appearance:none;text-align:right}
 .draftc{margin:0 0 12px;border-style:solid;border-color:#e7c9b6;background:#fff8f3}.draftc .ic{color:var(--accent)}
@@ -517,7 +517,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v84';
+const APP_VERSION='v85';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1970,7 +1970,7 @@ function PT(){
   const n=Object.assign({a:'Us',b:'Wass',ha:2,hb:1},data.splitNames||{});
   return [{id:'us',name:n.a,heads:n.ha},{id:'wass',name:n.b,heads:n.hb}];
 }
-const NM=()=>{const p=PT();return {a:p[0].name,b:p[1].name,ha:p[0].heads,hb:p[1].heads}};
+const NM=()=>{const p=PT();return {a:p[0].name,b:p[1].name,ha:p[0].heads,hb:p[1].heads,aa:adultsOf(p[0]),ab:adultsOf(p[1])}};
 const B={claims:{},dirtyCl:new Set(),pickFor:null,bill:null,meals:null,deleted:[],openId:null,editId:null,photo:null,photoUrl:null,ctl:null,dirtyBill:false,dirtyMeals:false,status:'local',err:'',seeded:false,manual:false,mMode:'items',qSide:null,tRatio:null,confirmNew:false,readMsg:'',readErr:false};
 const blankBill=(cur,mode)=>({uid:uid(),mode:mode||undefined,place:'',paid:'',payer:null,tipMode:'prop',cur:cur||'€',bill:null,items:[],updated:0});
 function loadBills(){
@@ -2132,8 +2132,11 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 
 /* --- maths (same rules as the original splitter) --- */
 const toC=v=>{const n=parseFloat(String(v).replace(',','.').replace(/[^\d.\-]/g,''));return isFinite(n)?Math.round(n*100):0};
-const defWs=()=>{const n=NM();return n.hb/(n.ha+n.hb)};
-const wsOf=it=>it.ws==null?defWs():it.ws;
+const ALCO_RE=/\b(vinos?|wines?|cervezas?|beers?|ca[ñn]as?|cava|champ\w*|sangr[ií]a|gin|gintonic|vermut|vermouth|cocktails?|c[oó]ctel\w*|mojitos?|spritz|aperol|whisk\w*|ron|rum|vodka|licor\w*|chupitos?|mahou|estrella|alhambra|heineken|moritz|albari[ñn]o|rioja|ribera|verdejo|godello|prosecco|tequila|margaritas?|negroni|caipiri\w*|pints?|lager|ipa|cider|sidra|mimosas?|bellini|clara|tinto de verano|lambrusco|moscatel|brandy|co[ñn]ac|baileys|limoncello|orujo|hierbas)\b/i;
+const isAlco=it=>!!it&&ALCO_RE.test((it.name||'')+' '+(it.orig||''));
+// Shared items split by people in each family group; alcohol by adults only
+const defWs=it=>{const n=NM();return isAlco(it)?n.ab/(n.aa+n.ab):n.hb/(n.ha+n.hb)};
+const wsOf=it=>it.ws==null?defWs(it):it.ws;
 const ratioLbl=w=>Math.round((1-w)*100)+'/'+Math.round(w*100);
 const bMoney=c=>{const s=(Math.abs(c)/100).toFixed(2);return (c<0?'−':'')+(B.bill.cur||'€')+s};
 const mMoney=(c,cur)=>(cur||'€')+(Math.abs(c)/100).toFixed(2);
@@ -2481,7 +2484,7 @@ function renderBillItems(){
   if(!S.items.length){ul.innerHTML='<li class="empty" style="padding:18px 14px">No items yet. Snap the bill and tap Read bill, or add items.</li>';return}
   for(const it of S.items){
     const li=document.createElement('li');li.className='item';li.dataset.side=it.side||'';
-    const open=B.openId===it.id, who=it.side==='shared'?ratioLbl(wsOf(it)):({us:n.a,wass:n.b}[it.side]||'');
+    const open=B.openId===it.id, who=it.side==='shared'?ratioLbl(wsOf(it))+(isAlco(it)&&it.ws!=null&&Math.abs(it.ws-defWs(it))<.001&&NM().aa+NM().ab!==NM().ha+NM().hb?' · adults':''):({us:n.a,wass:n.b}[it.side]||'');
     if(it.side==='shared') li.style.setProperty('--u',Math.round((1-wsOf(it))*100)+'%');
     li.innerHTML=`<div class="under"></div>
       <div class="face" role="button" tabindex="0" aria-expanded="${open}"><span class="mark"></span>
@@ -2496,7 +2499,7 @@ function renderBillItems(){
       </div>`:''}`;
     const nameIn=li.querySelector('input.in'),priceIn=li.querySelector('input.ip');
     if(nameIn){nameIn.onchange=()=>{it.name=nameIn.value;saveBill()};priceIn.onchange=()=>{it.c=toC(priceIn.value);priceIn.value=(it.c/100).toFixed(2);saveBill();renderBillItems();renderBillTotals()}}
-    li.querySelectorAll('.seg3 button').forEach(b=>b.onclick=()=>{const s=b.dataset.s;if(s==='shared'&&it.side!=='shared'){it.side='shared';if(it.ws==null)it.ws=defWs();saveBill();renderBillItems();renderBillTotals();return}assignItem(it,it.side===s?null:s)});
+    li.querySelectorAll('.seg3 button').forEach(b=>b.onclick=()=>{const s=b.dataset.s;if(s==='shared'&&it.side!=='shared'){it.side='shared';if(it.ws==null)it.ws=defWs(it);saveBill();renderBillItems();renderBillTotals();return}assignItem(it,it.side===s?null:s)});
     li.querySelectorAll('.tray .chip').forEach(b=>b.onclick=()=>{it.ws=+b.dataset.w;saveBill();renderBillItems();renderBillTotals()});
     li.querySelectorAll('input.pct').forEach(inp=>inp.onchange=()=>{it.ws=Math.max(0,Math.min(100,parseFloat(inp.value)||0))/100;saveBill();renderBillItems();renderBillTotals()});
     li.querySelectorAll('.extras .link').forEach(b=>b.onclick=()=>{
@@ -2646,7 +2649,7 @@ function wireBills(){
       document.querySelectorAll('#qSide button').forEach(b=>b.onclick=()=>{B.qSide=B.qSide===b.dataset.s?null:b.dataset.s;document.querySelectorAll('#qSide button').forEach(x=>x.classList.toggle('on',x.dataset.s===B.qSide))});
       const add=()=>{const nm=$('qName').value.trim(),c=toC($('qPrice').value);if(!nm||!c){toast('Add a name and a price');return}
         if(S.bill&&!S.bill.manual){clearClaims();B.bill=blankBill(S.cur,S.mode);}
-        const b=B.bill; b.example=false; if(!b.bill)b.bill={manual:true,total:0,inc:null}; b.items.push({id:uid(),name:nm,qty:1,c,side:B.qSide,ws:B.qSide==='shared'?defWs():undefined});
+        const b=B.bill; b.example=false; if(!b.bill)b.bill={manual:true,total:0,inc:null}; b.items.push({id:uid(),name:nm,qty:1,c,side:B.qSide,ws:B.qSide==='shared'?defWs({name:nm}):undefined});
         b.bill.total=b.items.reduce((t,i)=>t+i.c,0);if(!b.place)b.place=$('qPlace')?.value||'';saveBill();renderBillsBody();setTimeout(()=>document.getElementById('qName')?.focus(),30)};
       $('qAdd').onclick=add; $('qPrice').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add()}};
     }else{
@@ -3185,7 +3188,9 @@ function saveClaude(v){v=String(v||'').trim();const m=v.match(/https:\/\/claude\
   data.claudeUrl=m?m[0]:'';save();toast(m?'Saved. Tap ✦ Ask Claude on Home':'Link removed');render(true)}
 /* ---------- TRIP: dates, groups (people, where they stay, bank details), food, money ---------- */
 const DIETS=['Vegetarian','Vegan','Pescatarian','Gluten-free','Dairy-free','Nut allergy','Halal','Kid-friendly'];
-const peopleOf=p=>Array.isArray(p.people)?p.people:[];
+const peopleOf=p=>(Array.isArray(p.people)?p.people:[]).map(x=>typeof x==='string'?{name:x}:x).filter(x=>x&&x.name);
+const adultsOf=p=>{const L=peopleOf(p);return L.length?Math.max(1,L.filter(x=>!x.kid).length):(p.heads||1)};
+const groupCount=p=>{const L=peopleOf(p);if(!L.length)return '';const k=L.filter(x=>x.kid).length,a=L.length-k;return [a?`${a} adult${a>1?'s':''}`:'',k?`${k} child${k>1?'ren':''}`:''].filter(Boolean).join(' · ')};
 const nPeople=()=>PT().reduce((t,p)=>t+(peopleOf(p).length||p.heads||1),0);
 function setParty(i,k,v){const P=PT().map(x=>({...x}));const p=P[i];if(!p)return;
   if(k==='name'){p.name=String(v||'').trim()||(i===0?'Us':i===1?'Wass':'Group '+(i+1));p.autoName=!String(v||'').trim()}
@@ -3193,10 +3198,11 @@ function setParty(i,k,v){const P=PT().map(x=>({...x}));const p=P[i];if(!p)return
   else if(k==='stay'){if(p.stay===v)delete p.stay;else p.stay=v}
   storeParties(P);render(true)}
 function addPerson(i,inp){const v=String(inp.value||'').trim();if(!v)return;const P=PT().map(x=>({...x}));const p=P[i];
-  p.people=[...peopleOf(p),v];p.heads=p.people.length;
-  if(p.autoName!==false&&(p.autoName||/^(us|wass|group \d+)$/i.test(p.name||'')||!p.name)){p.name=groupName(p.people);p.autoName=true}
+  p.people=[...peopleOf(p),{name:v}];p.heads=p.people.length;
+  if(p.autoName!==false&&(p.autoName||/^(us|wass|group \d+)$/i.test(p.name||'')||!p.name)){p.name=groupName(p.people.map(x=>x.name));p.autoName=true}
   storeParties(P);render(true);setTimeout(()=>document.getElementById('pp'+i)?.focus(),30)}
-function rmPerson(i,j){const P=PT().map(x=>({...x}));const p=P[i];p.people=peopleOf(p).filter((_,k)=>k!==j);if(p.people.length){p.heads=p.people.length;if(p.autoName)p.name=groupName(p.people)}storeParties(P);render(true)}
+function toggleKid(i,j){const P=PT().map(x=>({...x}));const p=P[i];p.people=peopleOf(p).map((x,k)=>k===j?{...x,kid:!x.kid}:x);storeParties(P);render(true)}
+function rmPerson(i,j){const P=PT().map(x=>({...x}));const p=P[i];p.people=peopleOf(p).filter((_,k)=>k!==j);if(p.people.length){p.heads=p.people.length;if(p.autoName)p.name=groupName(p.people.map(x=>x.name))}storeParties(P);render(true)}
 const groupName=a=>a.length<=1?(a[0]||'Group'):a.length<=3?a.slice(0,-1).join(', ')+' & '+a.at(-1):a[0]+' & family';
 function addGroup(){const P=PT().map(x=>({...x}));P.push({id:uid(),name:'Group '+(P.length+1),heads:1,people:[]});storeParties(P);render(true)}
 function toggleDiet(d){data.diet=data.diet||[];const i=data.diet.indexOf(d);if(i>=0)data.diet.splice(i,1);else data.diet.push(d);save();render(true)}
@@ -3217,20 +3223,21 @@ function screenTrip(){
       <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form></details>
   </div>
   ${sec('Who’s coming',`${nPeople()} people`)}
-  <p class="small" style="margin:-4px 0 10px">Each family or group shares bills: you swipe items left or right between the first two, and with three or more groups everyone taps what they had.</p>
+  <p class="small" style="margin:-4px 0 10px">Bills are split between family groups: you swipe items left or right between the first two, and with three or more groups everyone taps what they had.</p>
   ${P.map((p,i)=>`<div class="pcard grp">
-    <div class="frow" style="margin-top:0;align-items:center"><i class="pdot" style="background:${pcol(p.id)}"></i><input class="field grpname" value="${esc(p.name)}" aria-label="Group name" placeholder="e.g. Gareth & Maria" onchange="setParty(${i},'name',this.value)">${me===p.id?'<span class="ks ok">This phone</span>':`<button class="chip" style="padding:5px 10px;font-size:12px" onclick="setMe('${p.id}');render(true)">This phone</button>`}</div>
-    <span class="lab">People</span>
-    <div class="chips wrap" style="padding:0">${peopleOf(p).map((n,j)=>`<span class="chip on pchip">${esc(n)}<button onclick="rmPerson(${i},${j})" aria-label="Remove ${esc(n)}">×</button></span>`).join('')}
-      <form onsubmit="event.preventDefault();addPerson(${i},this.n)" style="display:inline-flex"><input class="field padd" id="pp${i}" name="n" placeholder="+ Add a person" autocomplete="off"></form></div>
-    ${!peopleOf(p).length?`<p class="small" style="margin-top:4px">Counted as ${p.heads||1} ${(p.heads||1)>1?'people':'person'} for splitting tips.</p>`:''}
+    <div class="srow" style="padding:0 0 4px"><span class="lab" style="margin:0">Family group</span>${me===p.id?'<span class="ks ok">This phone</span>':`<button class="chip" style="padding:4px 10px;font-size:12px" onclick="setMe('${p.id}');render(true)">This is my phone</button>`}</div>
+    <div class="frow" style="margin-top:0;align-items:center"><i class="pdot" style="background:${pcol(p.id)}"></i><input class="field grpname" value="${esc(p.name)}" aria-label="Family group name" placeholder="e.g. The Cochranes" onchange="setParty(${i},'name',this.value)"></div>
+    <span class="lab">Who’s in it${groupCount(p)?` · ${groupCount(p)}`:''}</span>
+    <div class="chips wrap" style="padding:0">${peopleOf(p).map((x,j)=>`<span class="chip pchip ${x.kid?'kid':'on'}"><button class="pn" onclick="toggleKid(${i},${j})" aria-label="${esc(x.name)}: tap to mark as ${x.kid?'adult':'child'}">${esc(x.name)}${x.kid?' · child':''}</button><button onclick="rmPerson(${i},${j})" aria-label="Remove ${esc(x.name)}">×</button></span>`).join('')}</div>
+    <form class="frow" onsubmit="event.preventDefault();addPerson(${i},this.n)"><input class="field" id="pp${i}" name="n" placeholder="Name" autocomplete="off" aria-label="Add a person to ${esc(p.name)}"><button class="btn">Add</button></form>
+    <p class="small" style="margin-top:6px">${peopleOf(p).length?'Tap a name to mark a child. Drinks like wine and beer are then shared between the adults only.':`Add everyone in this family group. Until then it counts as ${p.heads||1} ${(p.heads||1)>1?'people':'person'}.`}</p>
     <span class="lab">Staying at</span>
     <div class="chips wrap" style="padding:0">${spots.map(sp=>`<button class="chip ${p.stay===sp.id?'on':''}" onclick="setParty(${i},'stay','${sp.id}')">${esc(sp.name)}</button>`).join('')}<button class="chip" onclick="state.stack=[];state.tab='map';render()">＋ Add a place on the Map</button></div>
     <span class="lab">Bank details, so others can pay with one tap</span>
     <div class="frow" style="margin-top:0"><input class="field" value="${esc(p.monzo||'')}" placeholder="Monzo username" aria-label="Monzo username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'monzo',this.value)"><input class="field" value="${esc(p.revolut||'')}" placeholder="Revolut username" aria-label="Revolut username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'revolut',this.value)"></div>
     ${i>=2?`<button class="link danger" style="margin-top:8px" onclick="rmParty(${i})">Remove this group</button>`:''}
   </div>`).join('')}
-  <button class="btn ghost block" onclick="addGroup()">＋ Add another family or group</button>
+  <button class="btn ghost block" onclick="addGroup()">＋ Add another family group</button>
   ${sec('Food')}
   <div class="pcard">
     <span class="lab" style="margin-top:0">Dietary needs</span>
