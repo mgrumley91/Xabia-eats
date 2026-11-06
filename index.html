@@ -238,6 +238,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .askc.planc{display:inline-flex;margin:0 0 10px;text-decoration:none}
 .mepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:13px;color:var(--muted)}.mepick span{margin-right:4px}.mepick .chip{padding:5px 12px;font-size:13px}
 #tripFrom,#tripTo{min-width:0;width:100%}
+.draftc{margin:0 0 12px;border-style:solid;border-color:#e7c9b6;background:#fff8f3}.draftc .ic{color:var(--accent)}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
 details.more>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;font-family:var(--display);font-size:20px;font-weight:700}
@@ -513,7 +514,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v81';
+const APP_VERSION='v82';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1640,7 +1641,7 @@ const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':
 const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
 const nRev=n=>n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'k':String(n);
 const PLAN_ASK=v=>(v==='today'?'Help me plan today in Xàbia using the places in our app (check what’s open now and how far things are from where we’re staying).':'Help me plan a day out in Xàbia using the places in our app (check opening hours for the day we pick).')
-  +' When we agree the plan, save it into our app’s saved trips in Supabase (the outings list, as in “Saving a planned trip” in the repo’s CLAUDE.md), check it saved, and tell me it’s in Saved → Trips. If you can’t write to Supabase here, tell me.';
+  +' Put your plan in the app as a draft trip (see “Draft trips” in the repo’s CLAUDE.md) so I can review it under Plan. When I ask for changes, update the same draft. Don’t save it as a trip: I’ll save it in the app when I’m happy.';
 function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
@@ -1650,6 +1651,7 @@ function screenPlan(){
   if(v==='been') return topbar('Plan')+`<div class="pad">${tabs}<p class="lead">Where we’ve eaten and been, newest first. Tap a place to rate it; × removes a visit.</p>${historyHtml()}</div>`;
   return topbar('Plan')+`<div class="pad">
    ${tabs}
+   ${draftCardHtml()}
    ${data.claudeUrl?`<a class="askc planc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="planClaude('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</a>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
@@ -3015,7 +3017,19 @@ function claudePicks(){
 const MODES={bicycling:{lbl:'Bike',icon:'🚲',kmh:13},walking:{lbl:'Walk',icon:'🚶',kmh:4.5},driving:{lbl:'Car',icon:'🚗',kmh:30}};
 const guessMode=t=>/bike|cycl|bici/i.test(t)?'bicycling':/drive|car\b|coche/i.test(t)?'driving':'walking';
 const OUT=()=>data.outings||(data.outings=[]);
-const outById=id=>OUT().find(o=>o.id===id);
+const outById=id=>id==='draft'?draftTrip():OUT().find(o=>o.id===id);
+// A trip Claude has planned but we haven't saved yet: Claude rewrites the "suggest" row as we chat; we review it under Plan and save it when happy
+function draftTrip(){const cp=claudePicks(); if(!cp||!(cp.s.mode||cp.s.draft)) return null;
+  if(!state.draftO||state.draftO._at!==+cp.s.at){const o=outingFromSuggest(cp.s);o.id='draft';o._at=+cp.s.at;
+    o.stops.forEach((x,i)=>{const it=cp.s.items[i];if(it&&it.time)x.time=String(it.time)});state.draftO=o}
+  return state.draftO}
+function saveDraft(start){const d=draftTrip(),cp=claudePicks();if(!d||!cp)return;
+  const o={...d,id:uid(),at:Date.now()};delete o._at;OUT().push(o);lsSet('xe.sugDone',+cp.s.at);state.draftO=null;save();
+  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Saved → Trips')}}
+function discardDraft(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);state.draftO=null;state.stack=state.stack.filter(x=>x!=='outing:draft');toast('Draft discarded');render(true)}
+function draftAsk(){const d=draftTrip();const q=`About the draft trip “${d?d.title:''}”: `;try{const r=navigator.clipboard&&navigator.clipboard.writeText(q);r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Copied. Paste it in Claude and say what to change')}
+function draftCardHtml(){const d=draftTrip();if(!d)return '';const m=MODES[d.mode]||MODES.walking;
+  return `<div class="bask draftc" onclick="push('outing:draft')"><span class="ic">✦</span><div class="grow"><b>Draft trip: ${esc(d.title)}</b><div class="small">${m.icon} ${d.stops.length} stops · from Claude, not saved yet · tap to review</div></div><span class="small">›</span></div>`}
 function outingFromSuggest(s){
   return {id:uid(),title:String(s.title||'Claude’s picks'),summary:String(s.summary||''),mode:MODES[s.mode]?s.mode:guessMode(String(s.title||'')+' '+String(s.summary||'')),at:Date.now(),src:'claude',
     stops:(s.items||[]).slice(0,10).map(x=>{let p=x.placeId&&byId(x.placeId);if(!p&&x.name)p=data.places.find(q=>simil(q.name,x.name)>=.8);
@@ -3092,8 +3106,21 @@ function tripPanelHtml(){
     <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1;text-decoration:none;text-align:center" href="${esc(routeUrl2(o,Math.max(0,next)))}" target="_blank" rel="noopener">Whole route in Maps</a><button class="btn ghost" style="flex:1" onclick="finishOuting()">Finish trip</button></div></div>`;
 }
 function screenOuting(id){
-  const o=outById(id); const head=subbar('Trip','pop()');
-  if(!o) return head+'<div class="pad"><div class="empty">This trip was deleted.</div></div>';
+  const o=outById(id); const head=subbar(id==='draft'?'Draft trip':'Trip','pop()');
+  if(!o) return head+`<div class="pad"><div class="empty">${id==='draft'?'There’s no draft right now. Ask Claude to plan one.':'This trip was deleted.'}</div></div>`;
+  if(id==='draft'){const at=new Date(o._at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+    return head+`<div class="pad"><p class="small" style="margin:0;color:var(--accent);font-weight:700">✦ Draft from Claude · updated ${at} · not saved yet</p><h1 class="pagetitle" style="margin-top:4px">${esc(o.title)}</h1>
+    ${o.summary?`<p class="lead">${esc(o.summary)}</p>`:''}
+    <div class="chips wrap" style="margin-top:10px">${Object.entries(MODES).map(([k,v])=>`<button class="chip ${o.mode===k?'on':''}" onclick="draftTrip().mode='${k}';delete draftTrip().route;render(true)">${v.icon} ${v.lbl}</button>`).join('')}</div>
+    <p class="small" id="routeline" style="margin-top:8px">${esc(routeLine(o))}</p>
+    ${data.key?'<div id="omap" class="omap"></div>':''}
+    ${sec('Stops',`${o.stops.length}`)}
+    <div class="list">${o.stops.map((x,i)=>`<div class="row" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${x.time?`<span class="small" style="font-weight:700;margin-right:6px">${esc(x.time)}</span>`:''}${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
+    ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:16px" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="draftAsk()">✦ Change it with Claude</a>
+      <p class="small" style="margin-top:6px">Say what to change (e.g. “add a lunch stop halfway”). Claude updates this draft and it refreshes here.</p>`:''}
+    <button class="btn block" style="margin-top:14px" onclick="saveDraft(false)">Save trip</button>
+    <button class="btn ghost block" onclick="saveDraft(true)">Save and start now</button>
+    <button class="link danger" style="display:block;margin:18px auto 0" onclick="discardDraft()">Discard this draft</button></div>`}
   const m=MODES[o.mode]||MODES.walking, act=data.activeOuting&&data.activeOuting.id===id;
   return head+`<div class="pad"><h1 class="pagetitle">${esc(o.title)}</h1>
     <p class="lead">${o.summary?esc(o.summary)+' ':''}${o.src==='claude'?'Planned with Claude.':''}</p>
