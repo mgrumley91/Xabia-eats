@@ -237,7 +237,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .verdict .ptl{color:#fff}.verdict .ptlinks{color:rgba(255,255,255,.7)}.verdict .paybtn.pay{background:#fff;color:var(--ink);border-color:#fff}
 .askc.planc{display:inline-flex;margin:0 0 10px;text-decoration:none}
 .mepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:13px;color:var(--muted)}.mepick span{margin-right:4px}.mepick .chip{padding:5px 12px;font-size:13px}
-#tripFrom,#tripTo{min-width:0;width:100%}
+.datef{width:auto;max-width:60%;min-width:0;margin:0;padding:8px 12px;-webkit-appearance:none;appearance:none;text-align:right}
 .draftc{margin:0 0 12px;border-style:solid;border-color:#e7c9b6;background:#fff8f3}.draftc .ic{color:var(--accent)}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
@@ -514,7 +514,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v82';
+const APP_VERSION='v83';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -3208,8 +3208,9 @@ function screenSettings(){
   <div class="pad">
   ${sec('Your trip')}
   <div class="pcard">
-    <div class="frow" style="margin-top:0"><div style="flex:1;min-width:0"><label class="lab" for="tripFrom" style="margin-top:0">From</label><input class="field" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
-      <div style="flex:1;min-width:0"><label class="lab" for="tripTo" style="margin-top:0">To</label><input class="field" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div></div>
+    <p class="small" style="margin:0 0 4px">Your holiday dates let Home plan for any day of the trip, not just the next week.</p>
+    <div class="srow"><label for="tripFrom">Arrive</label><input class="field datef" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
+    <div class="srow"><label for="tripTo">Leave</label><input class="field datef" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div>
     <div class="srow" style="margin-top:8px"><span>Where we’re staying, friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div>
     <details class="more"><summary>Public holidays <span class="small">${hol.length}</span></summary>
       <p class="small" style="margin:6px 0">On these days the app says to call ahead unless Google has holiday hours.</p>
