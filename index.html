@@ -237,6 +237,9 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .verdict .ptl{color:#fff}.verdict .ptlinks{color:rgba(255,255,255,.7)}.verdict .paybtn.pay{background:#fff;color:var(--ink);border-color:#fff}
 .askc.planc{display:inline-flex;margin:0 0 10px;text-decoration:none}
 .mepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:13px;color:var(--muted)}.mepick span{margin-right:4px}.mepick .chip{padding:5px 12px;font-size:13px}
+.tripp .pcard .small{margin:2px 0 0;display:block}.tripp .srow>span:first-child,.tripp .srow>label{flex:1}
+.grp .grpname{font-weight:700;font-size:17px;flex:1;min-width:0}.pchip{display:inline-flex;align-items:center;gap:4px}.pchip button{background:none;border:0;color:inherit;font-size:16px;padding:0 0 0 4px;cursor:pointer}
+.padd{width:9.5em;padding:6px 12px;margin:0;border-radius:999px;font-size:14px}
 .datef{width:auto;max-width:60%;min-width:0;margin:0;padding:8px 12px;-webkit-appearance:none;appearance:none;text-align:right}
 .draftc{margin:0 0 12px;border-style:solid;border-color:#e7c9b6;background:#fff8f3}.draftc .ic{color:var(--accent)}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
@@ -514,7 +517,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v83';
+const APP_VERSION='v84';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -906,7 +909,8 @@ function prefNouns(tags){const out=new Map();
     const noun=Object.keys(NOUN_SYN).find(k=>w.endsWith(k))||w.split(/\s+/).pop();if(!out.has(noun))out.set(noun,[]);out.get(noun).push(pref)}));
   return out}
 // Does Google's info (serves flags, summary, recent reviews) show this place has each thing we want?
-function prefOK(p,tags){const need=prefNouns(tags);if(!need.size)return true;const t=(p.rv||'')+' '+String(p.name||'').toLowerCase()+' '+String(p.type||'').toLowerCase();
+function prefOK(p,tags){const dt=data.diet||[];if((dt.includes('Vegetarian')||dt.includes('Vegan'))&&p.serves&&p.serves.vegetarian===false)return false;
+  const need=prefNouns(tags);if(!need.size)return true;const t=(p.rv||'')+' '+String(p.name||'').toLowerCase()+' '+String(p.type||'').toLowerCase();
   for(const [noun] of need){const syn=NOUN_SYN[noun]||[noun];
     const flag=GOOGLE_KW.find(([re])=>re.test(noun));if(flag&&!(p.serves&&p.serves[flag[1]]===false))continue; // Google's own flag (coffee, wine…): fine unless Google says no
     if(!syn.some(x=>t.includes(x)))return false}
@@ -2021,7 +2025,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2337,7 +2341,7 @@ function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
   if(!B.bill.uid){B.bill.uid=uid();saveBill()}
   const S=B.bill,n=NM(),canRead=!!gemKey(),g=gm(),P=PT(),heads=P.reduce((t,p)=>t+(p.heads||1),0),step=state.billStep||0;
-  if(anyPay()) getFx();
+  getFx();
   let html='';
   if(!step){
     const pend=pendingBills();
@@ -2863,26 +2867,7 @@ function screenBillSetup(){
      <label class="lab" for="sbKey">Publishable key</label><input class="field" id="sbKey" name="k" placeholder="sb_publishable_… or eyJ…" value="${esc(state.sbK??c.key??'')}" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="state.sbK=this.value">
      <button class="btn block">Connect</button>
    </form>`}
-  ${sec('Who’s splitting')}
-  <form class="pcard" id="hhForm" onsubmit="event.preventDefault();saveParties()">
-    <p class="small" style="margin-top:0">One line per household: its name and how many people. Add a Monzo or Revolut username so others can pay that household with one tap.</p>
-    ${PT().map((p,i)=>`<div class="hhrow"><div class="frow"><i class="pdot" style="background:${pcol(p.id)};align-self:center"></i><input class="field" id="hhN${i}" value="${esc(p.name)}" aria-label="Household ${i+1} name" placeholder="Name"><input class="field" id="hhH${i}" inputmode="numeric" value="${p.heads||1}" style="max-width:4.5em" aria-label="People in household ${i+1}"></div>
-      <div class="frow"><input class="field" id="hhM${i}" value="${esc(p.monzo||'')}" placeholder="Monzo username" aria-label="Monzo username for household ${i+1}" autocapitalize="off" autocomplete="off" spellcheck="false"><input class="field" id="hhR${i}" value="${esc(p.revolut||'')}" placeholder="Revolut username" aria-label="Revolut username for household ${i+1}" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
-      ${i>=2?`<button type="button" class="link danger" style="margin-top:6px" onclick="rmParty(${i})">Remove ${esc(p.name||'this household')}</button>`:''}</div>`).join('')}
-    <button type="button" class="btn ghost block" onclick="addParty()">+ Add a household</button>
-    <button class="btn block">Save households</button>
-    <span class="lab">This phone belongs to</span>
-    <div class="chips wrap">${PT().map(p=>`<button type="button" class="chip ${ME()===p.id?'on':''}" onclick="setMe('${p.id}');render(true)"><i class="pdot" style="background:${pcol(p.id)}"></i>${esc(p.name)}</button>`).join('')}</div>
-    <p class="small" style="margin-top:6px">Only saved on this phone. It’s who you pick for when everyone picks, and who you pay from.</p>
-  </form>
-  ${sec('Paying in pounds')}
-  <div class="pcard"><p style="font-size:14px;margin:0">${FXR()?`€1 = <b>£${FXR().toFixed(4)}</b> · ${data.fx.manual?'your own rate':'European Central Bank rate'+(data.fx.date?', '+esc(fxDay(data.fx.date)):'')}`:'No exchange rate yet.'}</p>
-    <span class="lab">Pay each other in</span>
-    <div class="seg2" style="margin-top:0"><button type="button" class="${(data.payIn||'£')==='£'?'on':''}" onclick="data.payIn='£';save();render(true)">Pounds £</button><button type="button" class="${data.payIn==='€'?'on':''}" onclick="data.payIn='€';save();render(true)">Euros €</button></div>
-    <label class="lab" for="fxIn">Use your own rate (pounds per euro)</label>
-    <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="e.g. 0.8650" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
-    <button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Rate updated');render(true)}})">Get today’s rate</button>
-    <p class="small" style="margin-top:6px">Bills stay in euros. Monzo.me only takes pounds, so Monzo buttons convert at this rate and open with the amount filled in; Revolut copies the converted amount for you. Your bank may use a slightly different rate: type it in above to match. The live rate refreshes twice a day.</p></div>
+  ${sec('Trip details')}<div class="pcard" style="cursor:pointer" onclick="push('trip')"><div class="srow" style="padding:0"><span>Who’s coming, bank details and the exchange rate</span><span class="small">Edit ›</span></div></div>
   </div>`;
 }
 // Guard against landing on an old, empty trip: find the trip on this Supabase project that holds our data
@@ -3198,6 +3183,74 @@ function openClaude(){
 function saveClaude(v){v=String(v||'').trim();const m=v.match(/https:\/\/claude\.ai\/\S*/);
   if(v&&!m){toast('That should be a claude.ai link');return}
   data.claudeUrl=m?m[0]:'';save();toast(m?'Saved. Tap ✦ Ask Claude on Home':'Link removed');render(true)}
+/* ---------- TRIP: dates, groups (people, where they stay, bank details), food, money ---------- */
+const DIETS=['Vegetarian','Vegan','Pescatarian','Gluten-free','Dairy-free','Nut allergy','Halal','Kid-friendly'];
+const peopleOf=p=>Array.isArray(p.people)?p.people:[];
+const nPeople=()=>PT().reduce((t,p)=>t+(peopleOf(p).length||p.heads||1),0);
+function setParty(i,k,v){const P=PT().map(x=>({...x}));const p=P[i];if(!p)return;
+  if(k==='name'){p.name=String(v||'').trim()||(i===0?'Us':i===1?'Wass':'Group '+(i+1));p.autoName=!String(v||'').trim()}
+  else if(k==='monzo'||k==='revolut'){const h=cleanHandle(v);if(h)p[k]=h;else delete p[k]}
+  else if(k==='stay'){if(p.stay===v)delete p.stay;else p.stay=v}
+  storeParties(P);render(true)}
+function addPerson(i,inp){const v=String(inp.value||'').trim();if(!v)return;const P=PT().map(x=>({...x}));const p=P[i];
+  p.people=[...peopleOf(p),v];p.heads=p.people.length;
+  if(p.autoName!==false&&(p.autoName||/^(us|wass|group \d+)$/i.test(p.name||'')||!p.name)){p.name=groupName(p.people);p.autoName=true}
+  storeParties(P);render(true);setTimeout(()=>document.getElementById('pp'+i)?.focus(),30)}
+function rmPerson(i,j){const P=PT().map(x=>({...x}));const p=P[i];p.people=peopleOf(p).filter((_,k)=>k!==j);if(p.people.length){p.heads=p.people.length;if(p.autoName)p.name=groupName(p.people)}storeParties(P);render(true)}
+const groupName=a=>a.length<=1?(a[0]||'Group'):a.length<=3?a.slice(0,-1).join(', ')+' & '+a.at(-1):a[0]+' & family';
+function addGroup(){const P=PT().map(x=>({...x}));P.push({id:uid(),name:'Group '+(P.length+1),heads:1,people:[]});storeParties(P);render(true)}
+function toggleDiet(d){data.diet=data.diet||[];const i=data.diet.indexOf(d);if(i>=0)data.diet.splice(i,1);else data.diet.push(d);save();render(true)}
+const tripDates=()=>{const {from,to}=data.trip||{};if(!from||!to)return '';const f=d=>new Date(d+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});return `${f(from)} – ${f(to)}`};
+function tripSummary(){return [tripDates()||'Add your dates',PT().map(p=>p.name).join(', '),nPeople()+' people'].filter(Boolean).join(' · ')}
+function screenTrip(){
+  const {from,to}=data.trip, P=PT(), me=ME(), r=FXR();
+  const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
+  const spots=data.spots||[];
+  return `${subbar('Trip')}<div class="pad tripp">
+  ${sec('Dates',from&&to&&dayDiff(from,to)>=0?`${dayDiff(from,to)} nights`:'')}
+  <div class="pcard">
+    <div class="srow" style="padding-top:0"><label for="tripFrom">Arrive</label><input class="field datef" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
+    <div class="srow"><label for="tripTo">Leave</label><input class="field datef" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div>
+    <details class="more"><summary>Public holidays <span class="small">${hol.length}</span></summary>
+      <p class="small" style="margin:6px 0">On these days the app says to call ahead unless Google has holiday hours.</p>
+      ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
+      <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form></details>
+  </div>
+  ${sec('Who’s coming',`${nPeople()} people`)}
+  <p class="small" style="margin:-4px 0 10px">Each family or group shares bills: you swipe items left or right between the first two, and with three or more groups everyone taps what they had.</p>
+  ${P.map((p,i)=>`<div class="pcard grp">
+    <div class="frow" style="margin-top:0;align-items:center"><i class="pdot" style="background:${pcol(p.id)}"></i><input class="field grpname" value="${esc(p.name)}" aria-label="Group name" placeholder="e.g. Gareth & Maria" onchange="setParty(${i},'name',this.value)">${me===p.id?'<span class="ks ok">This phone</span>':`<button class="chip" style="padding:5px 10px;font-size:12px" onclick="setMe('${p.id}');render(true)">This phone</button>`}</div>
+    <span class="lab">People</span>
+    <div class="chips wrap" style="padding:0">${peopleOf(p).map((n,j)=>`<span class="chip on pchip">${esc(n)}<button onclick="rmPerson(${i},${j})" aria-label="Remove ${esc(n)}">×</button></span>`).join('')}
+      <form onsubmit="event.preventDefault();addPerson(${i},this.n)" style="display:inline-flex"><input class="field padd" id="pp${i}" name="n" placeholder="+ Add a person" autocomplete="off"></form></div>
+    ${!peopleOf(p).length?`<p class="small" style="margin-top:4px">Counted as ${p.heads||1} ${(p.heads||1)>1?'people':'person'} for splitting tips.</p>`:''}
+    <span class="lab">Staying at</span>
+    <div class="chips wrap" style="padding:0">${spots.map(sp=>`<button class="chip ${p.stay===sp.id?'on':''}" onclick="setParty(${i},'stay','${sp.id}')">${esc(sp.name)}</button>`).join('')}<button class="chip" onclick="state.stack=[];state.tab='map';render()">＋ Add a place on the Map</button></div>
+    <span class="lab">Bank details, so others can pay with one tap</span>
+    <div class="frow" style="margin-top:0"><input class="field" value="${esc(p.monzo||'')}" placeholder="Monzo username" aria-label="Monzo username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'monzo',this.value)"><input class="field" value="${esc(p.revolut||'')}" placeholder="Revolut username" aria-label="Revolut username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'revolut',this.value)"></div>
+    ${i>=2?`<button class="link danger" style="margin-top:8px" onclick="rmParty(${i})">Remove this group</button>`:''}
+  </div>`).join('')}
+  <button class="btn ghost block" onclick="addGroup()">＋ Add another family or group</button>
+  ${sec('Food')}
+  <div class="pcard">
+    <span class="lab" style="margin-top:0">Dietary needs</span>
+    <div class="chips wrap" style="padding:0">${DIETS.map(d=>`<button class="chip ${(data.diet||[]).includes(d)?'on':''}" onclick="toggleDiet('${d}')">${d}</button>`).join('')}</div>
+    <p class="small" style="margin-top:6px">Google suggestions skip places that don’t cater for these, and Claude sees them too.</p>
+    <div class="srow" style="margin-top:6px;cursor:pointer" onclick="push('prefs')"><span>Favourite things to order<br><span class="small">${esc(PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>data.prefs[c].join(', ')).join(' · ')||'None yet')}</span></span><span class="small">Edit ›</span></div>
+  </div>
+  ${sec('Money')}
+  <div class="pcard">
+    <div class="srow" style="padding-top:0"><span>Exchange rate<br><span class="small">${r?`${data.fx.manual?'Your own rate':'European Central Bank, updates daily'}${data.fx.date&&!data.fx.manual?' · '+esc(fxDay(data.fx.date)):''}`:'Getting today’s rate…'}</span></span><b>${r?`€1 = £${r.toFixed(4)}`:''}</b></div>
+    <span class="lab">Pay each other in</span>
+    <div class="seg2" style="margin-top:0"><button type="button" class="${(data.payIn||'£')==='£'?'on':''}" onclick="data.payIn='£';save();render(true)">Pounds £</button><button type="button" class="${data.payIn==='€'?'on':''}" onclick="data.payIn='€';save();render(true)">Euros €</button></div>
+    <details class="more"><summary>Use our own rate</summary>
+      <p class="small" style="margin:6px 0">To match your bank exactly. Monzo showed £4.60 for €5.50, which is 0.836.</p>
+      <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="Pounds per euro, e.g. 0.8360" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
+      ${data.fx&&data.fx.manual?`<button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Back to the daily rate');render(true)}})">Go back to the daily rate</button>`:''}</details>
+  </div>
+  </div>`;
+}
+
 function screenSettings(){
   const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
   const {from,to}=data.trip, P=PT();
@@ -3206,27 +3259,14 @@ function screenSettings(){
   const billOK=SB()?state.srvKey:!!data.gemKey;
   return `${subbar('Settings','pop()')}
   <div class="pad">
-  ${sec('Your trip')}
-  <div class="pcard">
-    <p class="small" style="margin:0 0 4px">Your holiday dates let Home plan for any day of the trip, not just the next week.</p>
-    <div class="srow"><label for="tripFrom">Arrive</label><input class="field datef" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
-    <div class="srow"><label for="tripTo">Leave</label><input class="field datef" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div>
-    <div class="srow" style="margin-top:8px"><span>Where we’re staying, friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div>
-    <details class="more"><summary>Public holidays <span class="small">${hol.length}</span></summary>
-      <p class="small" style="margin:6px 0">On these days the app says to call ahead unless Google has holiday hours.</p>
-      ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
-      <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form></details>
-  </div>
+  ${sec('Trip')}
+  <div class="pcard" style="cursor:pointer" onclick="push('trip')"><div class="srow" style="padding:0"><span><b>${esc(tripDates()||'Xàbia')}</b><br><span class="small">${esc(PT().map(p=>p.name).join(', '))} · ${nPeople()} people${(data.diet||[]).length?' · '+esc(data.diet.join(', ')):''}</span></span><span class="small">Edit ›</span></div>
+    <p class="small" style="margin-top:8px">Dates, who’s coming and where they stay, dietary needs, bank details and the exchange rate.</p></div>
   ${sec('Sharing')}
   <div class="pcard">
     <div class="srow" style="padding-top:0"><span>${SB()?`Everything syncs with ${esc(others)}`:'Only on this phone'}</span><span class="ks ${SB()?'ok':'none'}">${SB()?'On':'Off'}</span></div>
     ${SB()?`<button class="btn block" onclick="shareInvite()">Send trip link</button>`:''}
-    <button class="btn ghost block" onclick="push('billsetup')">${SB()?'Households, payments &amp; exchange rate':'Connect or set up sharing'}</button>
-  </div>
-  ${sec('Food preferences')}
-  <div class="pcard" style="cursor:pointer" onclick="push('prefs')">
-    ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
-    <button class="btn ghost block">Edit food preferences</button>
+    ${SB()?'':`<button class="btn ghost block" onclick="push('billsetup')">Connect or set up sharing</button>`}
   </div>
   ${sec('Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
@@ -3344,6 +3384,7 @@ function render(keepScroll){
   else if(top&&top.startsWith('relink:')) html=screenAdd(top.slice(7));
   else if(top&&top.startsWith('detail:')) html=screenDetail(top.slice(7));
   else if(top==='prefs') html=screenPrefs();
+  else if(top==='trip') html=screenTrip();
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));

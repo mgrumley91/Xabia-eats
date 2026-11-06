@@ -23,8 +23,10 @@ Everything is in one table, `public.splitter` (columns: trip, id, kind, data jso
   name printed on the bill and `placeId` links to `places`), addr, at, cur and `net` in cents
   (negative = we owed Wass, positive = Wass owed us), plus `detail` with items
   (name, orig, qty, c in cents, side us/wass/shared, ws = Wass's share), payer, paid and totals.
-- `data->'d'->'parties'`: households splitting bills (id, name, heads, optional monzo / revolut usernames).
-  The first two always have ids `us` and `wass`.
+- `data->'d'->'parties'`: the families/groups on the trip, who also split bills (id, name, `people` = their names,
+  heads, `stay` = the id of the spot they're staying at, optional monzo / revolut usernames). The first two always have
+  ids `us` and `wass`. `data->'d'->'diet'` lists dietary needs (e.g. Vegetarian, Nut allergy): respect them in every
+  recommendation.
 - "Everyone picks" meals have `group = true`, `payer` (a household id) and `shares` (household id → cents of
   the bill that household owes). Everyone except the payer owes the payer their share. Their `detail.parties`
   and `detail.t.per` show who picked what.
