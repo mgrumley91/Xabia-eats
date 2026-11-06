@@ -59,6 +59,31 @@ on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind,
 - `why` is one short line. Check opening hours for when we're going before recommending.
 - Then tell us: "They're on your Home map."
 
+## Saving a planned trip ("Plan with Claude")
+
+When we ask you to plan a day or a trip and save it to the app, don't stop at the chat: once we agree the plan,
+write it straight into our saved trips so it shows under Saved → Trips (and we can start it from there).
+Each stop needs `name`, `lat`, `lng` and a short `why`; add `placeId` when it's one of our `places`.
+Check opening hours for the day we're going.
+
+```sql
+update public.splitter
+set data = jsonb_set(
+      jsonb_set(data, '{d,outings}', coalesce(data->'d'->'outings','[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+        'id', 'o' || (extract(epoch from now())*1000)::bigint,
+        'at', (extract(epoch from now())*1000)::bigint,
+        'title', 'Old town and lunch by the port',
+        'summary', 'One line on what the day is',
+        'mode', 'walking',            -- walking | bicycling | driving
+        'stops', '[{"name":"…","lat":38.79,"lng":0.17,"why":"…","placeId":"…"}]'::jsonb))),
+      '{updated}', to_jsonb((extract(epoch from now())*1000)::bigint)),
+    updated_at = now()
+where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
+```
+
+Then check it saved (select the outings back) and tell us: "It's in Saved → Trips." If you can't write to Supabase
+in this chat, say so plainly instead of saying it's saved.
+
 ## Saved trips (routes)
 
 Our saved trips are in `data->'d'->'outings'`: each has `id`, `title`, `summary`, `mode` (bicycling / walking /

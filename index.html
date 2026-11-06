@@ -513,7 +513,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v80';
+const APP_VERSION='v81';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1639,8 +1639,8 @@ function toggleToday(id){
 const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
 const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
 const nRev=n=>n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'k':String(n);
-const PLAN_ASK=v=>v==='today'?'Help me plan today in Xàbia using the places in our app (check what’s open now and how far things are from where we’re staying). When we agree the plan, save it to the app as a trip so I can start it from Home.'
-  :'Help me plan a day out in Xàbia using the places in our app (check opening hours for the day we pick). When we agree it, save it to the app as a trip I can start or keep for later.';
+const PLAN_ASK=v=>(v==='today'?'Help me plan today in Xàbia using the places in our app (check what’s open now and how far things are from where we’re staying).':'Help me plan a day out in Xàbia using the places in our app (check opening hours for the day we pick).')
+  +' When we agree the plan, save it into our app’s saved trips in Supabase (the outings list, as in “Saving a planned trip” in the repo’s CLAUDE.md), check it saved, and tell me it’s in Saved → Trips. If you can’t write to Supabase here, tell me.';
 function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
