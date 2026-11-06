@@ -513,7 +513,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v79';
+const APP_VERSION='v80';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1645,8 +1645,11 @@ function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writ
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
   const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
+  const nB=(data.visits||[]).length;
+  const tabs=`<div class="seg3" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button><button class="${v==='been'?'on':''}" onclick="state.planView='been';render(true)">Been${nB?' · '+nB:''}</button></div>`;
+  if(v==='been') return topbar('Plan')+`<div class="pad">${tabs}<p class="lead">Where we’ve eaten and been, newest first. Tap a place to rate it; × removes a visit.</p>${historyHtml()}</div>`;
   return topbar('Plan')+`<div class="pad">
-   <div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>
+   ${tabs}
    ${data.claudeUrl?`<a class="askc planc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="planClaude('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</a>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
@@ -1666,8 +1669,7 @@ function screenPlan(){
    <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan.filter(p=>!done.includes(p.id)).length?plan.filter(p=>!done.includes(p.id)):plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start ${v==='today'?'today’s ':''}route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
    <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(PLIST('${v}').map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy ${v==='today'?'today’s ':''}plan as text</button>`:''}
-   ${sec('Where we’ve been',`${(data.visits||[]).length}`)}
-   ${historyHtml()}
+   ${pendingBills().length?`<div class="bask" style="margin-top:18px" onclick="state.planView='been';render(true)"><span class="ic">📍</span><div class="grow"><b>${pendingBills().length} bill${pendingBills().length>1?'s':''} to match to a place</b><div class="small">Tap to say where you ate</div></div><span class="small">›</span></div>`:''}
    </div>`;
 }
 // Visit history: where you went and when (synced, so Claude can read it too)
