@@ -520,7 +520,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v90';
+const APP_VERSION='v91';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1147,8 +1147,9 @@ function screenSaved(){
   const nf=data.places.filter(p=>p.fav).length;
   const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||(ourRank(b)-ourRank(a))||a.name.localeCompare(b.name));
   const sv=state.savedView||'places', nt=OUT().length;
-  const nh=HOMES().length, seg=`<div class="seg3" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button><button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button></div>`;
-  if(sv==='homes') return topbar('Saved')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
+  const nh=HOMES().length, sh=showHomes(); if(!sh&&sv==='homes')state.savedView='places';
+  const seg=`<div class="${sh?'seg3':'seg2'}" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button>${sh?`<button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button>`:''}</div>`;
+  if(sv==='homes'&&sh) return topbar('Saved')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
   if(sv==='trips') return topbar('Saved')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
   return topbar('Saved')+`<div class="pad">${seg}
    <p class="lead">${data.places.length} places in Xàbia</p>
@@ -1413,7 +1414,7 @@ function screenMap(){
   locate();
   const w=when();
   return topbar('Map')+`<div class="pad"><p class="lead">Tap your pins for details. Tap any café or restaurant on the map to add it to your places.</p>
-  ${data.key?`<div class="seg" style="grid-template-columns:.65fr .75fr 1.05fr 1.3fr .85fr;margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended'],['homes','Homes']].map(([k,l])=>`<button style="font-size:11.5px;line-height:1.2;padding:6px 1px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${k==='homes'?HOMES().filter(h=>h.lat!=null).length:data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
+  ${data.key?`<div class="seg" style="grid-template-columns:${showHomes()?'.65fr .75fr 1.05fr 1.3fr .85fr':'.7fr .8fr 1.15fr 1.35fr'};margin-bottom:10px;border-radius:18px">${[['all','All'],['been','Been'],['want','Want to go'],['rec','Recommended'],...(showHomes()?[['homes','Homes']]:[])].map(([k,l])=>`<button style="font-size:11.5px;line-height:1.2;padding:6px 1px;border-radius:14px" class="${(state.mapGroup||'all')===k?'on':''}" onclick="state.mapGroup='${k}';render(true)">${l}<small style="display:block;font-weight:500;opacity:.7">${k==='homes'?HOMES().filter(h=>h.lat!=null).length:data.places.filter(p=>inGroup(p,k)).length}</small></button>`).join('')}</div>
   ${(state.mapGroup||'all')==='homes'?riskChipsHtml():''}
   <div id="gmap"><div class="empty" style="padding-top:160px">Loading map…</div></div>
     <div class="legend"><span class="s-open"><span class="dotc">Open</span></span><span class="s-soon"><span class="dotc">Opens later</span></span><span class="s-closed"><span class="dotc">Closed</span></span></div>`
@@ -1451,9 +1452,10 @@ async function drawMap(){
     if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:true});
       map.addListener('click',e=>{if(e.placeId){e.stop&&e.stop();poiSheet(e.placeId)}});addYou(g,map)}
     (el._mks||[]).forEach(m=>{m.map=null});el._mks=[];const M=el._mks;
+    if(!showHomes()&&state.mapGroup==='homes')state.mapGroup='all';
     const b=new window.google.maps.LatLngBounds(); let n=0; const hm=(state.mapGroup||'all')==='homes';
     if(hm) applyRisk(map); else try{map.overlayMapTypes.clear()}catch(_){}
-    HOMES().forEach(h=>{if(h.lat==null||(!hm&&(state.mapGroup||'all')!=='all'))return;
+    if(showHomes())HOMES().forEach(h=>{if(h.lat==null||(!hm&&(state.mapGroup||'all')!=='all'))return;
       const mk=new g.Marker({map,position:{lat:h.lat,lng:h.lng},title:h.name||'Home',content:homePinEl(h),gmpClickable:true,zIndex:120});M.push(mk);
       mk.addListener('click',()=>push('home:'+h.id)); if(hm){b.extend({lat:h.lat,lng:h.lng});n++}});
     data.places.forEach(p=>{
@@ -1471,6 +1473,8 @@ async function drawMap(){
 /* ---------- HOMES (property search) + CLIMATE RISK ---------- */
 const HOMES=()=>data.homes||(data.homes=[]);
 const homeById=id=>HOMES().find(h=>h.id===id);
+// Property search is only shown on the Cochranes' phones (Settings → Trip → This is my phone)
+const showHomes=()=>ME()==='us';
 const HSTAT={look:'Considering',view:'Viewed',short:'Shortlist',no:'Ruled out'};
 const HKIND=['Apartment','Villa','Townhouse','Plot'];
 const ICV='https://carto.icv.gva.es/arcgis/rest/services/';
@@ -3456,7 +3460,7 @@ function render(keepScroll){
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
-  else if(top&&top.startsWith('home:')) html=screenHome(top.slice(5));
+  else if(top&&top.startsWith('home:')) html=showHomes()?screenHome(top.slice(5)):subbar('Home','pop()');
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
   const rails=[...document.querySelectorAll('.rail')].map(r=>r.scrollLeft);
