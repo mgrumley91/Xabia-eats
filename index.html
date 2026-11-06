@@ -228,9 +228,21 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .rate button.no{font-size:22px;margin-right:4px}.rate button.no.on{color:#a63a3a}
 .rateask{margin-top:12px;border:1.5px solid var(--accent-soft)}
 .paybtn.ask{background:var(--accent);border-color:var(--accent);color:#fff}
+.paybtn.pay{flex:1 1 100%;justify-content:center;padding:13px 14px;font-size:15px;border-radius:14px;background:var(--ink);border-color:var(--ink);color:#fff}
+.paybtn.pay.revolut{background:#fff;color:var(--ink);border-color:var(--line)}.paybtn.pay.ask{background:var(--accent);border-color:var(--accent)}
+.ptile .pt-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:16px;font-weight:600}
+.pt-amt{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}.pt-amt small{display:block;font-size:12.5px;color:var(--muted);font-weight:600}
+.ptlinks{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:10px;font-size:13px;color:var(--muted)}.ptlinks i{font-style:normal;opacity:.6}
+.ptl{background:none;border:0;padding:2px 0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer}
+.verdict .ptl{color:#fff}.verdict .ptlinks{color:rgba(255,255,255,.7)}.verdict .paybtn.pay{background:#fff;color:var(--ink);border-color:#fff}
+.askc.planc{display:inline-flex;margin:0 0 10px;text-decoration:none}
+.mepick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:13px;color:var(--muted)}.mepick span{margin-right:4px}.mepick .chip{padding:5px 12px;font-size:13px}
+#tripFrom,#tripTo{min-width:0;width:100%}
+.vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
 details.more>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;font-family:var(--display);font-size:20px;font-weight:700}
 details.more>summary::-webkit-details-marker{display:none}
+.pcard details.more{margin-top:10px}.pcard details.more>summary{font-family:inherit;font-size:15px;font-weight:600;padding:12px 0 4px}.pcard details.more>summary .small{font-weight:500}
 details.more>summary::after{content:'▾';font-size:16px;color:var(--muted);transition:transform .2s}
 details.more[open]>summary::after{transform:rotate(180deg)}
 details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inherit);font-weight:500}
@@ -501,7 +513,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v77';
+const APP_VERSION='v79';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -692,7 +704,7 @@ function flagsFor(p,D){
 
 /* ================= preferences ================= */
 function matches(p){
-  const out=[],seen=new Set(),hay=[...(p.menu||[]),p.note||'',p.name,p.type||''].join(' | ').toLowerCase();
+  const out=[],seen=new Set(),hay=[...(p.menu||[]),p.note||'',p.name,p.type||'',p.rv||''].join(' | ').toLowerCase();
   ['Any venue',...p.tags].forEach(c=>(data.prefs[c]||[]).forEach(pref=>{
     const k=pref.toLowerCase().trim(); if(!k||seen.has(k)) return;
     let hit=(p.menu||[]).find(x=>x.toLowerCase().includes(k))||(hay.includes(k)||p.tags.some(t=>t.toLowerCase()===k)?pref:null);
@@ -832,7 +844,7 @@ const img=(p,cls='')=>{const s=photoOf(p);return s?`<img src="${esc(s)}" alt="" 
 const mich=p=>p.michelin&&MICH[p.michelin]?`<span class="mich">${MICH[p.michelin]}</span>`:'';
 const areaOf=p=>p.area&&p.area!=='Xàbia'?p.area:'Xàbia';
 function facts(p){
-  return [p.rating?`<span><span class="star">${I.star}</span>${p.rating.toFixed(1)}</span>`:'',p.price?`<span>${p.price}</span>`:'',p.type?`<span>${esc(p.type)}</span>`:`<span>${esc(p.tags.slice(0,2).join(' · '))}</span>`,mich(p)].filter(Boolean).join('');
+  return [p.rating?`<span><span class="star">${I.star}</span>${p.rating.toFixed(1)}${p.ratingCount?` (${nRev(p.ratingCount)})`:''}</span>`:'',p.price?`<span>${p.price}</span>`:'',p.type?`<span>${esc(p.type)}</span>`:`<span>${esc(p.tags.slice(0,2).join(' · '))}</span>`,mich(p)].filter(Boolean).join('');
 }
 function bigCard(p){
   const st=status(p), m=matches(p), inPlan=data.plan.includes(p.id);
@@ -849,7 +861,7 @@ function row(p){
   return `<div class="row" onclick="openDetail('${p.id}')">
     <div class="thumb">${p.myPhotos&&p.myPhotos.length||(p.photo&&p.photo.resolved)?img(p):noph(p)}</div>
     <div class="grow"><div class="rname">${esc(p.name)}</div>
-      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${oursTag(p)}${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
+      <div class="rmeta"><span class="s-${st.s}"><span class="dotc">${esc(st.txt)}</span></span><span>${esc(areaOf(p))}</span>${oursTag(p)}${distTxt(p)?`<span>${distTxt(p)}</span>`:''}${p.rating?`<span>★ ${p.rating.toFixed(1)}${p.ratingCount?` (${nRev(p.ratingCount)})`:''}</span>`:''}${mich(p)}${p.disc?'<span class="newtag">From Google</span>':''}</div>
       ${m.length?`<div class="match" style="margin-top:2px">♥ ${esc(m.slice(0,2).join(' · '))}</div>`:''}${flagsFor(p,when().date)}</div>
     <button class="add heartbtn ${p.fav?'on':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" aria-label="${p.fav?'Remove from':'Add to'} favourites">${p.fav?I.heartOn:I.heart}</button>
     <button class="add ${inPlan?'on':''}" onclick="event.stopPropagation();togglePlan('${p.id}')" aria-label="${inPlan?'Remove from':'Add to'} plan">${inPlan?I.check:I.plus}</button></div>`;
@@ -885,7 +897,19 @@ const CATS=[
    {k:'gym',label:'Gym',tags:['Gym'],q:'gym fitness centre'},
    {k:'water',label:'Water sports',tags:['Watersports'],q:'kayak paddle board diving water sports'}]},
 ];
-const DISC_FIELDS=['id','displayName','formattedAddress','location','rating','userRatingCount','priceLevel','primaryTypeDisplayName','types','regularOpeningHours','currentOpeningHours','googleMapsURI','websiteURI','nationalPhoneNumber','businessStatus','photos'];
+const DISC_FIELDS=['id','displayName','formattedAddress','location','rating','userRatingCount','priceLevel','primaryTypeDisplayName','types','regularOpeningHours','currentOpeningHours','googleMapsURI','websiteURI','nationalPhoneNumber','businessStatus','photos','servesBreakfast','servesBrunch','servesLunch','servesDinner','servesCoffee','servesBeer','servesWine','servesCocktails','servesDessert','servesVegetarianFood','editorialSummary','reviews'];
+// Food preferences for a category, grouped by the thing itself ("Pistachio croissant", "Almond croissant" → croissant)
+const NOUN_SYN={croissant:['croissant','cruas','croisant'],coffee:['coffee','café','cafe','cortado','espresso'],churro:['churro'],ensaimada:['ensaimada'],paella:['paella','arroz','rice'],rice:['arroz','rice','paella'],tapas:['tapa'],gelato:['gelat','helad','ice cream'],'ice cream':['ice cream','helad','gelat'],cocktail:['cocktail','cóctel','coctel'],wine:['wine','vino'],beer:['beer','cerveza','caña']};
+function prefNouns(tags){const out=new Map();
+  ['Any venue',...tags].forEach(c=>(data.prefs[c]||[]).forEach(pref=>{const w=pref.toLowerCase().trim().replace(/s$/,'');if(!w)return;
+    const noun=Object.keys(NOUN_SYN).find(k=>w.endsWith(k))||w.split(/\s+/).pop();if(!out.has(noun))out.set(noun,[]);out.get(noun).push(pref)}));
+  return out}
+// Does Google's info (serves flags, summary, recent reviews) show this place has each thing we want?
+function prefOK(p,tags){const need=prefNouns(tags);if(!need.size)return true;const t=(p.rv||'')+' '+String(p.name||'').toLowerCase()+' '+String(p.type||'').toLowerCase();
+  for(const [noun] of need){const syn=NOUN_SYN[noun]||[noun];
+    const flag=GOOGLE_KW.find(([re])=>re.test(noun));if(flag&&!(p.serves&&p.serves[flag[1]]===false))continue; // Google's own flag (coffee, wine…): fine unless Google says no
+    if(!syn.some(x=>t.includes(x)))return false}
+  return true}
 const MICH_BONUS={'3':.8,'2':.6,'1':.4,bib:.25,rec:.15};
 function defaultCat(min){return min<660?'breakfast':min<750?'bakery':min<990?'lunch':min<1170?'drinks':'dinner'}
 const catOf=()=>{const c=CATS.find(x=>x.k===(state.cat||defaultCat(when().min)))||CATS[0];
@@ -897,16 +921,20 @@ function score(p){
 async function discover(cat,force){
   if(!data.key||!data.discover) return;
   const today=madridNow().date, c=data.disc[cat.k];
-  if(!force&&c) return;
+  const want=[...prefNouns(cat.tags).keys()].filter(n=>!/coffee/.test(n)).slice(0,3).join(' ');
+  if(!force&&c&&(c.want||'')===want&&c.items.every(p=>'rv' in p)) return;
   if(state.discBusy===cat.k) return;
   state.discBusy=cat.k; renderDiscNote();
   try{
     const g=await gmaps();
-    const {places}=await g.Place.searchByText({textQuery:`${cat.q} in Xàbia, Alicante`,fields:DISC_FIELDS,locationBias:{center:HOME,radius:7000},maxResultCount:20,language:'en',region:'es'});
-    data.disc[cat.k]={at:Date.now(),date:today,items:(places||[]).map(pl=>{
+    const want=[...prefNouns(cat.tags).keys()].filter(n=>!/coffee/.test(n)).slice(0,3).join(' ');
+    const {places}=await g.Place.searchByText({textQuery:`${cat.q}${want?' '+want:''} in Xàbia, Alicante`,fields:DISC_FIELDS,locationBias:{center:HOME,radius:7000},maxResultCount:20,language:'en',region:'es'});
+    data.disc[cat.k]={at:Date.now(),date:today,want,items:(places||[]).map(pl=>{
       const area='Xàbia';
       const p={id:'g_'+pl.id,name:pl.displayName,area,tags:cat.subs?['Sport']:[...cat.tags],menu:[],note:'',disc:true,michelin:''};
-      applyDetails(p,pl); return p;
+      applyDetails(p,pl);
+      const rv=[pl.editorialSummary&&(pl.editorialSummary.text||pl.editorialSummary),...(pl.reviews||[]).map(r=>r&&(r.text||r.originalText||''))].filter(x=>typeof x==='string').join(' ').toLowerCase();
+      p.rv=rv.slice(0,2500); return p;
     })};
     save();
   }catch(e){console.warn(e);state.lastErr=String(e&&e.message||e);toast('Google search failed: '+state.lastErr)}
@@ -916,7 +944,7 @@ const allDisc=()=>Object.values(data.disc||{}).flatMap(c=>c.items||[]);
 function candidates(cat){
   const saved=data.places.filter(p=>cat.tags.some(t=>p.tags.includes(t)));
   const gids=new Set(data.places.map(p=>p.gid).filter(Boolean));
-  const disc=data.discover&&data.disc[cat.k]?data.disc[cat.k].items.filter(p=>!gids.has(p.gid)&&(p.ratingCount||0)>=15):[];
+  const disc=data.discover&&data.disc[cat.k]?data.disc[cat.k].items.filter(p=>!gids.has(p.gid)&&(p.ratingCount||0)>=15&&prefOK(p,cat.tags)):[];
   let all=[...saved,...disc];
   if(data.only4) all=all.filter(p=>p.rating==null||p.rating>=4||p.ours>=4);
   return all.filter(p=>p.ours!==0);
@@ -1192,7 +1220,7 @@ async function pickResult(i,relinkId){
   }
   save(); toast('Getting details from Google…');
   try{applyDetails(p,await gDetails(p.gid));if(!relinkId&&p.gname)p.name=p.gname;await resolvePhoto(p);save();toast(relinkId?'Linked to Google':`${p.name} saved`)}catch(e){toast('Saved, but Google details didn’t load')}
-  if(state.vcAdd&&!relinkId){state.vcAdd=null;state.vcPlace=p.id;state.vcOther=false;state.stack.pop();render();toast(`${p.name} saved. Now confirm the bill`);return}
+  if(state.vcAdd&&!relinkId){const mid=state.vcAdd;state.vcAdd=null;state.stack.pop();state.vcFor=mid;vcYes(p.id);return}
   state.stack.pop(); if(!relinkId) state.stack.push('detail:'+p.id); render();
 }
 function addManual(f){
@@ -1610,11 +1638,16 @@ function toggleToday(id){
 }
 const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
 const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
+const nRev=n=>n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'k':String(n);
+const PLAN_ASK=v=>v==='today'?'Help me plan today in Xàbia using the places in our app (check what’s open now and how far things are from where we’re staying). When we agree the plan, save it to the app as a trip so I can start it from Home.'
+  :'Help me plan a day out in Xàbia using the places in our app (check opening hours for the day we pick). When we agree it, save it to the app as a trip I can start or keep for later.';
+function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
   const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
   return topbar('Plan')+`<div class="pad">
    <div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>
+   ${data.claudeUrl?`<a class="askc planc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="planClaude('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</a>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
    ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem ${d?'done':''}">
@@ -1627,20 +1660,15 @@ function screenPlan(){
       ${done.length?`<button class="link" onclick="clearDone('${v}')">Clear ticked-off stops</button>`:''}`:''}
    ${extra.length?`${sec('Add from your trip list',`${extra.length}`)}<div class="chips wrap">${extra.map(p=>`<button class="chip" onclick="toggleToday('${p.id}')">＋ ${esc(p.name)}</button>`).join('')}</div>`:''}
    ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours('${v}')">${I.clock} Check hours for ${v==='today'?'today’s':'my'} plan</button>`:''}
-   ${sec('Getting there')}
+   ${plan.length?`${sec('Getting there')}
    <div class="seg">${[['walking','Walk'],['driving','Drive'],['bicycling','Cycle'],['transit','Bus']].map(([k,l])=>`<button class="${data.travel===k?'on':''}" onclick="data.travel='${k}';save();render(true)">${l}</button>`).join('')}</div>
  ${baseSpot()?`<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:8px"><button class="${data.fromBase?'':'on'}" onclick="data.fromBase=false;save();render(true)">From where I am</button><button class="${data.fromBase?'on':''}" onclick="data.fromBase=true;save();render(true)">From ${esc(baseSpot().name)}</button></div>`:''}
    <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan.filter(p=>!done.includes(p.id)).length?plan.filter(p=>!done.includes(p.id)):plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start ${v==='today'?'today’s ':''}route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
-   <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(PLIST('${v}').map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy ${v==='today'?'today’s ':''}plan as text</button>
+   <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(PLIST('${v}').map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy ${v==='today'?'today’s ':''}plan as text</button>`:''}
    ${sec('Where we’ve been',`${(data.visits||[]).length}`)}
    ${historyHtml()}
-   ${sec('Export everything')}
-   <div class="pcard">
-     <button class="btn ghost block" style="margin-top:0" onclick="download('xabia-guide.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Download KML for Google My Maps</button>
-     <button class="btn ghost block" onclick="exportCSV()">Download CSV</button>
-     <ol class="steps" style="margin-top:12px"><li>Download the KML.</li><li>On a computer, open <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a>, create a map and choose Import.</li><li>In the Google Maps app it appears under You → Maps.</li></ol>
-   </div></div>`;
+   </div>`;
 }
 // Visit history: where you went and when (synced, so Claude can read it too)
 function logVisit(p,how){
@@ -1683,39 +1711,48 @@ function suggestFor(m){
     .filter(x=>x[1]>=.2).sort((a,b)=>b[1]-a[1]).slice(0,3);
 }
 function pendingBills(){
-  return (B.meals||[]).filter(m=>!m.settle&&!m.visit&&!m.noVisit&&!(data.visits||[]).some(v=>v.billId===m.id||(!v.billId&&v.how==='bill'&&v.placeId&&Math.abs(v.at-m.at)<3*36e5)));
+  return (B.meals||[]).filter(m=>!m.settle&&!m.visit&&!m.noVisit&&!isShop(m)&&!(data.visits||[]).some(v=>v.billId===m.id||(!v.billId&&v.how==='bill'&&v.placeId&&Math.abs(v.at-m.at)<3*36e5)));
 }
-function vcOthers(){const q=normName(state.vcQ||''),sg=new Set((state.vcSug||[]));
-  const list=data.places.filter(p=>!sg.has(p.id)&&(!q||normName(p.name).includes(q))).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8);
-  return list.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')||'<span class="small">No saved place matches. Find it on Google below.</span>'}
+const SHOP_RE=/mercadona|consum|lidl|aldi|carrefour|supermerc|masymas|mas y mas|\bdia\b|eroski|hipercor|spar\b|farmacia|pharmacy|gasolin|repsol|cepsa|estanco|ferreter|bazar|leroy|decathlon|primark|zara/i;
+const isShop=m=>!m.askAnyway&&SHOP_RE.test((m.billName||'')+' '+(m.place||''));
+function vcMatches(m){const q=normName(state.vcQ||'');
+  const sc=new Map(suggestFor(m).map(([p,v])=>[p.id,v]));
+  return data.places.filter(p=>!p.disc&&(!q||normName(p.name).includes(q))).sort((a,b)=>(sc.get(b.id)||0)-(sc.get(a.id)||0)||a.name.localeCompare(b.name)).slice(0,q?8:6)}
+function vcRows(m){const L=vcMatches(m);
+  return L.map(p=>`<div class="row" onclick="vcYes('${p.id}')"><div class="grow"><div class="rname" style="font-size:16px">${esc(p.name)}</div><div class="rmeta"><span>${esc(areaOf(p))}</span>${oursTag(p)}</div></div><span class="small">Choose</span></div>`).join('')
+    ||'<p class="small" style="margin:8px 2px">None of your places match.</p>'}
 function vcHtml(mid){
   const pend=pendingBills(); if(!pend.length) return '';
   const m=mid?pend.find(x=>x.id===mid):pend[pend.length-1]; if(!m) return '';
-  if(state.vcFor!==m.id){const sg=suggestFor(m);state.vcFor=m.id;state.vcMeal=guessMeal(madridMin(m.at));state.vcDate=madridDate(m.at);state.vcPlace=sg[0]&&sg[0][1]>=.5?sg[0][0].id:null;state.vcQ='';state.vcOther=!sg.length}
-  const sg=suggestFor(m).map(x=>x[0]); if(state.vcPlace&&!sg.some(p=>p.id===state.vcPlace)&&byId(state.vcPlace)) sg.unshift(byId(state.vcPlace));
-  state.vcSug=sg.map(p=>p.id); const today=madridNow().date, nm=m.billName||m.place;
-  return `<div class="pcard rateask" id="vcCard"><p class="small" style="margin:0">From a bill${pend.length>1?` · ${pend.length} to check`:''} · ${esc(mMoney(Object.values(m.shares||{}).reduce((a,b)=>a+b,0)||(m.detail&&m.detail.t&&m.detail.t.paidC)||Math.abs(m.net||0),m.cur))}</p>
-    <h3 style="font-size:19px;margin-top:2px">Did you eat at ${/^Meal \d+$/.test(nm)?'this place':esc(nm)}?</h3>${m.addr?`<p class="small" style="margin:2px 0 0">${esc(m.addr)}</p>`:''}
-    <span class="lab">Which place is it?</span>
-    <div class="chips wrap">${sg.map(p=>`<button class="chip ${state.vcPlace===p.id?'on':''}" onclick="state.vcPlace='${p.id}';render(true)">${esc(p.name)}</button>`).join('')}<button class="chip ${state.vcOther?'on':''}" onclick="state.vcOther=!state.vcOther;render(true)">${sg.length?'Somewhere else…':'Pick a place…'}</button></div>
-    ${state.vcOther?`<input class="field" id="vcQ" style="margin-top:8px" placeholder="Search your places" value="${esc(state.vcQ||'')}" autocomplete="off" oninput="state.vcQ=this.value;document.getElementById('vcList').innerHTML=vcOthers()"><div class="chips wrap" id="vcList" style="margin-top:6px">${vcOthers()}</div>
-      ${data.key&&state.vcPlace?`<button class="link" style="margin-top:6px" onclick="vcFind()">Not saved yet? Find it on Google →</button>`:''}`:''}
-    ${data.key&&!state.vcPlace?`<button class="btn block" style="margin-top:10px" onclick="vcFind()">Find “${esc(nm.replace(/\s*[-–|].*$/,''))}” on Google</button>`:''}
-    <span class="lab">What was it?</span>
-    <div class="chips wrap">${MEALS.map(([k,l])=>`<button class="chip ${state.vcMeal===k?'on':''}" onclick="state.vcMeal='${k}';render(true)">${l}</button>`).join('')}</div>
-    <label class="lab" for="vcDate">When</label><input class="field" type="date" id="vcDate" value="${state.vcDate}" max="${today}" onchange="state.vcDate=this.value">
-    <div class="frow"><button class="btn" style="flex:1" onclick="vcYes()" ${state.vcPlace?'':'disabled'}>${state.vcPlace?`Yes, add ${esc(byId(state.vcPlace).name)}`:'Pick the place first'}</button><button class="btn ghost" onclick="vcSkip()">Skip</button></div></div>`;
+  if(state.vcFor!==m.id){state.vcFor=m.id;state.vcPick=false;state.vcQ=''}
+  const nm=m.billName||m.place, nice=/^Meal \d+$/.test(nm)?'':nm.replace(/\s*[-–|].*$/,'').replace(/,?\s*S\.?\s*[AL]\.?U?\.?$/i,'').trim();
+  const meal=MEAL_LBL[guessMeal(madridMin(m.at))].toLowerCase(), day=new Date(m.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'});
+  const best=(suggestFor(m)[0]||[])[1]>=.5?suggestFor(m)[0][0]:null;
+  const top=`<p class="small" style="margin:0">From a bill · ${esc(day)}, ${new Date(m.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}${pend.length>1&&!mid?` · ${pend.length} to check`:''}</p>`;
+  if(state.vcPick) return `<div class="pcard vc2" id="vcCard">${top}<h3>Where was ${nice?`“${esc(nice)}”`:'this'}?</h3>
+    <input class="field" id="vcQ" style="margin-top:10px" placeholder="Search our places" value="${esc(state.vcQ||'')}" autocomplete="off" oninput="state.vcQ=this.value;document.getElementById('vcRows').innerHTML=vcRows(B.meals.find(x=>x.id==='${m.id}'))">
+    <div class="list" id="vcRows" style="margin-top:8px">${vcRows(m)}</div>
+    ${data.key?`<button class="btn ghost block" onclick="vcFind()">Not saved yet? Find it on Google</button>`:''}
+    <button class="link" style="display:block;margin:10px auto 0" onclick="state.vcPick=false;render(true)">Back</button></div>`;
+  return `<div class="pcard vc2" id="vcCard">${top}
+    ${best?`<h3>Was this ${esc(best.name)}?</h3><p class="small" style="margin:2px 0 0">We’ll log it as ${meal} on ${esc(day)} and add it to Been.</p>
+      <div class="frow"><button class="btn" style="flex:1" onclick="vcYes('${best.id}')">Yes</button><button class="btn ghost" style="flex:1" onclick="state.vcPick=true;render(true)">Somewhere else</button></div>`
+    :`<h3>Where did you eat?</h3><p class="small" style="margin:2px 0 0">The bill says ${nice?`“${esc(nice)}”`:'no name'}${m.addr?` · ${esc(m.addr)}`:''}. Pick it and we’ll add it to Been as ${meal}.</p>
+      ${data.key&&nice?`<button class="btn block" onclick="vcFind()">Find “${esc(nice)}” on Google</button>`:''}
+      <button class="btn ghost block" onclick="state.vcPick=true;render(true)">Choose from our places</button>`}
+    <button class="link" style="display:block;margin:10px auto 0;font-size:13px" onclick="vcSkip()">Not a meal out</button></div>`;
 }
-function vcYes(){
-  const m=B.meals.find(x=>x.id===state.vcFor),p=byId(state.vcPlace); if(!m||!p){toast('Pick the place first');return}
-  const meal=state.vcMeal||'lunch', date=(document.getElementById('vcDate')||{}).value||state.vcDate;
-  const v=logVisit(p,'bill'); v.meal=meal; v.billId=m.id;
-  if(date===madridDate(m.at)) v.at=m.at; else {const [y,mo,d]=date.split('-').map(Number),mi=MEAL_HOUR[meal];v.at=madridMs(y,mo,d,Math.floor(mi/60),mi%60)}
+function vcYes(pid){
+  const m=B.meals.find(x=>x.id===state.vcFor),p=byId(pid||state.vcPlace); if(!m||!p){toast('Pick the place first');return}
+  const meal=guessMeal(madridMin(m.at));
+  const v=logVisit(p,'bill'); v.meal=meal; v.billId=m.id; v.at=m.at;
   data.visits=data.visits.filter(x=>x.id!=='vb_'+m.id);
   if(!m.billName) m.billName=m.place; m.place=p.name; m.placeId=p.id; m.visit=v.id;
-  save(); saveMeals(); state.vcFor=null; if(!rated(p)) state.rateNow=p.id; toast(`Added: ${MEAL_LBL[meal].toLowerCase()} at ${p.name}`); render(true);
+  save(); saveMeals(); state.vcFor=null; state.vcPick=false; if(!rated(p)) state.rateNow=p.id; toast(`Added to Been: ${MEAL_LBL[meal].toLowerCase()} at ${p.name}`); render(true);
 }
-function vcSkip(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;m.noVisit=true;saveMeals();state.vcFor=null;render(true)}
+function setVisitMeal(vid,meal){const v=(data.visits||[]).find(x=>x.id===vid);if(!v)return;v.meal=meal;save();render(true)}
+function vcSkip(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;m.noVisit=true;saveMeals();state.vcFor=null;state.vcPick=false;toast('OK, not logged as a visit');render(true)}
+function mealAnyway(id){const m=B.meals.find(x=>x.id===id);if(!m)return;m.askAnyway=true;delete m.noVisit;saveMeals();state.vcFor=null;render(true)}
 function vcFind(){const m=B.meals.find(x=>x.id===state.vcFor);if(!m)return;const nm=m.billName||m.place;
   state.vcAdd=m.id;state.addResults=null;state.addMsg='';const q=(/^Meal \d+$/.test(nm)?'':nm)+(m.addr?' '+m.addr:'')||'restaurant';push('add');smartAdd(q.trim()||'restaurant Xàbia','')}
 // Removing a visit that came from a bill unlinks the bill, so it asks "Did you eat here?" again
@@ -2235,9 +2272,26 @@ const whenShort=ms=>new Date(ms).toLocaleString('en-GB',{timeZone:TZ,weekday:'sh
 const refChip=ref=>`<button class="paybtn ghost refchip" onclick="copyText('${ref}','Reference ${ref} copied')" aria-label="Copy reference ${ref}">Ref ${ref} ⧉</button>`;
 function debtBlock(m,d){
   const p=paidFor(m,d.from), ref=mealRef(m);
-  if(p) return `<div class="paidok">✓ Paid · Ref ${esc(p.ref||ref)} · ${whenShort(p.at)}</div>`;
-  return `<div class="payrow">${payBtns(d.to,d.c,m.cur,payNote(m.place,ref),d.from)}${refChip(ref)}<button class="paybtn ghost" data-mark="${esc([d.from,d.to,d.c,m.cur||'€',ref,m.id].join('|'))}" onclick="markPaid(this)">Mark as paid</button></div>`;
+  if(p) return `<div class="paidok">✓ Paid ${whenShort(p.at)} · Ref ${esc(p.ref||ref)}</div>`;
+  return payActions(d.to,d.c,m.cur||'€',payNote(m.place,ref),d.from,ref,[d.from,d.to,d.c,m.cur||'€',ref,m.id].join('|'));
 }
+// One clear action: the payer gets Pay buttons; the person being paid gets "Ask … for £x". Ref, request and mark-paid sit underneath as small links.
+function payActions(to,c,cur,note,from,ref,mark){
+  const me=ME(), payee=!!me&&me===to;
+  const links=[['monzo','Monzo'],['revolut','Revolut']].map(([k,l])=>{const u=payLink(k,to,c,cur,note);if(!u)return'';
+    const a=payAmt(c,cur,k==='monzo'?'£':undefined),pre=k==='monzo'&&a.cur==='£';
+    return `<a class="paybtn pay ${k}" href="${esc(u)}" target="_blank" rel="noopener" data-amt="${esc(mMoney(a.c,a.cur))}" data-app="${l}" data-pre="${pre?1:''}" onclick="payCopy(this)">Pay ${esc(mMoney(a.c,a.cur))} with ${l}</a>`}).filter(Boolean);
+  const a=payAmt(c,cur,payLink('monzo',to,c,cur,note)?'£':undefined), who=pn(from)==='Us'?'us':pn(from);
+  const req=`data-to="${esc(to)}" data-from="${esc(from)}" data-c="${c}" data-cur="${esc(cur)}" data-note="${esc(note||'')}" onclick="requestPay(this)"`;
+  const main=payee?(links.length?`<button class="paybtn pay ask" ${req}>Ask ${esc(who)} for ${esc(mMoney(a.c,a.cur))}</button>`:''):links.join('');
+  const sm=[`<button class="ptl" onclick="copyText('${ref}','Reference ${ref} copied')">Ref ${ref} ⧉</button>`,
+    !payee&&me!==from&&links.length?`<button class="ptl" ${req}>Request</button>`:'',
+    `<button class="ptl" data-mark="${esc(mark)}" onclick="markPaid(this)">Mark as paid</button>`].filter(Boolean).join('<i aria-hidden="true">·</i>');
+  return `${main?`<div class="payrow">${main}</div>`:''}<div class="ptlinks">${sm}</div>`;
+}
+function mePick(){return `<div class="mepick"><span>Whose phone is this?</span>${PT().map(p=>`<button class="chip" onclick="setMe('${p.id}');toast('Got it. Change it in Settings → Sharing');render(true)">${esc(p.name)}</button>`).join('')}</div>`}
+function payTile(m,d){const cur=m.cur||'€',gb=payAmt(d.c,cur);
+  return `<div class="pcard ptile"><div class="pt-top"><span>${esc(owesTxt(d.from,d.to,m.detail&&m.detail.parties))}</span><span class="pt-amt">${esc(mMoney(d.c,cur))}${gb.cur!==cur&&!paidFor(m,d.from)?`<small>${esc(mMoney(gb.c,gb.cur))}</small>`:''}</span></div>${debtBlock(m,d)}</div>`}
 function markPaid(btn){
   const k=btn.dataset.mark;
   if(B.markC!==k){B.markC=k;btn.textContent='Tap again to record it';setTimeout(()=>{if(B.markC===k){B.markC=null;btn.isConnected&&(btn.textContent='Mark as paid')}},3500);return}
@@ -2752,11 +2806,15 @@ function screenMeal(id){
   }
   return head+`<div class="pad"><h1 class="pagetitle">${esc(m.place)}</h1><p class="lead">${when}</p>
     <div class="verdict" style="margin-top:14px;background:${m.net<0?'var(--accent-dark)':m.net>0?'#1f7a6c':'var(--ink)'}"><div class="vwho">This bill</div><div class="vamt">${esc(verdict)}</div></div>
-    ${mealDebts(m).length?`${sec('Payment','Ref '+esc(mealRef(m)))}${mealDebts(m).map(d=>`<div class="pcard"><div class="vline" style="font-size:16px"><span>${esc(owesTxt(d.from,d.to,d&&m.detail&&m.detail.parties))}</span><span>${mm(d.c)}</span></div>${debtBlock(m,d)}</div>`).join('')}${anyPay()?fxNote(cur):''}`:''}
+    ${mealDebts(m).length?`${sec('Payment')}${!ME()&&!mealPaid(m)?mePick():''}${mealDebts(m).map(d=>payTile(m,d)).join('')}${anyPay()&&!mealPaid(m)?fxNote(cur):''}`:''}
     ${!m.settle?(()=>{const lp=m.placeId&&byId(m.placeId);
+      const vv=m.visit&&(data.visits||[]).find(x=>x.id===m.visit);
       if(lp) return `${sec('Where you ate')}<div class="pcard"><div class="srow" style="padding:0;cursor:pointer" onclick="openDetail('${lp.id}')"><b>${esc(lp.name)}</b><span class="small">Open ›</span></div>
+        ${vv?`<div class="chips wrap mealchips">${MEALS.map(([k,l])=>`<button class="chip ${vv.meal===k?'on':''}" onclick="setVisitMeal('${vv.id}','${k}')">${l}</button>`).join('')}</div>`:''}
         <div style="margin-top:8px">${rateHtml(lp.id,rated(lp)?lp.ours:-1)}</div><div class="ratelbl">${rated(lp)?RATE_LBL[lp.ours]:'<span class="small" style="font-weight:500">Tap to rate it</span>'}</div></div>`;
-      const card=vcHtml(m.id); return card?`${sec('Where you ate')}${card}`:'';})():''}
+      const card=vcHtml(m.id); if(card) return `${sec('Where you ate')}${card}`;
+      if(isShop(m)||m.noVisit) return `<p class="small" style="margin-top:18px">${isShop(m)?'Looks like a shop receipt, so it isn’t logged as a visit.':'Not logged as a meal out.'} <button class="link" style="font-size:12px" onclick="mealAnyway('${m.id}')">It was a meal out</button></p>`;
+      return '';})():''}
     ${body}
     ${state.mealDel===m.id?(()=>{const now=B.meals.reduce((t,x)=>t+x.net,0),after=now-m.net,bal=v=>v===0?'all square':v<0?`${We.toLowerCase()==='we'?'you':We} owe ${n.b} ${mm(-v)}`:`${n.b} owes ${us==='us'?'you':us} ${mm(v)}`;
       return `<div class="pcard" style="margin-top:22px;border-color:#e3b5b5"><h3 style="font-size:18px">Remove this bill from the trip?</h3>
@@ -2774,20 +2832,18 @@ async function loadMealPhoto(id){
 /* --- set up sharing --- */
 function screenBillSetup(){
   const n=NM(),c=data.sb||{};
-  return `${subbar('Sync &amp; sharing','pop()')}
+  return `${subbar('Sharing','pop()')}
   <div class="pad">
   ${SB()?'':`${sec('Already set up somewhere else?')}
    <form class="pcard" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><p style="font-size:14px">If the app is already connected on another screen or phone, copy its <b>trip link</b> there (Settings → Sync &amp; sharing) and paste it here.</p>
    <div class="frow"><input class="field" name="t" id="tripIn" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Connect</button></div></form>
    ${sec('Or connect with your Supabase details')}<p class="small" style="margin-top:-4px">If you’ve used sync before, this finds your trip and brings everything back, including your Google key.</p>`}
   ${SB()?`${sec('You’re sharing')}
-    <div class="pcard"><p style="font-size:14px">Your places, spots, plan, preferences, Google key and bills all sync through your Supabase project. Use the trip link to connect another screen (the home-screen icon, Safari, another phone) or ${esc(n.b)}.</p>
-      <label class="srow" style="padding-top:12px"><span>Include my Google keys in the invite<br><span class="small">So ${esc(n.b)} gets opening hours, photos and bill reading. Usage bills to your Google account.</span></span><input type="checkbox" id="invKey" ${state.invKey!==false?'checked':''} onchange="state.invKey=this.checked"></label>
+    <div class="pcard"><p style="font-size:14px">Places, plans, homes and bills sync for everyone on the trip. Send the trip link to add another phone.</p>
+      <label class="srow" style="padding-top:12px"><span>Include our Google Maps key<br><span class="small">So the map and opening hours work on their phone. It only works inside this app. Bill reading works for everyone without it.</span></span><input type="checkbox" id="invKey" ${state.invKey!==false?'checked':''} onchange="state.invKey=this.checked"></label>
       <button class="btn block" onclick="shareInvite()">Send trip link</button>
       <button class="btn ghost block" onclick="copyText(inviteLink(),'Trip link copied. Paste it in Settings → Sync & sharing on the other screen.')">Copy trip link</button>
-      <button class="btn ghost block" onclick="pullBills().then(()=>toast(B.status==='live'?'Connected':'Couldn’t connect: '+B.err))">Test connection</button>
-      <button class="btn ghost block" onclick="copyText(SB_SQL,'SQL copied. In Supabase: SQL Editor → New query → paste → Run.')">Copy the setup SQL</button>
-      <p class="small" style="margin-top:6px">Run the setup SQL again in Supabase whenever an update needs it (it’s safe to re-run). The latest one adds reading short Google Maps links.</p>
+
       <button class="btn danger block" onclick="leaveTrip()">${state.confirmDel==='LEAVE'?'Tap again to stop sharing on this phone':'Stop sharing on this phone'}</button></div>`
   :`<p class="lead" style="margin-top:8px">One-off setup on your phone, about 10 minutes. ${esc(n.b)} then joins with a link and needs no account.</p>
    ${sec('1. Create a free Supabase project')}
@@ -2823,14 +2879,6 @@ function screenBillSetup(){
     <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="e.g. 0.8650" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
     <button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Rate updated');render(true)}})">Get today’s rate</button>
     <p class="small" style="margin-top:6px">Bills stay in euros. Monzo.me only takes pounds, so Monzo buttons convert at this rate and open with the amount filled in; Revolut copies the converted amount for you. Your bank may use a slightly different rate: type it in above to match. The live rate refreshes twice a day.</p></div>
-  ${sec('Reading bill photos')}
-  <form class="pcard" onsubmit="event.preventDefault();saveGemKey(this.g.value)">
-    <p style="font-size:14px;margin:0">Bill photos are read by Google’s Gemini. It needs its own key, because Google won’t let a Maps key use Gemini.</p>
-    <ol class="steps"><li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a> and sign in.</li><li>Tap <b>Create API key</b>, choose your Xabia Eats project, and copy it.</li><li>Paste it here and tap Save.</li></ol>
-    <label class="lab" for="gemKeyIn">Bill-reading key</label>
-    <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${(SB()?state.srvKey:data.gemKey)?'Saved · paste a new one to replace':'Paste the key'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
-    <p class="small flush" style="margin-top:6px">${SB()?(state.srvKey?'✓ Saved on the server for your whole trip. Phones and trip links never see it. ':''):data.gemKey?'✓ Saved on this phone. ':''}Each bill costs well under a cent.</p>
-  </form>
   </div>`;
 }
 // Guard against landing on an old, empty trip: find the trip on this Supabase project that holds our data
@@ -3123,64 +3171,73 @@ function saveClaude(v){v=String(v||'').trim();const m=v.match(/https:\/\/claude\
   data.claudeUrl=m?m[0]:'';save();toast(m?'Saved. Tap ✦ Ask Claude on Home':'Link removed');render(true)}
 function screenSettings(){
   const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
-  const {from,to}=data.trip;
+  const {from,to}=data.trip, P=PT();
   const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
+  const others=P.filter(p=>p.id!=='us').map(p=>p.name).join(' & ')||NM().b;
+  const billOK=SB()?state.srvKey:!!data.gemKey;
   return `${subbar('Settings','pop()')}
   <div class="pad">
+  ${sec('Your trip')}
+  <div class="pcard">
+    <div class="frow" style="margin-top:0"><div style="flex:1;min-width:0"><label class="lab" for="tripFrom" style="margin-top:0">From</label><input class="field" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
+      <div style="flex:1;min-width:0"><label class="lab" for="tripTo" style="margin-top:0">To</label><input class="field" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div></div>
+    <div class="srow" style="margin-top:8px"><span>Where we’re staying, friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div>
+    <details class="more"><summary>Public holidays <span class="small">${hol.length}</span></summary>
+      <p class="small" style="margin:6px 0">On these days the app says to call ahead unless Google has holiday hours.</p>
+      ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
+      <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form></details>
+  </div>
+  ${sec('Sharing')}
+  <div class="pcard">
+    <div class="srow" style="padding-top:0"><span>${SB()?`Everything syncs with ${esc(others)}`:'Only on this phone'}</span><span class="ks ${SB()?'ok':'none'}">${SB()?'On':'Off'}</span></div>
+    ${SB()?`<button class="btn block" onclick="shareInvite()">Send trip link</button>`:''}
+    <button class="btn ghost block" onclick="push('billsetup')">${SB()?'Households, payments &amp; exchange rate':'Connect or set up sharing'}</button>
+  </div>
   ${sec('Food preferences')}
   <div class="pcard" style="cursor:pointer" onclick="push('prefs')">
     ${PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>`<div class="srow"><span style="white-space:nowrap">${PREF_ICON[c]} ${c}</span><span class="small" style="text-align:right">${esc(data.prefs[c].join(', '))}</span></div>`).join('')||'<p class="small">Nothing yet.</p>'}
     <button class="btn ghost block">Edit food preferences</button>
   </div>
-  ${sec('Instagram')}
-  <div class="pcard"><p style="font-size:14px;margin:0">${data.places.filter(p=>!p.ig&&!p.disc).length} of ${data.places.length} places have no Instagram yet. Your Xàbia chat in Claude can find them and add them to the app.</p>
-    ${data.claudeUrl?`<a class="btn block" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="askClaudeIg(true)" style="text-decoration:none;text-align:center">Ask Claude to find them</a>`:`<button class="btn block" onclick="askClaudeIg()">Ask Claude to find them</button>`}
-    <p class="small flush" style="margin-top:6px">Copies the request, then opens your Claude chat: paste it there. Handles appear here once Claude saves them. You can also add one yourself from a place’s Instagram button.</p></div>
-  ${sec('Ask Claude')}
+  ${sec('Claude')}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
-    <p style="font-size:14px;margin:0">Adds an <b>✦ Ask Claude</b> button to Home that opens your Xàbia trip chat in Claude. It’s only saved on this phone, so phones without your Claude account don’t get the button.</p>
-    <label class="lab" for="claudeUrl">Link to your Claude project or chat</label>
-    <div class="frow" style="margin-top:0"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
-    <p class="small flush" style="margin-top:6px">To get it: in Safari, sign in at claude.ai, open your Xàbia trip project and copy the address from the address bar. On a computer, copy it from the browser’s address bar.</p>
+    <p style="font-size:14px;margin:0">Your Xàbia chat in Claude can read the trip, put picks on the map, plan routes and add Instagram accounts. Its link is only saved on this phone.</p>
+    <div class="frow"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Link to your Claude project"><button class="btn">Save</button></div>
+    ${data.places.some(p=>!p.ig&&!p.disc)?(data.claudeUrl?`<a class="btn ghost block" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="askClaudeIg(true)" style="text-decoration:none;text-align:center">Ask Claude for missing Instagrams (${data.places.filter(p=>!p.ig&&!p.disc).length})</a>`:''):''}
   </form>
-  ${sec('Sync & sharing')}
-  <div class="pcard" style="cursor:pointer" onclick="push('billsetup')"><div class="srow" style="padding:0"><span>${SB()?'Everything syncs across your screens and with '+esc(NM().b):'Only on this screen'}</span><span class="ks ${SB()?'ok':'none'}">${SB()?'On':'Off'}</span></div><button class="btn ghost block">${SB()?'Trip link & settings':'Connect or set up'}</button></div>
-  ${sec('Google Maps')}
-  <form class="pcard" onsubmit="event.preventDefault();saveKey(this.k.value)">
-    <div class="srow" style="padding-top:0"><span>API key</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
-    ${state.lastErr?`<div class="note warn" style="margin:0 0 10px;user-select:text">Last Google error: ${esc(state.lastErr)}</div>`:''}
-    <input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Paste your key (starts AIza…)" value="${esc(data.key)}">
-    <button class="btn block">Save key</button>
-    ${data.key?`<button type="button" class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Re-check every place now (uses ~25 lookups)</button>`:''}
-    <div class="srow" style="margin-top:6px"><label for="dscT">Also suggest top-rated places I haven’t added<br><span class="small">Off keeps the app to your own list.</span></label><input type="checkbox" id="dscT" ${data.discover?'checked':''} onchange="data.discover=this.checked;save()"></div>
-    <div class="srow"><label for="phT">Show one Google photo per place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
-    <p class="small">The key is stored only on this device. Hours and one photo per place are loaded once. After that, Google is only asked when you tap “Check today’s hours”.</p>
-  </form>
-  ${sec('Your trip')}
-  <div class="pcard" style="margin-bottom:12px"><div class="srow" style="padding:0"><span>Where you’re staying and friends’ places</span><button class="link" onclick="state.stack=[];state.tab='map';render()">Edit on Map →</button></div></div>
+  ${sec('Google')}
   <div class="pcard">
-    <label class="lab" for="tripFrom" style="margin-top:0">From</label><input class="field" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)">
-    <label class="lab" for="tripTo">To</label><input class="field" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)">
-    ${from&&to&&dayDiff(from,to)>=0?`<p class="small" style="margin-top:8px">${dayDiff(from,to)+1} days</p>`:''}
+    <div class="srow" style="padding-top:0"><span>Maps &amp; opening hours</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
+    <div class="srow"><span>Reading bill photos</span><span class="ks ${billOK?'ok':'none'}">${billOK?'On':'Not set'}</span></div>
+    ${state.lastErr?`<div class="note warn" style="margin:8px 0 0;user-select:text">Last Google error: ${esc(state.lastErr)}</div>`:''}
+    <div class="srow"><label for="dscT">Suggest top-rated places we haven’t added</label><input type="checkbox" id="dscT" ${data.discover?'checked':''} onchange="data.discover=this.checked;save()"></div>
+    <div class="srow"><label for="phT">Show a Google photo for each place</label><input type="checkbox" id="phT" ${data.showPhotos!==false?'checked':''} onchange="data.showPhotos=this.checked;save()"></div>
+    <details class="more"><summary>Change keys</summary>
+      <form onsubmit="event.preventDefault();saveKey(this.k.value)"><label class="lab" for="keyBox">Google Maps key</label>
+        <div class="frow" style="margin-top:0"><input class="field" name="k" id="keyBox" type="password" autocomplete="off" placeholder="Starts AIza…" value="${esc(data.key)}"><button class="btn">Save</button></div></form>
+      <form onsubmit="event.preventDefault();saveGemKey(this.g.value)"><label class="lab" for="gemKeyIn">Bill-reading key (from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>)</label>
+        <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${billOK?'Saved · paste a new one to replace':'Paste the key'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
+        <p class="small" style="margin-top:6px">${SB()?'Kept on the server for the whole trip; phones and trip links never see it.':'Saved on this phone.'} Each bill costs well under a cent.</p></form>
+    </details>
   </div>
-  ${sec('Public holidays')}
+  ${sec('More')}
   <div class="pcard">
-    <p class="small" style="margin:0 0 6px">On these days the app tells you to call ahead unless Google has holiday hours. Spain’s fixed national and Valencian holidays are filled in. Add local fiestas and Easter yourself.</p>
-    ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} ${h.date.slice(0,4)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
-    <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form>
+    <details class="more" style="margin-top:0;border-top:0;padding-top:0"><summary>Export and backup</summary>
+      <button class="btn ghost block" onclick="download('xabia-guide.kml',kml(data.places),'application/vnd.google-earth.kml+xml')">Places for Google My Maps (KML)</button>
+      <p class="small" style="margin-top:6px">On a computer, open <a href="https://www.google.com/maps/d/" target="_blank" rel="noopener">Google My Maps</a>, create a map and choose Import. It then shows in the Google Maps app under You → Maps.</p>
+      <button class="btn ghost block" onclick="exportCSV()">Places as a spreadsheet (CSV)</button>
+      <button class="btn ghost block" onclick="exportBackup()">Download a full backup</button>
+      <label class="btn ghost block" for="imp">Restore from a backup</label><input type="file" id="imp" accept=".json,application/json" hidden onchange="importBackup(this)">
+    </details>
+    <details class="more"><summary>Troubleshooting</summary>
+      ${data.key?`<button class="btn ghost block" onclick="syncAll(true);toast('Refreshing every place…')">Re-check every place with Google</button>`:''}
+      ${SB()?`<button class="btn ghost block" onclick="pullBills().then(()=>toast(B.status==='live'?'Connected':'Couldn’t connect: '+B.err))">Test the sync connection</button>`:''}
+      <button class="btn ghost block" onclick="copyTransfer()">Copy a transfer code</button>
+      <form class="frow" onsubmit="event.preventDefault();pasteTransfer(this.c.value)"><input class="field" name="c" id="xferIn" placeholder="Paste a transfer code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Use</button></form>
+      <p class="small" style="margin-top:6px">Only needed if sync isn’t working: it copies everything on this phone to another one.</p>
+      <button class="btn danger block" onclick="resetAll()">${state.confirmDel==='ALL'?'Tap again to erase everything':'Start over with the starter list'}</button>
+    </details>
   </div>
-  ${sec('Your data')}
-  <div class="pcard">
-    <p class="small" style="margin:0">${SB()?'Everything syncs through Supabase. These are extra ways to move or save a copy.':'Everything is saved on this screen only. Turn on Sync & sharing above so it’s kept safe and shared across screens.'}</p>
-    <button class="btn block" onclick="copyTransfer()">Copy transfer code</button>
-    <form class="frow" onsubmit="event.preventDefault();pasteTransfer(this.c.value)"><input class="field" name="c" id="xferIn" placeholder="Paste a transfer code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Use</button></form>
-    <p class="small" style="margin-top:6px">To move everything to the home-screen icon or another phone, copy the code here and paste it there. It includes your Google key, places, notes, spots and bill sharing.</p>
-    <button class="btn ghost block" onclick="exportBackup()">Download backup</button>
-    <label class="btn ghost block" for="imp">Restore from backup</label><input type="file" id="imp" accept=".json,application/json" hidden onchange="importBackup(this)">
-    <button class="btn danger block" onclick="resetAll()">${state.confirmDel==='ALL'?'Tap again to erase everything':'Start over with the starter list'}</button>
-  </div>
-  <p class="small" style="margin-top:14px">App version ${APP_VERSION}.</p>
-  <p class="small" style="margin-top:6px">The starter list comes from the Guía Repsol 2026 list for Xàbia, javea.com and Nothing Familiar’s Jávea guide. Michelin badges follow the 2026 Michelin Guide Spain plus its March 2026 additions; the 2027 guide may change them, and you can edit each place’s badge. Hours, photos and ratings come from Google Maps.</p>
+  <p class="small" style="margin-top:14px">Xàbia Guide ${APP_VERSION}. Starter list from Guía Repsol 2026, javea.com and Nothing Familiar’s Jávea guide; Michelin badges from the 2026 guide. Hours, photos and ratings from Google Maps.</p>
   </div>`;
 }
 function copyTransfer(){
