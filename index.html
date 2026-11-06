@@ -695,7 +695,7 @@ function status(p,D,m){
   if(p.biz==='CLOSED_PERMANENTLY') return {s:'closed',big:'Closed',small:'permanently',txt:'Permanently closed'};
   if(p.biz==='CLOSED_TEMPORARILY') return {s:'closed',big:'Closed',small:'temporarily',txt:'Temporarily closed'};
   const h=hoursFor(p,D);
-  if(!h) return {s:'unknown',big:'Hours',small:p.gid?'not listed':'not loaded',txt:p.gid?'No hours on Google':(data.key?'Hours loading…':'Hours need Google')};
+  if(!h) return {s:'unknown',big:'Hours',small:p.gid?'not listed':'not loaded',txt:p.gid?'No hours on Google':(data.key?(p.linkFailed?'Not found on Google':'Hours loading…'):'Hours need Google')};
   const t=dowOf(D)*1440+m;
   for(const[s,e]of h.w) for(const tt of [t,t+10080]) if(tt>=s&&tt<e){const all=e-s>=10080;return {s:'open',left:e-tt,big:'Open',small:all?'24 hours':`until ${fmt(e)}`,txt:all?'Open 24 hours':`Open until ${fmt(e)}`,h}}
   const dayEnd=(dowOf(D)+1)*1440; let next=null;
@@ -3257,7 +3257,9 @@ async function pickClaude(i){
   if(!inToday(p.id)) TPw().ids.push(p.id);
   const all=lsGet('xe.sugPicked',{});all[cp.s.at]=[...new Set([...(all[cp.s.at]||[]),i])];lsSet('xe.sugPicked',all);
   save(); toast(`${p.name} is in today’s plan`); render(true);
+  if(!p.gid&&data.key&&!p.linkFailed){try{const r=await gSearch(`${p.name}, Xàbia`,1);if(r.length)p.gid=r[0].gid;else p.linkFailed=true;save()}catch(e){}}
   if(p.gid&&data.key&&!p.updated){try{applyDetails(p,await gDetails(p.gid));await resolvePhoto(p);save();renderSoft()}catch(e){}}
+  else renderSoft();
 }
 function dismissPicks(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);render(true)}
 const IG_ASK='Find the Instagram accounts for all our places in the app that don’t have one yet and add them to the app. Only save handles you’ve confirmed on the business’s instagram.com profile, and tell me which ones you couldn’t find.';
