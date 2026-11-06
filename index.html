@@ -245,6 +245,9 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .phload{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);border:0;border-radius:999px;padding:8px 14px;background:rgba(0,0,0,.55);color:#fff;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .ratebtn{border:0;font:inherit;cursor:pointer;color:inherit}.ratebtn span{opacity:.6;margin-left:2px}
 .whyc{margin-top:10px}.whyc .small{margin:8px 0 0!important}.whyl{font-size:14px;margin:6px 0 0;line-height:1.45}.whyl span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.clshut{font-size:12px;font-weight:800;color:#b3261e;white-space:nowrap}
+.clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+.clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
 details.more{margin-top:22px;border-top:1px solid var(--line)}
 details.more>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;font-family:var(--display);font-size:20px;font-weight:700}
@@ -520,7 +523,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v91';
+const APP_VERSION='v92';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -3163,7 +3166,7 @@ function screenOuting(id){
     <p class="small" id="routeline" style="margin-top:8px">${esc(routeLine(o))}</p>
     ${data.key?'<div id="omap" class="omap"></div>':''}
     ${sec('Stops',`${o.stops.length}`)}
-    <div class="list">${o.stops.map((x,i)=>`<div class="row" ${x.placeId?`onclick="openDetail('${x.placeId}')"`:'style="cursor:default"'}><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${x.time?`<span class="small" style="font-weight:700;margin-right:6px">${esc(x.time)}</span>`:''}${esc(x.name)}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
+    ${(()=>{const cp=claudePicks();if(cp)setTimeout(()=>clLite(cp.items),0);return ''})()}<div class="list">${o.stops.map((x,i)=>`<div class="row" onclick="${x.placeId?`openDetail('${x.placeId}')`:`clPreview(${i})`}"><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${x.time?`<span class="small" style="font-weight:700;margin-right:6px">${esc(x.time)}</span>`:''}${esc(x.name)} ${clRating({p:x.placeId?byId(x.placeId):null,x:{name:x.name,gid:x.gid}})}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
     ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:16px" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="draftAsk()">✦ Change it with Claude</a>
       <p class="small" style="margin-top:6px">Say what to change (e.g. “add a lunch stop halfway”). Claude updates this draft and it refreshes here.</p>`:''}
     <button class="btn block" style="margin-top:14px" onclick="saveDraft(false)">Save trip</button>
@@ -3203,20 +3206,54 @@ function savedTripsHtml(){
   return `${sec('Saved trips',`${L.length}`)}<div class="list">${L.slice().reverse().map(o=>{const m=MODES[o.mode]||MODES.walking,act=data.activeOuting&&data.activeOuting.id===o.id;
     return `<div class="row" onclick="push('outing:${o.id}')"><span style="font-size:22px">${m.icon}</span><div class="grow"><div class="rname" style="font-size:16px">${esc(o.title)}</div><div class="rmeta"><span>${o.stops.length} stops</span>${act?'<span style="color:var(--accent);font-weight:700">In progress</span>':o.lastDone?'<span>Done</span>':''}</div></div><span class="small">›</span></div>`}).join('')}</div>`;
 }
+// Google rating + review count for Claude's picks that aren't saved places yet (cheap lookup, cached on this phone)
+const CLR=()=>{state.clr=state.clr||lsGet('xe.clr',{});return state.clr};
+const clKey=x=>x.gid||String(x.name||'').toLowerCase();
+async function clLite(items){if(!data.key||state.clrBusy)return;const C=CLR(),todo=items.filter(it=>!it.p&&!(clKey(it.x) in C));if(!todo.length)return;
+  state.clrBusy=true;
+  try{const g=await gmaps();
+    for(const it of todo){const x=it.x,k=clKey(x);try{
+      if(x.gid){const pl=new g.Place({id:x.gid});await pl.fetchFields({fields:['rating','userRatingCount','businessStatus']});C[k]={gid:x.gid,r:pl.rating||0,n:pl.userRatingCount||0,bs:pl.businessStatus||''}}
+      else{const {places}=await g.Place.searchByText({textQuery:`${x.name}, Xàbia, Alicante`,fields:['id','rating','userRatingCount','location','businessStatus'],locationBias:it.lat!=null?{center:{lat:it.lat,lng:it.lng},radius:2000}:{center:HOME,radius:12000},maxResultCount:1});
+        const pl=places&&places[0];C[k]=pl?{gid:pl.id,r:pl.rating||0,n:pl.userRatingCount||0,bs:pl.businessStatus||''}:{none:1}}
+    }catch(e){C[k]={none:1}}}
+    lsSet('xe.clr',C)}catch(e){}
+  state.clrBusy=false;renderSoft()}
+function clRating(it){const r=it.p?{r:it.p.rating,n:it.p.ratingCount,bs:it.p.biz||''}:CLR()[clKey(it.x)];if(!r)return '';
+  const B_=String(r.bs||'').toUpperCase(),shut=/CLOSED_PERM/.test(B_)?'Closed for good on Google':/CLOSED_TEMP/.test(B_)?'Temporarily closed on Google':'';
+  return (r.r?`<span class="clrate">★ ${Number(r.r).toFixed(1)}${r.n?` (${nRev(r.n)})`:''}</span>`:'')+(shut?` <span class="clshut">⚠ ${shut}</span>`:'')}
+// Tap a new pick: load everything from Google (photo, hours, rating, address) into a preview before adding it
+async function clPreview(i){const cp=claudePicks();if(!cp)return;const it=cp.items[i];if(!it)return;if(it.p){openDetail(it.p.id);return}
+  let sh=document.getElementById('poi');if(!sh){sh=document.createElement('div');sh.id='poi';sh.className='poi';document.body.append(sh)}
+  sh.innerHTML=`<div class="pcard"><p class="small">Loading from Google…</p></div>`;sh.hidden=false;
+  const close=`<button class="mini" onclick="document.getElementById('poi').hidden=true" aria-label="Close">×</button>`;
+  try{const gid=it.x.gid||(CLR()[clKey(it.x)]||{}).gid;if(!gid||!data.key)throw new Error('Google doesn’t know this place by name');
+    const q={id:'prev',name:it.name,tags:[],menu:[],note:'',gid};applyDetails(q,await gDetails(gid));await resolvePhoto(q,true).catch(()=>{});
+    state.clPrev={i,q};const st=status(q),ph=q.photo&&q.photo.resolved&&q.photo.src;
+    sh.innerHTML=`<div class="pcard clprev">${ph?`<div class="clph"><img src="${esc(q.photo.src)}" alt="Photo of ${esc(q.name)}">${close}</div>`:`<div class="srow" style="padding-top:0"><span></span>${close}</div>`}
+      <h3 style="font-size:21px;margin-top:8px">${esc(q.name)}</h3>
+      <div class="pills" style="margin-top:6px"><span class="pill ${st.s}">${esc(st.txt)}</span>${q.rating?`<span class="pill">★ ${q.rating.toFixed(1)}${q.ratingCount?` · ${q.ratingCount.toLocaleString('en-GB')}`:''}</span>`:''}${q.price?`<span class="pill">${q.price}</span>`:''}</div>
+      <p class="small" style="margin:8px 0 0">${esc([q.type,q.addr].filter(Boolean).join(' · '))}</p>
+      ${it.x.why?`<p style="font-size:14px;margin:8px 0 0"><b style="color:var(--accent)">✦</b> ${esc(String(it.x.why))}</p>`:''}
+      <div class="frow" style="margin-top:12px"><button class="btn" style="flex:1" onclick="document.getElementById('poi').hidden=true;pickClaude(${i})">Go here</button>${q.maps?`<a class="btn ghost" href="${esc(q.maps)}" target="_blank" rel="noopener">Google Maps</a>`:''}</div></div>`;
+  }catch(e){sh.innerHTML=`<div class="pcard"><div class="srow" style="padding-top:0"><b>${esc(it.name)}</b>${close}</div><p class="small">Couldn’t load it from Google. ${esc(e.message||'')}</p><button class="btn block" onclick="document.getElementById('poi').hidden=true;pickClaude(${i})">Go here anyway</button></div>`}}
 function claudeCardHtml(){
   const cp=claudePicks(); if(!cp) return '';
   return `<div class="pcard clpicks" id="clpicks"><div class="clhead"><span class="lbl">✦ Claude’s picks</span><button class="link" onclick="dismissPicks()">Dismiss</button></div>
     ${cp.s.title?`<h3 style="font-size:19px;margin-top:2px">${esc(cp.s.title)}</h3>`:''}
-    ${cp.items.map(it=>{const st=it.p?status(it.p):null;return `<div class="clrow"><b class="clnum">${it.n}</b>
-      <div class="grow" ${it.p?`onclick="openDetail('${it.p.id}')" style="cursor:pointer"`:''}><div class="rname" style="font-size:16px">${esc(it.name)}</div>
-      <div class="small" style="margin:2px 0 0">${[it.x.why?esc(it.x.why):'',st?`<span class="s-${st.s}">${esc(st.txt)}</span>`:'',it.p?'':'new place'].filter(Boolean).join(' · ')}</div></div>
+    ${(setTimeout(()=>clLite(cp.items),0),'')}${cp.items.map(it=>{const st=it.p?status(it.p):null;return `<div class="clrow"><b class="clnum">${it.n}</b>
+      <div class="grow" onclick="clPreview(${it.i})" style="cursor:pointer"><div class="rname" style="font-size:16px">${esc(it.name)} ${clRating(it)}</div>
+      <div class="small" style="margin:2px 0 0">${[it.x.why?esc(it.x.why):'',st?`<span class="s-${st.s}">${esc(st.txt)}</span>`:'',it.p?'':'new place · tap for photo &amp; details'].filter(Boolean).join(' · ')}</div></div>
       <button class="btn ${it.picked?'ghost':''}" style="padding:9px 14px;font-size:14px" onclick="pickClaude(${it.i})">${it.picked?'✓ Planned':'Go here'}</button></div>`}).join('')}
     ${cp.items.length>1?`<div class="frow" style="margin-top:10px"><button class="btn" style="flex:1" onclick="saveTripFromPicks(true)">Start trip</button><button class="btn ghost" style="flex:1" onclick="saveTripFromPicks(false)">Save for later</button></div>`:''}
     <p class="small" style="margin:8px 0 0">${cp.items.length>1?'Start it as a route now, save it for another day, or tap <b>Go here</b> for single stops.':'Tap <b>Go here</b> to add it to today’s plan and the map.'}</p></div>`;
 }
 async function pickClaude(i){
   const cp=claudePicks(); if(!cp) return; const it=cp.items[i]; let p=it.p;
-  if(!p){const x=it.x;p={id:uid(),name:it.name,area:it.lat!=null?areaFor(it.lat,it.lng):'Xàbia',tags:[...(catOf().tags.slice(0,1))],menu:[],note:x.why?String(x.why):'',lat:it.lat,lng:it.lng,approx:it.lat==null,gid:x.gid||'',addr:x.addr||'',michelin:'',touched:true};data.places.push(p)}
+  if(!p){const x=it.x,pv=state.clPrev&&state.clPrev.i===i?state.clPrev.q:null;
+    p={id:uid(),name:it.name,area:it.lat!=null?areaFor(it.lat,it.lng):'Xàbia',tags:[...(catOf().tags.slice(0,1))],menu:[],note:x.why?String(x.why):'',lat:it.lat,lng:it.lng,approx:it.lat==null,gid:x.gid||(CLR()[clKey(x)]||{}).gid||'',addr:x.addr||'',michelin:'',touched:true};
+    if(pv){const {id,name,tags,menu,note,...g}=pv;Object.assign(p,g);if(p.lat!=null)p.approx=false;p.area=areaFor(p.lat,p.lng);p.updated=Date.now()}
+    data.places.push(p)}
   if(!inToday(p.id)) TPw().ids.push(p.id);
   const all=lsGet('xe.sugPicked',{});all[cp.s.at]=[...new Set([...(all[cp.s.at]||[]),i])];lsSet('xe.sugPicked',all);
   save(); toast(`${p.name} is in today’s plan`); render(true);

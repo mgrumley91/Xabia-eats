@@ -58,7 +58,11 @@ on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind,
   as a trip or save it for later in the app (saved trips live in `data->'d'->'outings'`).
 - Use 1–5 items, best first. Prefer places already in `places` (give `placeId`); for a new place give `name`,
   `lat`, `lng` and, if you know it, `gid` (its Google place id).
-- `why` is one short line. Check opening hours for when we're going before recommending.
+- **Before recommending anything, check it on Google Maps:** drop any place Google lists as permanently or
+  temporarily closed, and check its opening hours for the day and time we're going (including holiday hours). Don't
+  rely on older guides or articles for whether somewhere is still open.
+- `why` is one short line. Give `gid` (the Google place id) whenever you can, so the app can show its rating, photo
+  and details.
 - Then tell us: "They're on your Home map."
 
 ## Draft trips ("Plan with Claude")
