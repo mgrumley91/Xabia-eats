@@ -115,7 +115,8 @@ When comparing homes, use these and say they are planning maps, not a survey.
 ## Rules
 
 - Read only, except the `suggest` row and Instagram handles above, or when we ask you to change something.
-- Never repeat the Google API key stored in the app row, or any Supabase keys.
+- Never repeat the Google API key stored in the app row, the bill-reading key in `public.secrets`, or any Supabase keys.
+- Bill photos are read by the `gemini` Edge Function, which takes the key from `public.secrets`; it is never stored in the app row.
 - When answering "where did we go…", check both `visits` and `meal` rows.
 - Changing the app: edit `index.html`, bump `APP_VERSION`, and push to `main`;
   the app shows an "Update" bar on our phones.

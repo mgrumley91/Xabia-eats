@@ -501,7 +501,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v76';
+const APP_VERSION='v77';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1980,7 +1980,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','gemKey','outings','activeOuting','travel','only4','discover','showPhotos','homes'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2071,7 +2071,7 @@ async function pullBills(){
     if(JSON.stringify(cl)!==JSON.stringify(CL())){B.claims=cl;changed=true}
     nudgePick();
     if(B.photoPending&&B.photoPending.length){for(const id of B.photoPending.splice(0)){const src=localStorage.getItem('xe.ph.'+id);if(src)await sbUpsert([sbRow('photo_'+id,'photo',{src})]).catch(()=>B.photoPending.push(id))}}
-    localBills(); setB('live'); checkTrips();
+    localBills(); setB('live'); checkTrips(); srvKeyCheck();
     if(changed){billsRefresh();renderTabs()}
   }catch(e){setB(navigator.onLine?'error':'offline',e.message);if(/closed/i.test(e.message)){state.tripChecked=false;checkTrips()}}
   pulling=false;
@@ -2627,9 +2627,8 @@ Search Google for it. Reply with ONLY this JSON and nothing else: {"handle":"the
 Use "high" only if you found an instagram.com profile that clearly belongs to this exact business in Xàbia/Jávea. If you can't find one, use an empty handle.`;
   let last;
   for(const model of ['gemini-2.5-flash','gemini-flash-latest']){
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':gemKey()},
-      body:JSON.stringify({contents:[{parts:[{text}]}],tools:[{google_search:{}}],generationConfig:{temperature:0}})});
-    const j=await r.json().catch(()=>({}));
+    const {ok,status,j}=await gemCall(model,{contents:[{parts:[{text}]}],tools:[{google_search:{}}],generationConfig:{temperature:0}});
+    const r={ok,status};
     if(r.ok){const txt=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');state.igLast=txt.slice(0,240)||('(empty answer'+(j.candidates?.[0]?.finishReason?', '+j.candidates[0].finishReason:'')+')');return parseIg(txt)}
     last=j.error?.message||`Google said ${r.status}`; if(r.status!==404) break;
   }
@@ -2656,13 +2655,23 @@ async function findAllIg(){
   for(const p of list){const r=await autoIg(p.id,true);state.igAll.done++;if(byId(p.id)&&byId(p.id).ig)state.igAll.found++;else if(r)state.igAll.maybe++;if(state.stack.at(-1)==='settings'&&!typing())render(true);else renderSoft()}
   const s=state.igAll;state.igAll=null;state.igReport=s;toast(state.igErr&&!s.found&&!s.maybe?'Google refused the search: '+state.igErr:`Instagram: found ${s.found} of ${s.total}${s.maybe?`, ${s.maybe} to confirm`:''}`);render(true);
 }
-const gemKey=()=>data.gemKey||data.key;
+// Bill reading goes through our Supabase function, which holds the Gemini key; phones never see it.
+const gemKey=()=>SB()?state.srvKey!==false:(data.gemKey||data.key);
+async function gemCall(model,body,signal){
+  if(SB()){const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,model,body})});
+    return {ok:r.ok,status:r.status,j:await r.json().catch(()=>({}))}}
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal,headers:{'Content-Type':'application/json','x-goog-api-key':data.gemKey||data.key},body:JSON.stringify(body)});
+  return {ok:r.ok,status:r.status,j:await r.json().catch(()=>({}))}}
+async function srvKeyCheck(){if(!SB()||state.srvChecked)return;state.srvChecked=true;
+  try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'status'})});const j=await r.json();
+    if(r.ok){state.srvKey=!!j.hasKey;
+      if(!j.hasKey&&data.gemKey){const k=data.gemKey;const s2=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'setKey',key:k})});if(s2.ok)state.srvKey=true}
+      if(state.srvKey&&data.gemKey){delete data.gemKey;save()}}}catch(e){}}
 async function gemini(b64,signal){
   let last;
   for(const model of ['gemini-2.5-flash','gemini-flash-latest','gemini-2.0-flash']){
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal,headers:{'Content-Type':'application/json','x-goog-api-key':gemKey()},
-      body:JSON.stringify({contents:[{parts:[{text:BILL_PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
-    const j=await r.json().catch(()=>({}));
+    const {ok,status,j}=await gemCall(model,{contents:[{parts:[{text:BILL_PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}},signal);
+    const r={ok,status};
     if(r.ok){const t=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';return JSON.parse(t.replace(/^```(json)?|```$/g,'').trim())}
     last=j.error?.message||`Google said ${r.status}`;
     if(r.status!==404) break;
@@ -2819,8 +2828,8 @@ function screenBillSetup(){
     <p style="font-size:14px;margin:0">Bill photos are read by Google’s Gemini. It needs its own key, because Google won’t let a Maps key use Gemini.</p>
     <ol class="steps"><li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a> and sign in.</li><li>Tap <b>Create API key</b>, choose your Xabia Eats project, and copy it.</li><li>Paste it here and tap Save.</li></ol>
     <label class="lab" for="gemKeyIn">Bill-reading key</label>
-    <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${data.gemKey?'Saved · paste a new one to replace':'Paste the key'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
-    <p class="small flush" style="margin-top:6px">${data.gemKey?'✓ Saved and shared with your trip. ':''}Each bill costs well under a cent.</p>
+    <div class="frow" style="margin-top:0"><input class="field" id="gemKeyIn" name="g" placeholder="${(SB()?state.srvKey:data.gemKey)?'Saved · paste a new one to replace':'Paste the key'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
+    <p class="small flush" style="margin-top:6px">${SB()?(state.srvKey?'✓ Saved on the server for your whole trip. Phones and trip links never see it. ':''):data.gemKey?'✓ Saved on this phone. ':''}Each bill costs well under a cent.</p>
   </form>
   </div>`;
 }
@@ -2867,7 +2876,7 @@ async function startSharing(f){
 function inviteLink(toBills){
   const n=NM(),j={u:data.sb.url,k:data.sb.key,t:data.sb.trip,n:{...n}};if(toBills)j.b=1;
   if(state.invKey!==false&&data.key) j.g=data.key;
-  if(state.invKey!==false&&data.gemKey) j.gk=data.gemKey;
+  if(state.invKey!==false&&data.gemKey&&!SB()) j.gk=data.gemKey;
   const b64=btoa(unescape(encodeURIComponent(JSON.stringify(j)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   return location.origin+location.pathname+'#join='+b64;
 }
@@ -2896,7 +2905,7 @@ function rmParty(i){const P=collectParties();if(i<2||!P[i])return;
 function stashLocal(){state.mergeLocal={spots:(data.spots||[]).slice(),places:(data.places||[]).filter(p=>!p.seed||p.touched),key:data.key}}
 function joinTrip(j){
   stashLocal();
-  data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}if(j.gk)data.gemKey=j.gk;
+  data.sb={url:j.u,key:j.k,trip:j.t};if(j.n)data.splitNames=j.n;if(j.g&&!data.key){data.key=j.g;state.keyStatus='loading'}
   data.appUpdated=0;state.takeRemote=true;save({remote:true});state.joined=true;B.seeded=true;B.bill=blankBill();B.meals=[];localBills();
 }
 async function pasteTrip(text){
@@ -2914,7 +2923,7 @@ function joinFromLink(){
   const m=location.hash.match(/#join=([\w-]+)/); if(!m) return;
   try{
     const j=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
-    if(j.u&&j.k&&j.t){if(!(data.sb&&data.sb.trip===j.t&&data.sb.url===j.u))joinTrip(j);else{if(j.g&&!data.key)data.key=j.g;if(j.gk)data.gemKey=j.gk;save()}state.tab=j.b?'bills':'today';if(j.b)state.billStep=2}
+    if(j.u&&j.k&&j.t){if(!(data.sb&&data.sb.trip===j.t&&data.sb.url===j.u))joinTrip(j);else{if(j.g&&!data.key)data.key=j.g;save()}state.tab=j.b?'bills':'today';if(j.b)state.billStep=2}
   }catch(e){}
   history.replaceState(null,'',location.pathname+location.search);
   return true;
@@ -3095,6 +3104,11 @@ function askClaudeIg(viaLink){try{const r=navigator.clipboard&&navigator.clipboa
   else{toast('Request copied. Add your Claude link below to open it from here');setTimeout(()=>document.getElementById('claudeUrl')?.focus(),50)}}
 async function saveGemKey(v){v=String(v||'').replace(/\s/g,'');
   if(v.length<20){toast('Paste the whole key from AI Studio');return}
+  if(SB()){toast('Checking the key with Google…');
+    try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'setKey',key:v})});const j=await r.json().catch(()=>({}));
+      if(!r.ok){toast('Google didn’t accept it: '+(j.error&&j.error.message||r.status));return}
+      state.srvKey=true;delete data.gemKey;save();toast('Key saved for the whole trip. Snap a bill to try it');render(true)}catch(e){toast('Couldn’t reach the server. Try again')}
+    return}
   toast('Checking the key with Google…');
   try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',{headers:{'x-goog-api-key':v}});
     if(!r.ok){const j=await r.json().catch(()=>({}));toast('Google didn’t accept it: '+(j.error&&j.error.message||r.status));return}}
