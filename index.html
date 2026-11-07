@@ -523,7 +523,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v93';
+const APP_VERSION='v94';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -3204,8 +3204,10 @@ async function drawRoute(el,o,pins){
     let map=el._map; if(!map){el.innerHTML='';map=el._map=new g.Map(el,{center:HOME,zoom:13,mapId:'DEMO_MAP_ID',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});addYou(g,map)}
     (el._mks||[]).forEach(m=>{m.map=null});(el._omks||[]).forEach(m=>{m.map=null});el._omks=[]; if(el._line){try{el._line.setMap(null)}catch(e){}}
     const s=stopsWithPos(o), b=new window.google.maps.LatLngBounds(), done=(data.activeOuting&&data.activeOuting.id===o.id)?data.activeOuting.done:[];
-    s.forEach(x=>{const i=o.stops.indexOf(x);const pin=new g.Pin({background:done.includes(i)?'#9aa3ad':'#1f7a6c',borderColor:'#fff',glyphColor:'#fff',glyph:String(i+1),scale:1.2});
-      const mk=new g.Marker({map,position:{lat:x.lat,lng:x.lng},title:x.name,content:pin.element||pin,zIndex:150});el._omks.push(mk);b.extend({lat:x.lat,lng:x.lng})});
+    // stops at the same spot (e.g. start and return to the bike shop) share one pin labelled "1·4"
+    const grp=[];s.forEach(x=>{const i=o.stops.indexOf(x),gq=grp.find(q=>km(q.x,x)<0.04);if(gq)gq.ix.push(i);else grp.push({x,ix:[i]})});
+    grp.forEach(({x,ix})=>{const pin=new g.Pin({background:ix.every(i=>done.includes(i))?'#9aa3ad':'#1f7a6c',borderColor:'#fff',glyphColor:'#fff',glyph:ix.map(i=>i+1).join('·'),scale:ix.length>1?1.35:1.2});
+      const mk=new g.Marker({map,position:{lat:x.lat,lng:x.lng},title:ix.map(i=>o.stops[i].name).join(' / '),content:pin.element||pin,zIndex:150});el._omks.push(mk);b.extend({lat:x.lat,lng:x.lng})});
     const rt=goodRoute(o), path=rt?rt.pts.map(([lat,lng])=>({lat,lng})):s.map(x=>({lat:x.lat,lng:x.lng}));
     if(window.google.maps.Polyline&&s.length>1) el._line=new window.google.maps.Polyline({map,path,strokeColor:'#1f7a6c',strokeOpacity:.85,strokeWeight:rt?5:3,...(rt?{}:{strokeOpacity:.5})});
     if(rt) path.forEach(pt=>b.extend(pt));
