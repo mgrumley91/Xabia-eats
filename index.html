@@ -246,6 +246,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .ratebtn{border:0;font:inherit;cursor:pointer;color:inherit}.ratebtn span{opacity:.6;margin-left:2px}
 .whyc{margin-top:10px}.whyc .small{margin:8px 0 0!important}.whyl{font-size:14px;margin:6px 0 0;line-height:1.45}.whyl span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .clshut{font-size:12px;font-weight:800;color:#b3261e;white-space:nowrap}
+.csopt{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
 .vc2 h3{font-size:19px;margin-top:4px}.vc2 .frow{margin-top:12px}.mealchips{padding:0!important;margin-top:10px}.mealchips .chip{padding:6px 11px;font-size:13px}
@@ -523,7 +524,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v94';
+const APP_VERSION='v95';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1001,7 +1002,7 @@ function screenToday(){
   locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<a class="askc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" aria-label="Ask Claude about the trip" style="text-decoration:none"><span aria-hidden="true">✦</span> Ask Claude</a>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
@@ -1703,8 +1704,32 @@ function toggleToday(id){
 const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':'trip');
 const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
 const nRev=n=>n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'k':String(n);
-const PLAN_ASK=v=>(v==='today'?'Help me plan today in Xàbia using the places in our app (check what’s open now and how far things are from where we’re staying).':'Help me plan a day out in Xàbia using the places in our app (check opening hours for the day we pick).')
+const PLAN_ASK=(v,from)=>(v==='today'?`Help me plan today in Xàbia using the places in our app, starting ${from||'from where we’re staying'} (check what’s open now and how far things are).`:`Help me plan a day out in Xàbia using the places in our app, starting ${from||'from where we’re staying'} (check opening hours for the day we pick).`)
   +' Put your plan in the app as a draft trip (see “Draft trips” in the repo’s CLAUDE.md) so I can review it under Plan. When I ask for changes, update the same draft. Don’t save it as a trip: I’ll save it in the app when I’m happy.';
+// Before opening Claude, ask where to start from and pass that location on (copied with the request)
+function stayFor(){const P=PT().find(p=>p.id===ME());return (P&&P.stay&&data.spots.find(x=>x.id===P.stay))||baseSpot()||data.spots.find(x=>x.kind==='home')}
+const locTxt=(lbl,lat,lng)=>`${lbl} (${lat.toFixed(5)}, ${lng.toFixed(5)}, near ${areaFor(lat,lng)}; https://maps.google.com/?q=${lat.toFixed(5)},${lng.toFixed(5)})`;
+function claudeSheet(kind){const sh=document.getElementById('poi')||(()=>{const d=document.createElement('div');d.id='poi';d.className='poi';document.body.append(d);return d})();
+  state.csKind=kind;sh.hidden=false;
+  const fresh=state.here&&Date.now()-(state.here.at||0)<6e5;
+  if(!fresh&&navigator.geolocation){state.csLoc='busy';navigator.geolocation.getCurrentPosition(pos=>{state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};state.csLoc='';updateYou();if(!sh.hidden)claudeSheet(kind)},()=>{state.csLoc='no';if(!sh.hidden)claudeSheet(kind)},{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
+  const st=stayFor(),h=fresh?state.here:null,u=esc(data.claudeUrl||'');
+  const title=kind==='ask'?'Ask Claude':kind==='today'?'Plan today with Claude':'Plan a day out with Claude';
+  const opt=(id,ic,l,sub,ok)=>`<a class="csopt ${ok?'':'off'}" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('${id}')"><span class="ic">${ic}</span><span class="grow"><b>${l}</b><span class="small">${sub}</span></span><span class="small">›</span></a>`;
+  sh.innerHTML=`<div class="pcard"><div class="srow" style="padding-top:0"><b style="font-size:18px">✦ ${title}</b><button class="mini" onclick="document.getElementById('poi').hidden=true" aria-label="Close">×</button></div>
+    <p class="small" style="margin:2px 0 10px">${kind==='ask'?'Where are you asking from?':'Where should the plan start?'} We copy it with your request; paste it into Claude.</p>
+    ${opt('here','📍','Where I am now',h?`Near ${esc(areaFor(h.lat,h.lng))}${st&&st.lat!=null?` · ${(d=>d<1?Math.round(d*1000/50)*50+" m":d.toFixed(1)+" km")(km(h,st))} from ${esc(st.name)}`:''}`:state.csLoc==='no'?'Location is off for this app':'Finding you…',!!h)}
+    ${st&&st.lat!=null?opt('stay','🏠',esc(st.name),'Where we’re staying',true):''}
+    <div class="frow" style="margin-top:8px"><input class="field" id="csElse" placeholder="Somewhere else, e.g. the port" autocomplete="off"><a class="btn" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('else')">Go</a></div>
+    <a class="link" style="display:block;text-align:center;margin-top:10px;font-size:13px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('none')">${kind==='ask'?'Just open Claude':'Skip, no starting point'}</a></div>`}
+function claudeGo(where){const kind=state.csKind,st=stayFor(),h=state.here;let from='',ctx='';
+  if(where==='here'){if(!h||Date.now()-(h.at||0)>6e5){toast('Still finding you…');return false}from='from where I am right now: '+locTxt('my current location',h.lat,h.lng);ctx=locTxt('I’m here right now',h.lat,h.lng)}
+  else if(where==='stay'&&st){from='from '+locTxt(st.name,st.lat,st.lng);ctx=`I’m at ${st.name} (${st.lat.toFixed(5)}, ${st.lng.toFixed(5)})`}
+  else if(where==='else'){const v=(document.getElementById('csElse')||{}).value||'';if(!v.trim()){toast('Type where to start');document.getElementById('csElse')?.focus();return false}from='from '+v.trim()+' in Xàbia';ctx=`I’m at ${v.trim()}, Xàbia`}
+  const now=new Date().toLocaleString('en-GB',{timeZone:TZ,weekday:'long',hour:'2-digit',minute:'2-digit'});
+  const txt=kind==='ask'?`(${ctx||'In Xàbia'}, ${now}.) `:PLAN_ASK(kind,from)+` It’s ${now} now.`;
+  try{const r=navigator.clipboard&&navigator.clipboard.writeText(txt);r&&r.catch&&r.catch(()=>{})}catch(e){}
+  document.getElementById('poi').hidden=true;toast(kind==='ask'?'Your location is copied. Paste it, then ask your question':'Request copied. Paste it in Claude');return true}
 function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
@@ -1715,7 +1740,7 @@ function screenPlan(){
   return topbar('Plan')+`<div class="pad">
    ${tabs}
    ${draftCardHtml()}
-   ${data.claudeUrl?`<a class="askc planc" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="planClaude('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</a>`:''}
+   ${data.claudeUrl?`<button class="askc planc" onclick="claudeSheet('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</button>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
    ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem ${d?'done':''}">
