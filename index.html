@@ -523,7 +523,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v92';
+const APP_VERSION='v93';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1200,15 +1200,23 @@ function parseMapsUrl(u){
   let m=u.match(/\/maps\/place\/([^/@?]+)/); if(m) out.name=m[1].trim();
   m=u.match(/[?&](?:query_place_id|place_id)=([A-Za-z0-9_-]{10,})/); if(m) out.gid=m[1];
   m=u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); if(m){out.lat=+m[1];out.lng=+m[2]}
+  m=u.match(/[?&](?:q|query|ll|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/); if(m&&out.lat==null){out.lat=+m[1];out.lng=+m[2]}
+  m=u.match(/\/maps\/search\/(-?\d+\.\d+),\s*\+?(-?\d+\.\d+)/); if(m&&out.lat==null){out.lat=+m[1];out.lng=+m[2]}
   if(!out.name){m=u.match(/[?&](?:q|query)=([^&]+)/); if(m&&!/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(m[1].trim())) out.name=m[1].trim()}
   return out;
 }
+// Short share links (maps.app.goo.gl/…) are expanded by our Supabase function, which follows Google's redirects
+const SHORT_RE=/maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs/i;
 async function resolveShort(u){
   if(!SB()) throw new Error('nosb');
-  const r=await sbFetch('rpc/resolve_link',{method:'POST',body:JSON.stringify({u})});
-  if(!r||typeof r!=='string') throw new Error('noresolve');
-  return r;
+  u=String(u).replace(/[).,;]+$/,'');
+  const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/resolve-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({u})});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok&&j.url) return j.url;
+  throw new Error(j.error==='not_found'?'deadlink':'noresolve');
 }
+const SHORT_MSG=e=>e.message==='deadlink'?'Google says that short link doesn’t exist. It may have been cut off when copying: in Google Maps tap Share → Copy link and paste the whole thing, or type the name.'
+  :e.message==='nosb'?'Short Google links need sync turned on. Type the name instead.':'Couldn’t open that short link just now. Type the name instead, or try again.';
 async function smartAdd(text,relinkId){
   text=String(text||'').trim(); if(!text) return;
   state.lastQ=text; state.addMsg=''; state.addMsgWarn=false;
@@ -1218,15 +1226,12 @@ async function smartAdd(text,relinkId){
   state.addBusy='Reading the link…'; state.addResults=null; render(true);
   let info={}, full=url;
   try{
-    if(/maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs/i.test(url)) full=await resolveShort(url);
+    if(SHORT_RE.test(url)) full=await resolveShort(url);
     info=parseMapsUrl(full);
   }catch(e){
     state.addBusy=false;
     if(words.length>=3) return doSearch(words);
-    state.addMsgWarn=true;
-    state.addMsg=e.message==='nosb'?'Short Google links need sync turned on (Settings → Sync &amp; sharing). For now, type the business name instead.'
-      :e.message==='noresolve'||/resolve_link|function|404|Could not find/i.test(e.message)?'To read short Google links, run the updated SQL in Supabase once (Settings → Sync &amp; sharing → Copy the SQL). For now, type the business name instead.'
-      :'Couldn’t read that link. Type the business name instead.';
+    state.addMsgWarn=true; state.addMsg=SHORT_MSG(e);
     return render(true);
   }
   try{
@@ -1571,11 +1576,18 @@ function placeHome(id,lat,lng,how){const h=homeById(id);if(!h)return;h.lat=lat;h
 function homeHere(id){if(!navigator.geolocation)return toast('Location isn’t available on this phone');toast('Finding you…');
   navigator.geolocation.getCurrentPosition(p=>placeHome(id,p.coords.latitude,p.coords.longitude,'Pinned where you’re standing. Checking climate risk…'),()=>toast('Couldn’t get your location'),{enableHighAccuracy:true,timeout:12000,maximumAge:0})}
 async function homeLink(id,text){text=String(text||'').trim();if(!text)return;
-  const url=(text.match(/https?:\/\/\S+/)||[])[0]||text;let full=url;
-  try{if(/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(url))full=await resolveShort(url);const i=parseMapsUrl(full);
-    if(i.lat!=null) return placeHome(id,i.lat,i.lng);
-    if(data.key){const r=await gSearch(/x[aà]bia|j[aá]vea/i.test(text)?text:text+', Xàbia',1);if(r&&r[0]&&r[0].lat!=null)return placeHome(id,r[0].lat,r[0].lng,`Pinned at ${r[0].name}. Checking climate risk…`)}
-    toast('Couldn’t find a location in that. Drop the pin on the map instead')}catch(e){toast('Couldn’t read that. Drop the pin on the map instead')}}
+  const url=(text.match(/https?:\/\/\S+/)||[])[0], words=text.replace(/https?:\/\/\S+/g,' ').replace(/\s+/g,' ').trim();
+  const find=async q=>{if(!data.key||!q)return false;const r=await gSearch(/x[aà]bia|j[aá]vea|d[eé]nia|moraira|benitatxell/i.test(q)?q:q+', Xàbia',1);
+    if(r&&r[0]&&r[0].lat!=null){placeHome(id,r[0].lat,r[0].lng,`Pinned at ${r[0].name}. Checking climate risk…`);return true}return false};
+  try{
+    if(url){let full=url;
+      if(SHORT_RE.test(url)){toast('Reading the link…');try{full=await resolveShort(url)}catch(e){if(await find(words))return;return toast(SHORT_MSG(e))}}
+      const i=parseMapsUrl(full);
+      if(i.lat!=null) return placeHome(id,i.lat,i.lng);
+      if(await find(i.name||words)) return;
+      return toast('That link doesn’t include a location. Drop the pin on the map instead')}
+    if(await find(text)) return;
+    toast('Couldn’t find that. Drop the pin on the map instead')}catch(e){toast('Couldn’t read that. Drop the pin on the map instead')}}
 function screenHome(id){const h=homeById(id);const head=subbar('Home','pop()');
   if(!h) return head+'<div class="pad"><div class="empty">This home was removed.</div></div>';
   const r=h.risk, busy=state.riskBusy===id, fresh=state.homeNew===id; state.homeNew=null;
