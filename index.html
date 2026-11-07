@@ -260,12 +260,13 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .wxdays{display:flex;gap:6px;overflow-x:auto;margin:12px -16px 12px;padding:0 16px 4px}.wxdays button{flex:none;width:64px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:8px 2px;font:inherit;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:var(--ink)}
 .wxdays button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}.wxdays b{font-size:20px}.wxdays i{font-style:normal;color:var(--muted)}.wxdays em.mm{color:var(--muted);font-weight:600}.wxdays em{font-style:normal;font-size:11px;color:#2a6fb0;font-weight:700}
 .wxday{font-size:14px;line-height:1.5}
-.wxhead,.wxrow{display:grid;grid-template-columns:44px 26px 54px 54px 1fr 76px;gap:6px;align-items:center}
-.wxhead{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;padding:0 4px}.wxhead i{font-style:normal;text-transform:none;font-weight:600;letter-spacing:0}
+.wxhead,.wxrow{display:grid;grid-template-columns:42px 24px 46px 44px 1fr 70px;gap:8px;align-items:center}
+.wxhead{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;padding:0 4px}.wxhead i{font-style:normal;text-transform:none;font-weight:600;letter-spacing:0}
 .wxrows{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-.wxrow{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13.5px}.wxrow:last-child{border-bottom:0}.wxrow.night{background:rgba(0,0,0,.03)}
+.wxrow{padding:10px 8px;border-bottom:1px solid var(--line);font-size:13.5px}.wxrow:last-child{border-bottom:0}.wxrow.night{background:rgba(0,0,0,.03)}
 .wxrow>span{display:flex;flex-direction:column;line-height:1.2}.wxrow i{font-style:normal;font-size:11px;color:var(--muted)}.wxt{font-weight:700}.wxi2{font-size:18px}.wxrow .wet{color:#2a6fb0;font-weight:700}
-.wxcl{gap:3px}.wxb{display:block;height:6px;border-radius:3px;background:#eef1f4;overflow:hidden}.wxb span{display:block;height:100%;border-radius:3px}.wxb.lo span{background:#5d6d80}.wxb.mid span{background:#97a5b4}.wxb.hi span{background:#c9d2db}.wxsun{font-size:12px;white-space:nowrap}
+.wxcl{gap:3px;cursor:pointer}.wxrow.sky .wxcl i{color:var(--accent)}.wxb{display:block;height:5px;border-radius:3px;background:#eef1f4;overflow:hidden}.wxb span{display:block;height:100%;border-radius:3px}.wxb.lo span{background:#5d6d80}.wxb.mid span{background:#97a5b4}.wxb.hi span{background:#c9d2db}.wxsun{font-size:12px;white-space:nowrap;margin-bottom:2px}.mmv{color:#2a6fb0!important;font-weight:700}.wxsky i{display:block;font-style:normal;font-size:11.5px;margin-top:2px;opacity:.85}
+.wxrow>.wxsky{display:none}.wxrow.sky>.wxsky{grid-column:1/-1;order:9;display:block;font-size:12.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:5px 8px;margin-top:2px;line-height:1.35}
 .wxarr{display:inline-block;font-size:13px;width:14px;text-align:center}.wxw{display:flex;align-items:center;gap:3px;white-space:nowrap}.wxw i{margin-left:2px}.wxday .small{margin:4px 0 0!important;display:block}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
@@ -545,7 +546,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v100';
+const APP_VERSION='v101';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1750,26 +1751,41 @@ function screenWeather(){
   const head=subbar('Weather','pop()');
   if(!state.wx){getWx();return head+'<div class="pad"><p class="small">Loading the forecast…</p></div>'}
   const f=state.wx.f,H=f.hourly,D=f.daily,today=madridNow().date,sel=state.wxDay&&D.time.includes(state.wxDay)?state.wxDay:today,di=D.time.indexOf(sel),bw=beachWindow(f,sel);
-  const nowI=wxNowIdx(f),rows=H.time.map((t,i)=>({t,i})).filter(x=>x.t.startsWith(sel)&&(sel!==today||x.i>=nowI));
+  const nowI=wxNowIdx(f),allRows=H.time.map((t,i)=>({t,i})).filter(x=>x.t.startsWith(sel)&&(sel!==today||x.i>=nowI)),rows=state.wxNight?allRows:allRows.filter(({t})=>{const h=+t.slice(11,13);return h>=7&&h<=21}),hidN=allRows.length-rows.length;
   const bar=(v,cl)=>`<span class="wxb ${cl}"><span style="width:${Math.max(0,Math.min(100,v))}%"></span></span>`;
   return head+`<div class="pad">
     <p class="small" style="margin:0">Forecast for ${esc(state.wx.lbl)} · updated ${new Date(state.wx.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})} · <button class="link" style="font-size:12px" onclick="getWx(true)">Refresh</button></p>
     <div class="wxdays">${D.time.map((d,k)=>`<button class="${d===sel?'on':''}" onclick="state.wxDay='${d}';render(true)"><span>${d===today?'Today':new Date(d+'T12:00').toLocaleDateString('en-GB',{weekday:'short'})}</span><b>${wxIcon(D.weather_code[k],1)}</b><span>${Math.round(D.temperature_2m_max[k])}° <i>${Math.round(D.temperature_2m_min[k])}°</i></span><em>💧${D.precipitation_probability_max[k]}%</em><em class="mm">${D.precipitation_sum[k]>=0.05?D.precipitation_sum[k].toFixed(1):'0'} mm</em></button>`).join('')}</div>
     <div class="pcard wxday"><b>${wxWord(D.weather_code[di])}</b> · ${Math.round(D.temperature_2m_min[di])}–${Math.round(D.temperature_2m_max[di])}°C · rain ${D.precipitation_probability_max[di]}% chance, ${D.precipitation_sum[di]>=0.05?D.precipitation_sum[di].toFixed(1):'0'} mm expected · wind up to ${Math.round(D.wind_speed_10m_max[di])} km/h, gusts ${Math.round(D.wind_gusts_10m_max[di])} · UV ${Math.round(D.uv_index_max[di]||0)}
       <div class="small" style="margin-top:4px">🌅 ${D.sunrise[di].slice(11)} · 🌇 ${D.sunset[di].slice(11)}${bw?` · 🏖 Best beach window ${bw.a}:00–${bw.b}:00`:' · No clear beach window'}</div></div>
-    <div class="wxhead"><span>Time</span><span></span><span>Temp</span><span>Rain <i>% · mm</i></span><span>Sun &amp; cloud <i>low·mid·high</i></span><span>Wind km/h</span></div>
+    <div class="wxhead"><span>Time</span><span></span><span>Temp</span><span>Rain</span><span>Sun · cloud <i>low/mid/high</i></span><span>Wind km/h</span></div>
     <div class="wxrows">${rows.map(({t,i})=>{const s=seaAt(t);return `<div class="wxrow ${H.is_day[i]?'':'night'}">
       <span class="wxt">${t.slice(11,16)}</span><span class="wxi2">${wxIcon(H.weather_code[i],H.is_day[i])}</span>
       <span><b>${Math.round(H.temperature_2m[i])}°</b>${Math.abs(H.apparent_temperature[i]-H.temperature_2m[i])>=3?`<i>feels ${Math.round(H.apparent_temperature[i])}°</i>`:''}</span>
-      <span class="${H.precipitation_probability[i]>=50?'wet':''}">${H.precipitation_probability[i]}%<i>${H.precipitation[i]>=0.05?H.precipitation[i].toFixed(1):'0'} mm</i></span>
-      <span class="wxcl">${H.is_day[i]&&H.sunshine_duration?`<b class="wxsun">${sunTxt(H.sunshine_duration[i])}</b>`:''}${bar(H.cloud_cover_low[i],'lo')}${bar(H.cloud_cover_mid[i],'mid')}${bar(H.cloud_cover_high[i],'hi')}<i>${H.cloud_cover_low[i]} · ${H.cloud_cover_mid[i]} · ${H.cloud_cover_high[i]}%</i></span>
-      <span><b class="wxw"><b class="wxarr" style="transform:rotate(${(H.wind_direction_10m[i]+180)%360}deg)">↑</b>${Math.round(H.wind_speed_10m[i])}<i>${compass(H.wind_direction_10m[i])}</i></b>${H.wind_gusts_10m[i]>=H.wind_speed_10m[i]+10?`<i>gusts ${Math.round(H.wind_gusts_10m[i])}</i>`:''}</span></div>`}).join('')||'<p class="small">No more hours today.</p>'}</div>
+      <span class="${H.precipitation_probability[i]>=50?'wet':''}">${H.precipitation_probability[i]}%${H.precipitation[i]>=0.05?`<i class="mmv">${H.precipitation[i].toFixed(1)} mm</i>`:''}</span>
+      <span class="wxcl" role="button" tabindex="0" aria-label="Describe the sky this hour" onclick="this.parentElement.classList.toggle('sky')">${H.is_day[i]&&H.sunshine_duration?`<b class="wxsun">${sunTxt(H.sunshine_duration[i])}</b>`:''}${bar(H.cloud_cover_low[i],'lo')}${bar(H.cloud_cover_mid[i],'mid')}${bar(H.cloud_cover_high[i],'hi')}</span>
+      <span class="wxsky">${esc(skyTxt(H.cloud_cover_low[i],H.cloud_cover_mid[i],H.cloud_cover_high[i],H.sunshine_duration?H.sunshine_duration[i]:null,H.is_day[i]))}<i>Cloud: low ${H.cloud_cover_low[i]}% · mid ${H.cloud_cover_mid[i]}% · high ${H.cloud_cover_high[i]}%</i></span>
+      <span><b class="wxw"><b class="wxarr" style="transform:rotate(${(H.wind_direction_10m[i]+180)%360}deg)">↑</b>${Math.round(H.wind_speed_10m[i])}<i>${compass(H.wind_direction_10m[i])}</i></b>${H.wind_gusts_10m[i]>=H.wind_speed_10m[i]+10?`<i>gusts ${Math.round(H.wind_gusts_10m[i])}</i>`:''}</span></div>`}).join('')||'<p class="small" style="padding:10px">No more daytime hours today.</p>'}</div>
+    ${hidN||state.wxNight?`<button class="link" style="display:block;margin:8px auto 0;font-size:13px" onclick="state.wxNight=!state.wxNight;render(true)">${state.wxNight?'Hide night hours':`Show night hours (${hidN})`}</button>`:''}
     ${(()=>{const s=state.wx.sea;if(!s)return '';const idx=s.time.map((t,i)=>[t,i]).filter(([t])=>t.startsWith(sel)&&+t.slice(11,13)>=9&&+t.slice(11,13)<=18);if(!idx.length)return '';
       const tmp=idx.map(([,i])=>s.sea_surface_temperature[i]).filter(x=>x!=null),wv=idx.map(([,i])=>s.wave_height[i]).filter(x=>x!=null);
       return `${sec('Sea')}<div class="pcard">Water about <b>${Math.round(Math.max(...tmp))}°C</b> · waves ${Math.min(...wv).toFixed(1)}–${Math.max(...wv).toFixed(1)} m in the daytime${Math.max(...wv)>=1?' · choppy, sheltered coves are better':Math.max(...wv)<0.4?' · calm, good for paddling':''}</div>`})()}
-    <p class="small" style="margin-top:14px">Sun is the expected sunshine in that hour. Cloud bars: low cloud (thick, hides the sun), mid cloud (dims it), high cloud (thin and wispy, the sun usually still shines through). Wind arrows point where the wind is blowing to. Forecast by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.</p></div>`}
+    <p class="small" style="margin-top:14px">Sun is the expected sunshine in that hour; tap the cloud bars for a description of the sky. Cloud bars: low cloud (thick, hides the sun), mid cloud (dims it), high cloud (thin and wispy, the sun usually still shines through). Wind arrows point where the wind is blowing to. Forecast by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.</p></div>`}
 // Minutes of sunshine expected in the hour (Open-Meteo's sunshine_duration, in seconds)
 const sunTxt=sec=>{const m=Math.round((sec||0)/60);return m>=50?'☀️ Sunny':m>=20?`🌤️ ${m} min sun`:m>=5?`🌥️ ${m} min sun`:'☁️ No sun'};
+// One plain-English line per hour: what the sky looks like and whether the sun gets through
+function skyTxt(lo,mi,hi,sec,day){const tot=Math.max(lo,mi,hi);let sky;
+  if(tot<15)sky='Clear blue sky';
+  else if(lo>=70)sky='Thick, grey low cloud';
+  else if(mi>=70)sky=lo>=30?'Layers of grey cloud':'A veil of mid-level cloud, sun dimmed';
+  else if(lo>=35)sky=lo>=55?'Mostly cloudy, low cloud drifting through':'Broken low cloud, blue gaps between';
+  else if(mi>=35)sky='Patchy mid-level cloud';
+  else if(hi>=50)sky=hi>=85?'Thin high cloud across the sky, hazy':'Wispy high cloud';
+  else sky='A few clouds about';
+  if(!day)return sky+'.';
+  const m=Math.round((sec||0)/60);
+  const sun=sec==null?'':m>=50?'sunny the whole hour':m>=30?'sunny for most of the hour':m>=10?`sunny spells (about ${m} min)`:m>=1?'just brief glimpses of sun':'the sun won’t break through';
+  return sky+(sun?' — '+sun:'')+'.'}
 function wxForClaude(){const w=state.wx;if(!w)return '';const f=w.f,D=f.daily,i=D.time.indexOf(madridNow().date);if(i<0)return '';const bw=beachWindow(f,D.time[i]);
   return ` Weather today: ${wxWord(D.weather_code[i]).toLowerCase()}, ${Math.round(D.temperature_2m_min[i])}–${Math.round(D.temperature_2m_max[i])}°C, rain chance ${D.precipitation_probability_max[i]}%, wind up to ${Math.round(D.wind_speed_10m_max[i])} km/h${bw?`, sunniest ${bw.a}:00–${bw.b}:00`:''}.`}
 
