@@ -246,6 +246,13 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .ratebtn{border:0;font:inherit;cursor:pointer;color:inherit}.ratebtn span{opacity:.6;margin-left:2px}
 .whyc{margin-top:10px}.whyc .small{margin:8px 0 0!important}.whyl{font-size:14px;margin:6px 0 0;line-height:1.45}.whyl span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .clshut{font-size:12px;font-weight:800;color:#b3261e;white-space:nowrap}
+.pitem2{display:grid;grid-template-columns:40px 1fr 32px;column-gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.pitem2:last-child{border-bottom:0}
+.pitem2 .num{grid-row:1/3;align-self:start}.pitem2 .pnm{cursor:pointer;min-width:0}.pitem2 .pnm .rname{font-size:17px;line-height:1.25}
+.pitem2 .px{background:none;border:0;font-size:20px;color:var(--muted);cursor:pointer;padding:0;align-self:start}
+.prow2{grid-column:2/4;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}.prow2 .rmeta{margin:0;cursor:pointer;min-width:0}
+.pctl{display:flex;gap:6px;flex:none}.pmv{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer;color:var(--ink)}.pmv:disabled{opacity:.25}
+.ptoday{height:30px;border-radius:9px;border:1px solid var(--line);background:var(--card);font:inherit;font-size:12.5px;font-weight:700;padding:0 10px;cursor:pointer;color:var(--ink)}.ptoday.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pitem2.done .rname{text-decoration:line-through;opacity:.6}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
@@ -524,7 +531,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v96';
+const APP_VERSION='v97';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1759,13 +1766,13 @@ function screenPlan(){
    ${data.claudeUrl?`<button class="askc planc" onclick="claudeSheet('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</button>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
-   ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem ${d?'done':''}">
+   ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem2 ${d?'done':''}">
       <button class="num ${d?'done':''}" onclick="toggleDone('${p.id}','${v}')" aria-label="${d?'Mark not done':'Mark done'}">${d?'✓':i+1}</button>
-      <div class="grow" onclick="openDetail('${p.id}')" style="cursor:pointer"><div class="rname">${esc(p.name)}</div><div class="rmeta s-${st.s}"><span class="dotc">${esc(st.txt)}</span>${oursTag(p)}</div></div>
-      ${v==='trip'?`<button class="mini ${tdy?'on':''}" style="width:auto;padding:0 10px;font-size:12px;font-weight:700" onclick="toggleToday('${p.id}')" aria-label="${tdy?'Remove from':'Add to'} today">${tdy?'✓ Today':'+ Today'}</button>`:''}
-      <button class="mini" onclick="movePlan(${i},-1,'${v}')" aria-label="Move up" ${i?'':'disabled style="opacity:.2"'}>↑</button>
-      <button class="mini" onclick="movePlan(${i},1,'${v}')" aria-label="Move down" ${i<plan.length-1?'':'disabled style="opacity:.2"'}>↓</button>
-      <button class="mini" onclick="${v==='today'?`toggleToday('${p.id}')`:`togglePlan('${p.id}')`}" aria-label="Remove">×</button></div>`}).join('')}</div>
+      <div class="pnm" onclick="openDetail('${p.id}')"><div class="rname">${esc(p.name)}</div></div>
+      <button class="px" onclick="${v==='today'?`toggleToday('${p.id}')`:`togglePlan('${p.id}')`}" aria-label="Remove ${esc(p.name)}">×</button>
+      <div class="prow2"><div class="rmeta s-${st.s}" onclick="openDetail('${p.id}')"><span class="dotc">${esc(st.txt)}</span>${oursTag(p)}</div>
+        <div class="pctl">${v==='trip'?`<button class="ptoday ${tdy?'on':''}" onclick="toggleToday('${p.id}')" aria-label="${tdy?'Remove from':'Add to'} today">${tdy?'✓ Today':'+ Today'}</button>`:''}
+        <button class="pmv" onclick="movePlan(${i},-1,'${v}')" aria-label="Move up" ${i?'':'disabled'}>↑</button><button class="pmv" onclick="movePlan(${i},1,'${v}')" aria-label="Move down" ${i<plan.length-1?'':'disabled'}>↓</button></div></div></div>`}).join('')}</div>
       ${done.length?`<button class="link" onclick="clearDone('${v}')">Clear ticked-off stops</button>`:''}`:''}
    ${extra.length?`${sec('Add from your trip list',`${extra.length}`)}<div class="chips wrap">${extra.map(p=>`<button class="chip" onclick="toggleToday('${p.id}')">＋ ${esc(p.name)}</button>`).join('')}</div>`:''}
    ${plan.some(p=>p.gid)&&data.key?`<button class="btn ghost block" onclick="checkPlanHours('${v}')">${I.clock} Check hours for ${v==='today'?'today’s':'my'} plan</button>`:''}
