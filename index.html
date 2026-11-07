@@ -258,7 +258,7 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .wxstrip{display:grid;grid-template-columns:repeat(6,1fr);margin-top:8px;text-align:center;font-size:12px}.wxstrip div{display:flex;flex-direction:column;gap:1px}.wxstrip span:first-child{color:var(--muted)}.wxstrip b{font-size:17px}.wxstrip i{font-style:normal;color:#2a6fb0;font-weight:700;font-size:11px;min-height:13px}
 .wxline{margin-top:6px!important}
 .wxdays{display:flex;gap:6px;overflow-x:auto;margin:12px -16px 12px;padding:0 16px 4px}.wxdays button{flex:none;width:64px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:8px 2px;font:inherit;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:var(--ink)}
-.wxdays button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}.wxdays b{font-size:20px}.wxdays i{font-style:normal;color:var(--muted)}.wxdays em{font-style:normal;font-size:11px;color:#2a6fb0;font-weight:700}
+.wxdays button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}.wxdays b{font-size:20px}.wxdays i{font-style:normal;color:var(--muted)}.wxdays em.mm{color:var(--muted);font-weight:600}.wxdays em{font-style:normal;font-size:11px;color:#2a6fb0;font-weight:700}
 .wxday{font-size:14px;line-height:1.5}
 .wxhead,.wxrow{display:grid;grid-template-columns:44px 26px 54px 54px 1fr 76px;gap:6px;align-items:center}
 .wxhead{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;padding:0 4px}.wxhead i{font-style:normal;text-transform:none;font-weight:600;letter-spacing:0}
@@ -545,7 +545,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v99';
+const APP_VERSION='v100';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1740,10 +1740,10 @@ function wxBarHtml(){
   if(!state.wx){setTimeout(getWx,0);return `<div id="wxbar" class="wxbar" onclick="push('weather')"><span class="small">Loading the weather…</span></div>`}
   if(Date.now()-state.wx.at>30*6e4)setTimeout(getWx,0);
   const f=state.wx.f,c=f.current||{},i=wxNowIdx(f),H=f.hourly,d=madridNow().date,bw=beachWindow(f,d),s=seaAt(H.time[i]);
-  const strip=[1,2,3,4,5,6].map(k=>i+k).filter(k=>k<H.time.length).map(k=>`<div><span>${H.time[k].slice(11,13)}</span><b>${wxIcon(H.weather_code[k],H.is_day[k])}</b><span>${Math.round(H.temperature_2m[k])}°</span><i>${H.precipitation_probability[k]>=20?H.precipitation_probability[k]+'%':''}</i></div>`).join('');
+  const strip=[1,2,3,4,5,6].map(k=>i+k).filter(k=>k<H.time.length).map(k=>`<div><span>${H.time[k].slice(11,13)}</span><b>${wxIcon(H.weather_code[k],H.is_day[k])}</b><span>${Math.round(H.temperature_2m[k])}°</span><i>${H.precipitation_probability[k]>=20||H.precipitation[k]>=0.1?H.precipitation_probability[k]+'%'+(H.precipitation[k]>=0.1?' · '+H.precipitation[k].toFixed(1)+'mm':''):''}</i></div>`).join('');
   return `<div id="wxbar" class="wxbar" onclick="push('weather')" role="button" aria-label="Weather details">
     <div class="wxnow"><span class="wxi">${wxIcon(c.weather_code,c.is_day)}</span><b>${Math.round(c.temperature_2m)}°</b>
-      <span class="wxk">☁️ ${c.cloud_cover}%</span><span class="wxk">💧 ${H.precipitation_probability[i]}%</span><span class="wxk">💨 ${Math.round(c.wind_speed_10m)}${c.wind_gusts_10m>c.wind_speed_10m+15?'–'+Math.round(c.wind_gusts_10m):''} ${compass(c.wind_direction_10m)}</span><span class="small" style="margin-left:auto">›</span></div>
+      <span class="wxk">☁️ ${c.cloud_cover}%</span><span class="wxk">💧 ${H.precipitation_probability[i]}%${H.precipitation[i]>=0.1?` · ${H.precipitation[i].toFixed(1)} mm`:''}</span><span class="wxk">💨 ${Math.round(c.wind_speed_10m)}${c.wind_gusts_10m>c.wind_speed_10m+15?'–'+Math.round(c.wind_gusts_10m):''} ${compass(c.wind_direction_10m)}</span><span class="small" style="margin-left:auto">›</span></div>
     <div class="wxstrip">${strip}</div>
     <div class="small wxline">${bw?`🏖 Best beach window today ${bw.a}:00–${bw.b}:00`:'No clear beach window left today'}${s&&s.temp!=null?` · Sea ${Math.round(s.temp)}°, waves ${s.wave.toFixed(1)} m`:''}</div></div>`}
 function screenWeather(){
@@ -1754,14 +1754,14 @@ function screenWeather(){
   const bar=(v,cl)=>`<span class="wxb ${cl}"><span style="width:${Math.max(0,Math.min(100,v))}%"></span></span>`;
   return head+`<div class="pad">
     <p class="small" style="margin:0">Forecast for ${esc(state.wx.lbl)} · updated ${new Date(state.wx.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})} · <button class="link" style="font-size:12px" onclick="getWx(true)">Refresh</button></p>
-    <div class="wxdays">${D.time.map((d,k)=>`<button class="${d===sel?'on':''}" onclick="state.wxDay='${d}';render(true)"><span>${d===today?'Today':new Date(d+'T12:00').toLocaleDateString('en-GB',{weekday:'short'})}</span><b>${wxIcon(D.weather_code[k],1)}</b><span>${Math.round(D.temperature_2m_max[k])}° <i>${Math.round(D.temperature_2m_min[k])}°</i></span>${D.precipitation_probability_max[k]>=20?`<em>💧${D.precipitation_probability_max[k]}%</em>`:'<em>&nbsp;</em>'}</button>`).join('')}</div>
-    <div class="pcard wxday"><b>${wxWord(D.weather_code[di])}</b> · ${Math.round(D.temperature_2m_min[di])}–${Math.round(D.temperature_2m_max[di])}°C · rain ${D.precipitation_probability_max[di]}%${D.precipitation_sum[di]>0.1?` (${D.precipitation_sum[di].toFixed(1)} mm)`:''} · wind up to ${Math.round(D.wind_speed_10m_max[di])} km/h, gusts ${Math.round(D.wind_gusts_10m_max[di])} · UV ${Math.round(D.uv_index_max[di]||0)}
+    <div class="wxdays">${D.time.map((d,k)=>`<button class="${d===sel?'on':''}" onclick="state.wxDay='${d}';render(true)"><span>${d===today?'Today':new Date(d+'T12:00').toLocaleDateString('en-GB',{weekday:'short'})}</span><b>${wxIcon(D.weather_code[k],1)}</b><span>${Math.round(D.temperature_2m_max[k])}° <i>${Math.round(D.temperature_2m_min[k])}°</i></span><em>💧${D.precipitation_probability_max[k]}%</em><em class="mm">${D.precipitation_sum[k]>=0.05?D.precipitation_sum[k].toFixed(1):'0'} mm</em></button>`).join('')}</div>
+    <div class="pcard wxday"><b>${wxWord(D.weather_code[di])}</b> · ${Math.round(D.temperature_2m_min[di])}–${Math.round(D.temperature_2m_max[di])}°C · rain ${D.precipitation_probability_max[di]}% chance, ${D.precipitation_sum[di]>=0.05?D.precipitation_sum[di].toFixed(1):'0'} mm expected · wind up to ${Math.round(D.wind_speed_10m_max[di])} km/h, gusts ${Math.round(D.wind_gusts_10m_max[di])} · UV ${Math.round(D.uv_index_max[di]||0)}
       <div class="small" style="margin-top:4px">🌅 ${D.sunrise[di].slice(11)} · 🌇 ${D.sunset[di].slice(11)}${bw?` · 🏖 Best beach window ${bw.a}:00–${bw.b}:00`:' · No clear beach window'}</div></div>
-    <div class="wxhead"><span>Time</span><span></span><span>Temp</span><span>Rain</span><span>Sun &amp; cloud <i>low·mid·high</i></span><span>Wind km/h</span></div>
+    <div class="wxhead"><span>Time</span><span></span><span>Temp</span><span>Rain <i>% · mm</i></span><span>Sun &amp; cloud <i>low·mid·high</i></span><span>Wind km/h</span></div>
     <div class="wxrows">${rows.map(({t,i})=>{const s=seaAt(t);return `<div class="wxrow ${H.is_day[i]?'':'night'}">
       <span class="wxt">${t.slice(11,16)}</span><span class="wxi2">${wxIcon(H.weather_code[i],H.is_day[i])}</span>
       <span><b>${Math.round(H.temperature_2m[i])}°</b>${Math.abs(H.apparent_temperature[i]-H.temperature_2m[i])>=3?`<i>feels ${Math.round(H.apparent_temperature[i])}°</i>`:''}</span>
-      <span class="${H.precipitation_probability[i]>=50?'wet':''}">${H.precipitation_probability[i]}%${H.precipitation[i]>=0.1?`<i>${H.precipitation[i].toFixed(1)} mm</i>`:''}</span>
+      <span class="${H.precipitation_probability[i]>=50?'wet':''}">${H.precipitation_probability[i]}%<i>${H.precipitation[i]>=0.05?H.precipitation[i].toFixed(1):'0'} mm</i></span>
       <span class="wxcl">${H.is_day[i]&&H.sunshine_duration?`<b class="wxsun">${sunTxt(H.sunshine_duration[i])}</b>`:''}${bar(H.cloud_cover_low[i],'lo')}${bar(H.cloud_cover_mid[i],'mid')}${bar(H.cloud_cover_high[i],'hi')}<i>${H.cloud_cover_low[i]} · ${H.cloud_cover_mid[i]} · ${H.cloud_cover_high[i]}%</i></span>
       <span><b class="wxw"><b class="wxarr" style="transform:rotate(${(H.wind_direction_10m[i]+180)%360}deg)">↑</b>${Math.round(H.wind_speed_10m[i])}<i>${compass(H.wind_direction_10m[i])}</i></b>${H.wind_gusts_10m[i]>=H.wind_speed_10m[i]+10?`<i>gusts ${Math.round(H.wind_gusts_10m[i])}</i>`:''}</span></div>`}).join('')||'<p class="small">No more hours today.</p>'}</div>
     ${(()=>{const s=state.wx.sea;if(!s)return '';const idx=s.time.map((t,i)=>[t,i]).filter(([t])=>t.startsWith(sel)&&+t.slice(11,13)>=9&&+t.slice(11,13)<=18);if(!idx.length)return '';
