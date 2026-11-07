@@ -253,6 +253,20 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .pctl{display:flex;gap:6px;flex:none}.pmv{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer;color:var(--ink)}.pmv:disabled{opacity:.25}
 .ptoday{height:30px;border-radius:9px;border:1px solid var(--line);background:var(--card);font:inherit;font-size:12.5px;font-weight:700;padding:0 10px;cursor:pointer;color:var(--ink)}.ptoday.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .pitem2.done .rname{text-decoration:line-through;opacity:.6}
+.wxbar{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin:2px 0 12px;cursor:pointer}
+.wxnow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.wxnow .wxi{font-size:24px}.wxnow b{font-size:20px}.wxk{font-size:13px;color:var(--muted);font-weight:600}
+.wxstrip{display:grid;grid-template-columns:repeat(6,1fr);margin-top:8px;text-align:center;font-size:12px}.wxstrip div{display:flex;flex-direction:column;gap:1px}.wxstrip span:first-child{color:var(--muted)}.wxstrip b{font-size:17px}.wxstrip i{font-style:normal;color:#2a6fb0;font-weight:700;font-size:11px;min-height:13px}
+.wxline{margin-top:6px!important}
+.wxdays{display:flex;gap:6px;overflow-x:auto;margin:12px -16px 12px;padding:0 16px 4px}.wxdays button{flex:none;width:64px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:8px 2px;font:inherit;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:var(--ink)}
+.wxdays button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}.wxdays b{font-size:20px}.wxdays i{font-style:normal;color:var(--muted)}.wxdays em{font-style:normal;font-size:11px;color:#2a6fb0;font-weight:700}
+.wxday{font-size:14px;line-height:1.5}
+.wxhead,.wxrow{display:grid;grid-template-columns:44px 26px 54px 54px 1fr 76px;gap:6px;align-items:center}
+.wxhead{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;padding:0 4px}.wxhead i{font-style:normal;text-transform:none;font-weight:600;letter-spacing:0}
+.wxrows{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.wxrow{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13.5px}.wxrow:last-child{border-bottom:0}.wxrow.night{background:rgba(0,0,0,.03)}
+.wxrow>span{display:flex;flex-direction:column;line-height:1.2}.wxrow i{font-style:normal;font-size:11px;color:var(--muted)}.wxt{font-weight:700}.wxi2{font-size:18px}.wxrow .wet{color:#2a6fb0;font-weight:700}
+.wxcl{gap:3px}.wxb{display:block;height:6px;border-radius:3px;background:#eef1f4;overflow:hidden}.wxb span{display:block;height:100%;border-radius:3px}.wxb.lo span{background:#6b7c8f}.wxb.all span{background:#b9c3ce}
+.wxarr{display:inline-block;font-size:13px;width:14px;text-align:center}.wxw{display:flex;align-items:center;gap:3px;white-space:nowrap}.wxw i{margin-left:2px}.wxday .small{margin:4px 0 0!important;display:block}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
@@ -531,7 +545,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v97';
+const APP_VERSION='v98';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1012,6 +1026,7 @@ function screenToday(){
     <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
+    ${wxBarHtml()}
     <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
      <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
@@ -1694,6 +1709,67 @@ function bvrHtml(){const p=bvrGet(),hs=HOMES().filter(h=>+h.price>0);
     <p class="small" style="margin-top:10px">Assumes the pot sits in an ISA or pension (no tax on growth), no currency moves, the flat is never let out and the portfolio never spent. Inheritance tax applies to both, so it’s left out; a Spanish flat also needs a Spanish will and probate. A planning tool, not financial advice.</p>
   </details>`}
 
+/* ---------- WEATHER (Open-Meteo: free, no key; forecast + marine) ---------- */
+const WX_URL=(lat,lng)=>`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&timezone=Europe%2FMadrid&forecast_days=7&wind_speed_unit=kmh`
+  +'&current=temperature_2m,apparent_temperature,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,is_day'
+  +'&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,uv_index,is_day'
+  +'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max';
+const SEA_URL='https://marine-api.open-meteo.com/v1/marine?latitude=38.775&longitude=0.200&hourly=wave_height,sea_surface_temperature&timezone=Europe%2FMadrid&forecast_days=7';
+function wxIcon(code,day){if(code==null)return '';if(code===0)return day===0?'🌙':'☀️';if(code<=2)return day===0?'☁️':'🌤️';if(code===3)return '☁️';if(code<=48)return '🌫️';if(code<=57)return '🌦️';if(code<=67)return '🌧️';if(code<=77)return '🌨️';if(code<=82)return '🌦️';return '⛈️'}
+function wxWord(code){return code===0?'Clear':code<=2?'Partly cloudy':code===3?'Overcast':code<=48?'Fog':code<=57?'Drizzle':code<=67?'Rain':code<=77?'Snow':code<=82?'Showers':'Thunderstorms'}
+const compass=d=>['N','NE','E','SE','S','SW','W','NW'][Math.round(((d%360)+360)%360/45)%8];
+// Where to forecast: here if we know it and it's local, else where we're staying, else Xàbia
+function wxSpot(){const h=state.here;if(h&&km(HOME,h)<25)return {lat:h.lat,lng:h.lng,lbl:'Here'};const st=stayFor&&stayFor();if(st&&st.lat!=null)return {lat:st.lat,lng:st.lng,lbl:st.name};return {lat:HOME.lat,lng:HOME.lng,lbl:'Xàbia'}}
+async function getWx(force){
+  if(state.wxBusy)return;const c=state.wx||lsGet('xe.wx',null);if(c&&!state.wx)state.wx=c;
+  if(!force&&state.wx&&Date.now()-state.wx.at<30*6e4)return;
+  state.wxBusy=true;const sp=wxSpot();
+  try{const [a,m]=await Promise.all([fetch(WX_URL(sp.lat,sp.lng)).then(r=>r.json()),fetch(SEA_URL).then(r=>r.json()).catch(()=>null)]);
+    if(a&&a.hourly){state.wx={at:Date.now(),lbl:sp.lbl,f:a,sea:m&&m.hourly&&m.hourly.sea_surface_temperature?m.hourly:null};lsSet('xe.wx',state.wx)}}catch(e){}
+  state.wxBusy=false;const top=state.stack.at(-1);if(top==='weather')render(true);else if(!top&&state.tab==='today'){const el=document.getElementById('wxbar');if(el)el.outerHTML=wxBarHtml()}}
+const wxNowIdx=f=>{const t=madridNow(),k=`${t.date}T${String(Math.floor(t.min/60)).padStart(2,'0')}:00`;const i=f.hourly.time.indexOf(k);return i<0?0:i};
+function seaAt(t){const s=state.wx&&state.wx.sea;if(!s||!s.sea_surface_temperature)return null;const i=s.time.indexOf(t);return i<0?null:{temp:s.sea_surface_temperature[i],wave:s.wave_height[i]}}
+// Longest daytime stretch with little low cloud, low rain chance and gentle wind
+function beachWindow(f,date){const H=f.hourly;let best=null,cur=null;
+  H.time.forEach((t,i)=>{if(!t.startsWith(date))return;const hr=+t.slice(11,13);
+    const ok=hr>=9&&hr<=19&&H.cloud_cover_low[i]<35&&H.cloud_cover[i]<70&&H.precipitation_probability[i]<25&&H.wind_speed_10m[i]<25;
+    if(ok){cur=cur||{a:hr,b:hr};cur.b=hr+1;if(!best||cur.b-cur.a>best.b-best.a)best={...cur}}else cur=null});
+  return best&&best.b-best.a>=2?best:null}
+function wxBarHtml(){
+  if(!state.wx){setTimeout(getWx,0);return `<div id="wxbar" class="wxbar" onclick="push('weather')"><span class="small">Loading the weather…</span></div>`}
+  if(Date.now()-state.wx.at>30*6e4)setTimeout(getWx,0);
+  const f=state.wx.f,c=f.current||{},i=wxNowIdx(f),H=f.hourly,d=madridNow().date,bw=beachWindow(f,d),s=seaAt(H.time[i]);
+  const strip=[1,2,3,4,5,6].map(k=>i+k).filter(k=>k<H.time.length).map(k=>`<div><span>${H.time[k].slice(11,13)}</span><b>${wxIcon(H.weather_code[k],H.is_day[k])}</b><span>${Math.round(H.temperature_2m[k])}°</span><i>${H.precipitation_probability[k]>=20?H.precipitation_probability[k]+'%':''}</i></div>`).join('');
+  return `<div id="wxbar" class="wxbar" onclick="push('weather')" role="button" aria-label="Weather details">
+    <div class="wxnow"><span class="wxi">${wxIcon(c.weather_code,c.is_day)}</span><b>${Math.round(c.temperature_2m)}°</b>
+      <span class="wxk">☁️ ${c.cloud_cover}%</span><span class="wxk">💧 ${H.precipitation_probability[i]}%</span><span class="wxk">💨 ${Math.round(c.wind_speed_10m)}${c.wind_gusts_10m>c.wind_speed_10m+15?'–'+Math.round(c.wind_gusts_10m):''} ${compass(c.wind_direction_10m)}</span><span class="small" style="margin-left:auto">›</span></div>
+    <div class="wxstrip">${strip}</div>
+    <div class="small wxline">${bw?`🏖 Best beach window today ${bw.a}:00–${bw.b}:00`:'No clear beach window left today'}${s&&s.temp!=null?` · Sea ${Math.round(s.temp)}°, waves ${s.wave.toFixed(1)} m`:''}</div></div>`}
+function screenWeather(){
+  const head=subbar('Weather','pop()');
+  if(!state.wx){getWx();return head+'<div class="pad"><p class="small">Loading the forecast…</p></div>'}
+  const f=state.wx.f,H=f.hourly,D=f.daily,today=madridNow().date,sel=state.wxDay&&D.time.includes(state.wxDay)?state.wxDay:today,di=D.time.indexOf(sel),bw=beachWindow(f,sel);
+  const nowI=wxNowIdx(f),rows=H.time.map((t,i)=>({t,i})).filter(x=>x.t.startsWith(sel)&&(sel!==today||x.i>=nowI));
+  const bar=(v,cl)=>`<span class="wxb ${cl}"><span style="width:${Math.max(0,Math.min(100,v))}%"></span></span>`;
+  return head+`<div class="pad">
+    <p class="small" style="margin:0">Forecast for ${esc(state.wx.lbl)} · updated ${new Date(state.wx.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})} · <button class="link" style="font-size:12px" onclick="getWx(true)">Refresh</button></p>
+    <div class="wxdays">${D.time.map((d,k)=>`<button class="${d===sel?'on':''}" onclick="state.wxDay='${d}';render(true)"><span>${d===today?'Today':new Date(d+'T12:00').toLocaleDateString('en-GB',{weekday:'short'})}</span><b>${wxIcon(D.weather_code[k],1)}</b><span>${Math.round(D.temperature_2m_max[k])}° <i>${Math.round(D.temperature_2m_min[k])}°</i></span>${D.precipitation_probability_max[k]>=20?`<em>💧${D.precipitation_probability_max[k]}%</em>`:'<em>&nbsp;</em>'}</button>`).join('')}</div>
+    <div class="pcard wxday"><b>${wxWord(D.weather_code[di])}</b> · ${Math.round(D.temperature_2m_min[di])}–${Math.round(D.temperature_2m_max[di])}°C · rain ${D.precipitation_probability_max[di]}%${D.precipitation_sum[di]>0.1?` (${D.precipitation_sum[di].toFixed(1)} mm)`:''} · wind up to ${Math.round(D.wind_speed_10m_max[di])} km/h, gusts ${Math.round(D.wind_gusts_10m_max[di])} · UV ${Math.round(D.uv_index_max[di]||0)}
+      <div class="small" style="margin-top:4px">🌅 ${D.sunrise[di].slice(11)} · 🌇 ${D.sunset[di].slice(11)}${bw?` · 🏖 Best beach window ${bw.a}:00–${bw.b}:00`:' · No clear beach window'}</div></div>
+    <div class="wxhead"><span>Time</span><span></span><span>Temp</span><span>Rain</span><span>Cloud <i>low·all</i></span><span>Wind km/h</span></div>
+    <div class="wxrows">${rows.map(({t,i})=>{const s=seaAt(t);return `<div class="wxrow ${H.is_day[i]?'':'night'}">
+      <span class="wxt">${t.slice(11,16)}</span><span class="wxi2">${wxIcon(H.weather_code[i],H.is_day[i])}</span>
+      <span><b>${Math.round(H.temperature_2m[i])}°</b>${Math.abs(H.apparent_temperature[i]-H.temperature_2m[i])>=3?`<i>feels ${Math.round(H.apparent_temperature[i])}°</i>`:''}</span>
+      <span class="${H.precipitation_probability[i]>=50?'wet':''}">${H.precipitation_probability[i]}%${H.precipitation[i]>=0.1?`<i>${H.precipitation[i].toFixed(1)} mm</i>`:''}</span>
+      <span class="wxcl">${bar(H.cloud_cover_low[i],'lo')}${bar(H.cloud_cover[i],'all')}<i>${H.cloud_cover_low[i]}% · ${H.cloud_cover[i]}%</i></span>
+      <span><b class="wxw"><b class="wxarr" style="transform:rotate(${(H.wind_direction_10m[i]+180)%360}deg)">↑</b>${Math.round(H.wind_speed_10m[i])}<i>${compass(H.wind_direction_10m[i])}</i></b>${H.wind_gusts_10m[i]>=H.wind_speed_10m[i]+10?`<i>gusts ${Math.round(H.wind_gusts_10m[i])}</i>`:''}</span></div>`}).join('')||'<p class="small">No more hours today.</p>'}</div>
+    ${(()=>{const s=state.wx.sea;if(!s)return '';const idx=s.time.map((t,i)=>[t,i]).filter(([t])=>t.startsWith(sel)&&+t.slice(11,13)>=9&&+t.slice(11,13)<=18);if(!idx.length)return '';
+      const tmp=idx.map(([,i])=>s.sea_surface_temperature[i]).filter(x=>x!=null),wv=idx.map(([,i])=>s.wave_height[i]).filter(x=>x!=null);
+      return `${sec('Sea')}<div class="pcard">Water about <b>${Math.round(Math.max(...tmp))}°C</b> · waves ${Math.min(...wv).toFixed(1)}–${Math.max(...wv).toFixed(1)} m in the daytime${Math.max(...wv)>=1?' · choppy, sheltered coves are better':Math.max(...wv)<0.4?' · calm, good for paddling':''}</div>`})()}
+    <p class="small" style="margin-top:14px">Cloud: the first bar is low cloud (the kind that hides the sun), the second is all cloud. Wind arrows point where the wind is blowing to. Forecast by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.</p></div>`}
+function wxForClaude(){const w=state.wx;if(!w)return '';const f=w.f,D=f.daily,i=D.time.indexOf(madridNow().date);if(i<0)return '';const bw=beachWindow(f,D.time[i]);
+  return ` Weather today: ${wxWord(D.weather_code[i]).toLowerCase()}, ${Math.round(D.temperature_2m_min[i])}–${Math.round(D.temperature_2m_max[i])}°C, rain chance ${D.precipitation_probability_max[i]}%, wind up to ${Math.round(D.wind_speed_10m_max[i])} km/h${bw?`, sunniest ${bw.a}:00–${bw.b}:00`:''}.`}
+
 /* ---------- PLAN ---------- */
 // Two plans: today's (a fresh list each day, kept by date) and the whole trip
 const todayKey=()=>madridNow().date;
@@ -1744,7 +1820,7 @@ function claudeText(){const kind=state.csKind,st=stayFor(),h=state.here,w=state.
   else if(w==='else'&&(state.csElse||'').trim()){from='from '+state.csElse.trim()+' in Xàbia';ctx=`I’m at ${state.csElse.trim()}, Xàbia`}
   const now=new Date().toLocaleString('en-GB',{timeZone:TZ,weekday:'long',hour:'2-digit',minute:'2-digit'});
   if(kind==='ask')return `${q}\n\n(${ctx||'We’re in Xàbia'}. It’s ${now}. Use the places and info in our Xàbia Guide app.)`;
-  return PLAN_ASK(kind,from)+(q?` Also: ${q}`:'')+` It’s ${now} now.`}
+  return PLAN_ASK(kind,from)+(q?` Also: ${q}`:'')+` It’s ${now} now.`+wxForClaude()}
 function claudeGo(how,a){const kind=state.csKind;
   if(kind==='ask'&&!(state.csQ||'').trim()){toast('Type your question first');document.getElementById('csQ')?.focus();return false}
   if(state.csFrom==='here'&&!(state.here&&Date.now()-(state.here.at||0)<6e5)&&state.csLoc==='busy'){toast('Still finding you… one second');return false}
@@ -3558,6 +3634,7 @@ function render(keepScroll){
   else if(top&&top.startsWith('detail:')) html=screenDetail(top.slice(7));
   else if(top==='prefs') html=screenPrefs();
   else if(top==='trip') html=screenTrip();
+  else if(top==='weather') html=screenWeather();
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
