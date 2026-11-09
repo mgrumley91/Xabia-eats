@@ -337,6 +337,9 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .chipsA{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}
 .chipsA::-webkit-scrollbar{display:none}
 .pcard.off{opacity:.6}
+.foldsec{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-top:10px;font:inherit;color:var(--ink);cursor:pointer}
+.foldsec b{font-size:18px}.foldsec .small{margin:0!important}.foldsec.on{border-color:var(--ink)}.chev{color:var(--muted);font-size:14px;flex:none}
+.foldbody{margin-top:8px}.foldh{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer}.foldh .small{margin:0!important}.foldb{margin-top:10px}
 .rowlbl{flex:none;align-self:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:30px}
 .dorow{display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;margin:6px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}.dorow::-webkit-scrollbar{display:none}
 .dorow button{flex:none;border:0;background:none;padding:6px 8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:8px}.dorow button.on{background:var(--ink);color:#fff}
@@ -559,7 +562,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v114';
+const APP_VERSION='v115';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -3588,12 +3591,15 @@ function addGroup(){const P=PT().map(x=>({...x}));P.push({id:uid(),name:'Group '
 function toggleDiet(d){data.diet=data.diet||[];const i=data.diet.indexOf(d);if(i>=0)data.diet.splice(i,1);else data.diet.push(d);save();render(true)}
 const tripDates=()=>{const {from,to}=data.trip||{};if(!from||!to)return '';const f=d=>new Date(d+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});return `${f(from)} – ${f(to)}`};
 function tripSummary(){return [tripDates()||'Add your dates',PT().map(p=>p.name).join(', '),nPeople()+' people'].filter(Boolean).join(' · ')}
+// Trip page: each section folds away behind a header that shows a one-line summary
+function fold(k,title,sum,body){const op=(state.tripOpen||{})[k];
+  return `<button class="foldsec ${op?'on':''}" onclick="(state.tripOpen=state.tripOpen||{})['${k}']=!${op?'true':'false'};render(true)"><span><b>${title}</b><br><span class="small">${sum}</span></span><span class="chev">${op?'▴':'▾'}</span></button>${op?`<div class="foldbody">${body}</div>`:''}`}
 function screenTrip(){
   const {from,to}=data.trip, P=PT(), me=ME(), r=FXR();
   const hol=[...data.holidays].sort((a,b)=>a.date.localeCompare(b.date)).filter(h=>dayDiff(madridNow().date,h.date)>=-1);
   const spots=data.spots||[];
   return `${subbar('Trip')}<div class="pad tripp">
-  ${sec('Dates',from&&to&&dayDiff(from,to)>=0?`${dayDiff(from,to)} nights`:'')}
+  ${fold('dates','Dates',from&&to?tripDates()+(dayDiff(from,to)>=0?' · '+dayDiff(from,to)+' nights':''):'Not set',`
   <div class="pcard">
     <div class="srow" style="padding-top:0"><label for="tripFrom">Arrive</label><input class="field datef" type="date" id="tripFrom" value="${from}" onchange="data.trip.from=this.value;save();render(true)"></div>
     <div class="srow"><label for="tripTo">Leave</label><input class="field datef" type="date" id="tripTo" value="${to}" onchange="data.trip.to=this.value;save();render(true)"></div>
@@ -3602,10 +3608,13 @@ function screenTrip(){
       ${hol.map(h=>`<div class="srow"><span>${pretty(h.date)} · ${esc(h.name)}</span><button class="mini" onclick="rmHol('${h.date}')" aria-label="Remove">×</button></div>`).join('')}
       <form class="frow" onsubmit="event.preventDefault();addHol(this)"><input class="field" type="date" name="d" id="holDate" required style="max-width:46%"><input class="field" name="n" id="holName" placeholder="Name"><button class="btn">Add</button></form></details>
   </div>
-  ${sec('Who’s coming',`${nPeople()} people`)}
+  `)}
+  ${fold('who','Who’s coming',`${nPeople()} people · ${P.map(p=>esc(p.name)).join(', ')}`,`
   <p class="small" style="margin:-4px 0 10px">Bills are split between family groups: you swipe items left or right between the first two, and with three or more groups everyone taps what they had.</p>
-  ${P.map((p,i)=>`<div class="pcard grp">
-    <div class="srow" style="padding:0 0 4px"><span class="lab" style="margin:0">Family group</span>${me===p.id?'<span class="ks ok">This phone</span>':`<button class="chip" style="padding:4px 10px;font-size:12px" onclick="setMe('${p.id}');render(true)">This is my phone</button>`}</div>
+  ${P.map((p,i)=>{const op=(state.grpOpen||{})[p.id];return `<div class="pcard grp">
+    <button class="foldh" onclick="(state.grpOpen=state.grpOpen||{})['${p.id}']=!${op?'true':'false'};render(true)"><span><i class="pdot" style="background:${pcol(p.id)}"></i> <b>${esc(p.name)}</b>${me===p.id?' <span class="ks ok" style="margin-left:6px">This phone</span>':''}<br><span class="small">${esc(peopleOf(p).map(x=>x.name).join(', ')||'No one added yet')}${p.stay&&spots.find(x=>x.id===p.stay)?' · '+esc(spots.find(x=>x.id===p.stay).name):''}</span></span><span class="chev">${op?'▴':'▾'}</span></button>
+    ${op?`<div class="foldb">
+    <div class="srow" style="padding:0 0 4px;border:0"><span class="lab" style="margin:0">Name</span>${me===p.id?'':`<button class="chip" style="padding:4px 10px;font-size:12px" onclick="setMe('${p.id}');render(true)">This is my phone</button>`}</div>
     <div class="frow" style="margin-top:0;align-items:center"><i class="pdot" style="background:${pcol(p.id)}"></i><input class="field grpname" value="${esc(p.name)}" aria-label="Family group name" placeholder="e.g. The Cochranes" onchange="setParty(${i},'name',this.value)"></div>
     <span class="lab">Who’s in it${groupCount(p)?` · ${groupCount(p)}`:''}</span>
     <div class="chips wrap" style="padding:0">${peopleOf(p).map((x,j)=>`<span class="chip pchip ${x.kid?'kid':x.noDrink?'nod':'on'}"><button class="pn" onclick="toggleKid(${i},${j})" aria-label="${esc(x.name)}: ${x.kid?'child':x.noDrink?'adult, not drinking':'adult'}. Tap to change">${esc(x.name)}${x.kid?' · child':x.noDrink?' · no alcohol':''}</button><button onclick="rmPerson(${i},${j})" aria-label="Remove ${esc(x.name)}">×</button></span>`).join('')}</div>
@@ -3616,16 +3625,18 @@ function screenTrip(){
     <span class="lab">Bank details, so others can pay with one tap</span>
     <div class="frow" style="margin-top:0"><input class="field" value="${esc(p.monzo||'')}" placeholder="Monzo username" aria-label="Monzo username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'monzo',this.value)"><input class="field" value="${esc(p.revolut||'')}" placeholder="Revolut username" aria-label="Revolut username" autocapitalize="off" autocomplete="off" spellcheck="false" onchange="setParty(${i},'revolut',this.value)"></div>
     ${i>=2?`<button class="link danger" style="margin-top:8px" onclick="rmParty(${i})">Remove this group</button>`:''}
-  </div>`).join('')}
+  </div>`:''}</div>`}).join('')}
   <button class="btn ghost block" onclick="addGroup()">＋ Add another family group</button>
-  ${sec('Eat & Do')}
+  `)}
+  ${fold('eat','Eat & Do',`${CATS.filter(c=>!c.subs&&!catHidden(c.k)).length} eat · ${(CATS.find(c=>c.subs)||{subs:[]}).subs.filter(x=>!catHidden(x.k)).length} do${(data.diet||[]).length?' · '+esc(data.diet.join(', ')):''}`,`
   <div class="pcard">
     <div class="srow" style="padding-top:0;cursor:pointer" onclick="push('prefs')"><span>Tiles and favourites<br><span class="small">${CATS.filter(c=>!c.subs&&!catHidden(c.k)).length} eat · ${(CATS.find(c=>c.subs)||{subs:[]}).subs.filter(x=>!catHidden(x.k)).length} do${PREF_CATS.some(c=>(data.prefs[c]||[]).length)?' · '+esc(PREF_CATS.flatMap(c=>data.prefs[c]||[]).filter((v,i,a)=>a.indexOf(v)===i).slice(0,3).join(', ')):''}</span></span><span class="small">Edit ›</span></div>
     <span class="lab">Dietary needs</span>
     <div class="chips wrap" style="padding:0">${DIETS.map(d=>`<button class="chip ${(data.diet||[]).includes(d)?'on':''}" onclick="toggleDiet('${d}')">${d}</button>`).join('')}</div>
     <p class="small" style="margin-top:6px">Google suggestions skip places that don’t cater for these, and Claude sees them too.</p>
   </div>
-  ${sec('Money')}
+  `)}
+  ${fold('money','Money',FXR()?`€1 = £${FXR().toFixed(4)} · pay in ${(data.payIn||'£')==='£'?'pounds':'euros'}`:'Exchange rate and how you pay',`
   <div class="pcard">
     <div class="srow" style="padding-top:0"><span>Exchange rate<br><span class="small">${r?`${data.fx.manual?'Your own rate':'European Central Bank, updates daily'}${data.fx.date&&!data.fx.manual?' · '+esc(fxDay(data.fx.date)):''}`:'Getting today’s rate…'}</span></span><b>${r?`€1 = £${r.toFixed(4)}`:''}</b></div>
     <span class="lab">Pay each other in</span>
@@ -3635,6 +3646,7 @@ function screenTrip(){
       <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="Pounds per euro, e.g. 0.8360" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
       ${data.fx&&data.fx.manual?`<button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Back to the daily rate');render(true)}})">Go back to the daily rate</button>`:''}</details>
   </div>
+  `)}
   </div>`;
 }
 
