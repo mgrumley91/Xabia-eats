@@ -272,9 +272,10 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .bfam .small{display:block;margin:3px 0 0!important}.bsum p.small{margin:8px 0 0!important}.wxb.fam{height:7px}.bsum .lab{margin-top:12px}
 .hplan{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}.hplanh{display:flex;align-items:baseline;justify-content:space-between}.hplanh h2{margin:0;font-size:22px}
 .hpcard{display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;font:inherit;color:var(--ink);cursor:pointer}
-.hpcard .small{margin:0!important}.hprow{display:flex;align-items:center;justify-content:space-between;gap:8px}.hprow b{font-size:17px}
+.hpcard .small{margin:0!important}.hptrip{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:10px 0 2px;font:inherit;color:var(--ink);text-align:left;cursor:pointer}.hptrip>span:first-child{font-size:20px}.hptrip .grow{display:flex;flex-direction:column;min-width:0;flex:1}.hptrip b{font-size:15px}.hprow{display:flex;align-items:center;justify-content:space-between;gap:8px}.hprow b{font-size:17px}
 .hpstop{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}.hpstop i{font-style:normal;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;flex:none}
 .hpstop span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hpstop em{font-style:normal;font-size:12.5px;margin-left:auto;white-space:nowrap;font-weight:500;color:var(--muted)}.hpstop em.s-open{color:var(--open);font-weight:700}.hpstop em.s-closed{color:#b3412f}.hpstop em.s-soon{color:#b4532a}.hpstop.done span{text-decoration:line-through;opacity:.6}.hpstop.done i{background:#9aa3ad}
+.cclog{max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}.ccu{align-self:flex-end;max-width:85%;background:var(--ink);color:#fff;padding:9px 12px;border-radius:16px 16px 4px 16px;font-size:14.5px;white-space:pre-wrap}.cca{align-self:flex-start;max-width:92%;background:var(--card);border:1px solid var(--line);padding:10px 12px;border-radius:16px 16px 16px 4px;font-size:14.5px;line-height:1.45}.cca.busy{color:var(--muted)}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
@@ -553,7 +554,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v106';
+const APP_VERSION='v107';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -757,6 +758,7 @@ function matches(p){
 /* ================= Google ================= */
 let gPromise=null;
 function gmaps(){
+  if(data.closed) return Promise.reject(new Error('This trip is closed, so Google is switched off.'));
   if(gPromise) return gPromise;
   if(!data.key) return Promise.reject(new Error('No Google key yet. Add one in Settings.'));
   gPromise=new Promise((res,rej)=>{
@@ -845,7 +847,7 @@ function applyDetails(p,pl){
 // Turn Google's photo link into a direct image address once, so showing it again costs nothing
 const photoWanted=p=>!!p&&!p.disc&&(wantTo(p)||!!p.photoAsk);
 async function resolvePhoto(p,force){
-  if(!p.photo||p.photo.resolved||p.photo.tried||!data.key||data.showPhotos===false) return false;
+  if(!p.photo||p.photo.resolved||p.photo.tried||!data.key||data.closed||data.showPhotos===false) return false;
   if(!force&&!photoWanted(p)) return false;
   p.photo.tried=true;
   try{
@@ -1030,10 +1032,11 @@ function screenToday(){
   if(data.key) discover(cat);
   locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
-  return `<div class="hmap">${data.key?'<div id="recmap"></div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:data.claudeUrl?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+  return `<div class="hmap">${data.key&&!data.closed?'<div id="recmap"></div>':data.closed?'<div class="nomap">The trip is closed, so the Google map is off.</div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>${data.claudeUrl||apiMode()?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude"><span aria-hidden="true">✦</span> Ask</button>`:''}`:data.claudeUrl||apiMode()?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
+    ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
     ${wxBarHtml()}
     <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
@@ -1122,7 +1125,8 @@ function renderList(){
     if(rest.length) html+=`${sec(`Also open ${label}`,`${rest.length}`)}<div class="list">${rest.map(row).join('')}</div>`;
     if(later.length) html+=`${sec('Opening later',`${later.length}`)}<div class="list">${later.map(row).join('')}</div>`;
   }
-  if(unk.length) html+=`${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div>`;
+  if(unk.length){if(!data.key||!list.some(p=>S.get(p.id).s!=='unknown')&&!pick&&!wait&&!soon.length&&!closed.length||state.showUnk) html+=`${sec(data.key?'Hours unknown':'Your saved places',`${unk.length}`)}<div class="list">${unk.map(row).join('')}</div>`;
+    else html+=`<button class="morebtn" onclick="state.showUnk=true;renderList()">${unk.length} with unknown hours ›</button>`}
   if(closed.length&&state.showMore) html+=state.showClosed?`${sec('Closed',`${closed.length}`)}<div class="list">${closed.map(row).join('')}</div>`:`<button class="morebtn" onclick="state.showClosed=true;renderList()">Show ${closed.length} closed ›</button>`;
   if(!list.length) html+=`<div class="note">You haven’t added any ${esc(cat.label.toLowerCase())} places${data.only4?' rated 4★ or more':''} yet. <button class="link" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">Add one</button>, or tap a business on the Map tab.</div>`;
   const nope=data.places.filter(p=>p.ours===0&&cat.tags.some(t=>p.tags.includes(t))).length;
@@ -1823,7 +1827,7 @@ function claudeSheet(kind,keep){const sh=document.getElementById('poi')||(()=>{c
   if(!keep){state.csKind=kind;state.csFrom=state.csFrom||'here';state.csQ=''}
   sh.hidden=false;
   const fresh=state.here&&Date.now()-(state.here.at||0)<6e5;
-  if(!fresh&&navigator.geolocation&&state.csLoc!=='busy'){state.csLoc='busy';navigator.geolocation.getCurrentPosition(pos=>{state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};state.csLoc='';updateYou();if(!sh.hidden)claudeSheet(kind,true)},()=>{state.csLoc='no';if(!sh.hidden)claudeSheet(kind,true)},{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
+  if(!fresh&&navigator.geolocation&&state.csLoc!=='busy'&&!(keep&&state.csLoc==='no')){state.csLoc='busy';navigator.geolocation.getCurrentPosition(pos=>{state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};state.csLoc='';updateYou();if(!sh.hidden)claudeSheet(kind,true)},()=>{state.csLoc='no';if(!sh.hidden)claudeSheet(kind,true)},{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
   const st=stayFor(),h=fresh?state.here:null,u=esc(data.claudeUrl||''),f=state.csFrom;
   const title='Ask Claude';
   const opt=(id,ic,l,sub)=>`<button class="csopt ${f===id?'on':''}" onclick="csPick('${id}')"><span class="ic">${ic}</span><span class="grow"><b>${l}</b><span class="small">${sub}</span></span><span class="csradio" aria-hidden="true"></span></button>`;
@@ -1833,13 +1837,50 @@ function claudeSheet(kind,keep){const sh=document.getElementById('poi')||(()=>{c
     ${st&&st.lat!=null?opt('stay','🏠',esc(st.name),'Where we’re staying'):''}
     ${opt('else','✏️','Somewhere else',f==='else'?'':'Type a place')}
     ${f==='else'?`<input class="field" id="csElse" style="margin-top:6px" placeholder="e.g. the port, Cala Blanca" value="${esc(state.csElse||'')}" oninput="state.csElse=this.value" autocomplete="off">`:''}
-    <label class="lab" for="csQ">Your question or plan</label>
+    ${apiMode()?ccLogHtml():''}
+    <label class="lab" for="csQ">${apiMode()&&(state.cc||[]).length?'Reply or ask something else':'Your question or plan'}</label>
     <textarea class="field" id="csQ" rows="3" placeholder="e.g. Where’s good for paella near here? or Plan us a bike ride with lunch by the sea" oninput="state.csQ=this.value">${esc(state.csQ||'')}</textarea>
-    ${u?`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
+    ${apiMode()?ccButtonsHtml():`${u?`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
       <p class="small" style="margin:4px 0 0">Copies everything. Paste it in your chat and send.</p>`:''}
     <a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:10px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('new',this)">New Claude chat, ready to send</a>
-    <p class="small" style="margin:4px 0 0">Opens a fresh Claude Code chat on the app’s project with everything filled in: just tap send. It won’t remember your earlier chat, but it knows the trip.</p></div>`;
+    <p class="small" style="margin:4px 0 0">Opens a fresh Claude Code chat on the app’s project with everything filled in: just tap send. It won’t remember your earlier chat, but it knows the trip.</p>`}</div>`;
+  if(apiMode()){const t=document.getElementById('ccLog');if(t)t.scrollTop=1e6}
   if(kind==='ask'&&!keep)setTimeout(()=>document.getElementById('csQ')?.focus(),60)}
+// Built-in Claude (Settings → Claude → Built in): asks go to the 'claude' edge function, which holds the Anthropic key
+const apiMode=()=>data.claudeMode==='api'&&!!SB();
+function ccLogHtml(){const L=state.cc||[];if(!L.length)return '';
+  return `<div id="ccLog" class="cclog">${L.map(m=>m.role==='user'?`<div class="ccu">${esc(m.q||m.content)}</div>`:`<div class="cca">${esc(m.content).replace(/\n/g,'<br>')}${m.act?`<button class="btn ghost" style="margin-top:8px;width:100%" onclick="${m.act==='draft'?"document.getElementById('poi').hidden=true;push('outing:draft')":"document.getElementById('poi').hidden=true;go('today')"}">${m.act==='draft'?'Review the draft trip':'See the picks on the map'}</button>`:''}</div>`).join('')}
+    ${state.ccBusy?`<div class="cca busy">Claude is thinking…</div>`:''}</div>`}
+function ccButtonsHtml(){const L=state.cc||[];
+  return `<button class="btn block" style="margin-top:12px" ${state.ccBusy?'disabled':''} onclick="ccAsk()">${state.ccBusy?'Asking…':L.length?'Send':'Ask Claude'}</button>
+    ${L.length&&!state.ccBusy?`<button class="link" style="display:block;margin:10px auto 0" onclick="state.cc=[];claudeSheet('ask',true)">Start a new conversation</button>`:''}
+    <p class="small" style="margin:6px 0 0">Answers here in the app. Plans become a draft trip and picks go on the Home map for everyone.</p>`}
+function apiContext(){const now=new Date().toLocaleString('en-GB',{timeZone:TZ,weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+  const P=PT(),me=P.find(x=>x.id===ME()),spot=id=>(data.spots.find(x=>x.id===id)||{}).name;
+  const L=[`Now: ${now} (Xàbia time). Trip: ${tripDates()||'dates not set'}.`,
+    `Asking: ${me?me.name:'someone on the trip'}.`,
+    'Groups: '+P.map(g=>`${g.name} (${(g.people||[]).map(x=>x.name+(x.kid?' child':x.noDrink?' not drinking':'')).join(', ')||g.heads+(g.heads===1?' person':' people')})${g.stay&&spot(g.stay)?' staying at '+spot(g.stay):''}`).join('; ')+'.'];
+  if((data.diet||[]).length)L.push('Dietary needs: '+data.diet.join(', ')+'.');
+  const pf=Object.entries(data.prefs||{}).filter(([k,v])=>v&&v.length).map(([k,v])=>`${k}: ${v.join(', ')}`);if(pf.length)L.push('Food preferences (places must sell these): '+pf.join('; ')+'.');
+  const w=wxForClaude();if(w)L.push('Weather:'+w);
+  const T=TPr().ids.map(byId).filter(Boolean);if(T.length)L.push("Today's plan: "+T.map(x=>x.name).join(' → ')+'.');
+  const O=OUT();if(O.length)L.push('Saved trips: '+O.map(o=>o.title).join('; ')+'.');
+  const d=draftTrip();if(d)L.push('Current draft trip: '+d.title+': '+d.stops.map(x=>x.name).join(' → ')+'.');
+  L.push('','Places in the app (id | name | type | area | lat,lng | ours = our score /5 | g = Google rating (reviews) | now | been/want):');
+  data.places.filter(x=>x.ours!==0).forEach(x=>{const st=status(x);L.push([x.id,x.name,(x.tags||[]).join('/')||x.type||'',x.area||'',x.lat!=null?x.lat.toFixed(4)+','+x.lng.toFixed(4):'',x.ours!=null?'ours '+x.ours:'',x.rating?`g ${x.rating}${x.ratingCount?' ('+x.ratingCount+')':''}`:'',st.s==='unknown'?'':st.txt,beenTo(x)?'been':wantTo(x)?'want':''].filter(Boolean).join(' | '))});
+  return L.join('\n')}
+async function ccAsk(){if(state.ccBusy)return;const q=(state.csQ||'').trim();if(!q){toast('Type your question first');document.getElementById('csQ')?.focus();return}
+  if(data.closed){toast('This trip is closed, so Claude is switched off');return}
+  if(state.csFrom==='here'&&!(state.here&&Date.now()-(state.here.at||0)<6e5)&&state.csLoc==='busy'){toast('Still finding you… one second');return}
+  const L=state.cc||(state.cc=[]);const full=L.length?q+(state.csFrom==='here'&&state.here?`\n\n(${locTxt('I’m now at',state.here.lat,state.here.lng)})`:''):claudeText().replace(/ If I’m asking for a day out[\s\S]*?just answer\./,'');
+  L.push({role:'user',content:full,q});state.csQ='';state.ccBusy=true;claudeSheet('ask',true);
+  try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'ask',who:(PT().find(x=>x.id===ME())||{}).name||'',context:apiContext(),messages:L.map(m=>({role:m.role,content:m.content}))})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){L.pop();state.csQ=q;toast(j.error&&j.error.message||'Claude couldn’t answer. Try again')}
+    else{let act='';if(j.suggest&&!j.suggest.saveError){B.suggest=j.suggest;lsSet('xe.suggest',j.suggest);try{localStorage.setItem('xe.suggest',JSON.stringify(j.suggest))}catch(e){}state.draftO=null;act=j.suggest.mode?'draft':'picks'}
+      L.push({role:'assistant',content:j.text||'(No answer)',act});state.ai=null}}
+  catch(e){L.pop();state.csQ=q;toast('Couldn’t reach Claude. Are you online?')}
+  state.ccBusy=false;if(!document.getElementById('poi').hidden)claudeSheet('ask',true);renderSoft()}
 function csPick(id){state.csFrom=id;claudeSheet(state.csKind,true);if(id==='else')setTimeout(()=>document.getElementById('csElse')?.focus(),60)}
 function claudeText(){const kind=state.csKind,st=stayFor(),h=state.here,w=state.csFrom,q=(state.csQ||'').trim();let from='',ctx='';
   if(w==='here'&&h&&Date.now()-(h.at||0)<6e5){from='from where I am right now: '+locTxt('my current location',h.lat,h.lng);ctx='I’m here right now: '+locTxt('my location',h.lat,h.lng)}
@@ -1866,6 +1907,9 @@ function homePlanHtml(){
     <button class="hpcard" onclick="openPlan('today')"><span class="hprow"><b>Today${tIds.length?` · ${tIds.length} stop${tIds.length>1?'s':''}`:''}</b><span class="small">${esc(pretty(todayKey()))} ›</span></span>
       ${stops.length?stops.map((p,i)=>{const st=status(p),d=done.includes(p.id);return `<span class="hpstop ${d?'done':''}"><i>${d?'✓':i+1}</i><span>${esc(p.name)}</span><em class="s-${st.s}">${esc(st.txt)}</em></span>`}).join('')+(tIds.length>4?`<span class="small">+${tIds.length-4} more</span>`:'')
         :`<span class="small">Nothing planned for today yet. Add stops from any place, or ask Claude above.</span>`}</button>
+    ${OUT().length?`<div class="hpcard" style="cursor:default"><span class="hprow"><b>Saved trips · ${OUT().length}</b><button class="link" onclick="state.savedView='trips';go('saved')">All ›</button></span>
+      ${OUT().slice().reverse().sort((a,b)=>(data.activeOuting&&data.activeOuting.id===b.id)-(data.activeOuting&&data.activeOuting.id===a.id)).slice(0,3).map(o=>{const m=MODES[o.mode]||MODES.walking,act=data.activeOuting&&data.activeOuting.id===o.id;
+        return `<button class="hptrip" onclick="push('outing:${o.id}')"><span aria-hidden="true">${m.icon}</span><span class="grow"><b>${esc(o.title)}</b><span class="small">${act?'On now · ':''}${o.stops.length} stop${o.stops.length===1?'':'s'}</span></span><span class="small">›</span></button>`}).join('')}</div>`:''}
     <button class="hpcard" onclick="openPlan('trip')"><span class="hprow"><b>Whole trip${trip.length?` · ${trip.length} place${trip.length>1?'s':''}`:''}</b><span class="small">›</span></span>
       <span class="small">${trip.length?esc(trip.slice(0,3).map(p=>p.name).join(', '))+(trip.length>3?'…':''):'Tap the bookmark on any place to add it.'}</span></button>
   </div>`}
@@ -2250,7 +2294,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -2577,7 +2621,12 @@ function newBill(){
 function mealShares(m){
   if(m.group&&m.shares)return {...m.shares};
   const t=m.detail&&m.detail.t;if(t&&(t.uTot!=null||t.wTot!=null))return {us:t.uTot||0,wass:t.wTot||0};
+  // A bill added without items: once we know its total, the amount owed tells us each family's share
+  if(m.total>0&&m.net!=null){const o=Math.min(Math.abs(m.net),m.total);return m.net>=0?{us:m.total-o,wass:o}:{us:o,wass:m.total-o}}
   return null}
+function setMealTotal(id,v){const m=(B.meals||[]).find(x=>x.id===id);if(!m)return;const c=toC(v);
+  if(c>0&&c<Math.abs(m.net||0)){toast(`The total can’t be less than the ${bMoney(Math.abs(m.net))} that was owed`);return}
+  if(c>0)m.total=c;else delete m.total;saveMeals();toast(c>0?'Added to the trip totals':'Total removed');render(true)}
 function billSummaryHtml(){
   const M=(B.meals||[]).filter(m=>!m.settle);if(M.length<2)return '';
   const P=PT(),eur=m=>(m.cur||'€')==='€',meals=M.filter(m=>!isShop(m)),shops=M.filter(isShop);
@@ -2596,7 +2645,9 @@ function billSummaryHtml(){
     ${open?`<span class="lab">By meal</span>${MEALS.filter(([k])=>byMeal[k]).map(([k,l])=>`<div class="srow"><span>${l}</span><span>${byMeal[k].n} · ${bMoney(byMeal[k].c)}${byMeal[k].n?` <span class="small">(avg ${bMoney(byMeal[k].c/byMeal[k].n)})</span>`:''}</span></div>`).join('')}
       ${big.length?`<span class="lab">Biggest bills</span>${big.map(x=>`<div class="srow" style="cursor:pointer" onclick="openMeal('${x.m.id}')"><span>${esc(x.m.place)} <span class="small">${new Date(x.m.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric'})}</span></span><b>${bMoney(x.c)}</b></div>`).join('')}`:''}
       ${shops.length?`<p class="small" style="margin-top:8px">Includes ${shops.length} shop receipt${shops.length>1?'s':''} (${shops.map(m=>esc(m.place.replace(/,?\s*S\.?A\.?$/i,''))).slice(0,3).join(', ')}${shops.length>3?'…':''}) in the spend, not in meals out.</p>`:''}
-      ${unk.length?`<p class="small">* ${unk.length} bill${unk.length>1?'s were':' was'} added without items, so ${unk.length>1?'they’re':'it’s'} not in the totals.</p>`:''}`:''}
+      ${unk.length?`<span class="lab">Add totals for bills without items</span><p class="small" style="margin:0 0 6px">These were added without items. Type what each bill came to and it’s split using what was owed.</p>
+        ${unk.map(m=>`<form class="srow" style="gap:8px" onsubmit="event.preventDefault();setMealTotal('${m.id}',this.t.value)"><span style="flex:1;min-width:0">${esc(m.place)} <span class="small">${new Date(m.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric'})} · owed ${bMoney(Math.abs(m.net||0))}</span></span><input class="field" name="t" inputmode="decimal" placeholder="Total €" style="width:92px;margin:0"><button class="btn" style="padding:0 12px">Add</button></form>`).join('')}`:''}`
+      :unk.length?`<p class="small" style="margin-top:8px">* ${unk.length} bill${unk.length>1?'s have':' has'} no items yet. <button class="link" onclick="state.sumOpen=true;render(true)">Add ${unk.length>1?'their totals':'its total'}</button> to include ${unk.length>1?'them':'it'}.</p>`:''}
   </div>`}
 function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
@@ -2984,6 +3035,7 @@ async function findAllIg(){
 // Bill reading goes through our Supabase function, which holds the Gemini key; phones never see it.
 const gemKey=()=>SB()?state.srvKey!==false:(data.gemKey||data.key);
 async function gemCall(model,body,signal){
+  if(data.closed) return {ok:false,status:403,j:{error:{message:'This trip is closed, so bill reading is switched off.'}}};
   if(SB()){const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/gemini',{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,model,body})});
     return {ok:r.ok,status:r.status,j:await r.json().catch(()=>({}))}}
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal,headers:{'Content-Type':'application/json','x-goog-api-key':data.gemKey||data.key},body:JSON.stringify(body)});
@@ -3571,6 +3623,29 @@ function screenTrip(){
   </div>`;
 }
 
+function claudeApiHtml(){if(!state.ccSt&&SB()&&!state.ccStBusy){state.ccStBusy=true;fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'status'})}).then(r=>r.json()).then(j=>{state.ccSt=j}).catch(()=>{state.ccSt={err:1}}).finally(()=>{state.ccStBusy=false;if(state.stack.at(-1)==='settings')render(true)});
+    fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'usage'})}).then(r=>r.json()).then(j=>{state.ccU=j;if(state.stack.at(-1)==='settings')render(true)}).catch(()=>{})}
+  const st=state.ccSt||{},u=state.ccU;
+  return `<div class="pcard"><p style="font-size:14px;margin:0">Everyone on the trip asks Claude from inside the app, and answers come back here. Plans become a draft trip and picks go on the Home map. Uses your Anthropic API key, paid per question.</p>
+    <div class="srow"><span>API key</span><span class="ks ${st.hasKey?'ok':'none'}">${state.ccSt?(st.hasKey?'Saved':'Not set'):'Checking…'}</span></div>
+    ${u?`<div class="srow"><span>Spent so far<br><span class="small">${u.n} question${u.n===1?'':'s'}${u.searches?` · ${u.searches} web checks`:''}</span></span><b>$${(+u.usd||0).toFixed(2)}</b></div>`:''}
+    <p class="small" style="margin:6px 0 0">About 2–5 cents a question (Sonnet), a cent more for each web check.</p>
+    <form onsubmit="event.preventDefault();saveClaudeKey(this.a.value)"><label class="lab" for="anKey">Anthropic API key (from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>)</label>
+      <div class="frow" style="margin-top:0"><input class="field" id="anKey" name="a" placeholder="${st.hasKey?'Saved · paste a new one to replace':'sk-ant-…'}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Save</button></div>
+      <p class="small" style="margin:6px 0 0">Kept on the server for the whole trip; phones and trip links never see it.</p></form></div>`}
+async function saveClaudeKey(v){v=String(v||'').replace(/\s/g,'');if(v.length<20){toast('Paste the whole key');return}
+  toast('Checking the key with Anthropic…');
+  try{const r=await fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'setKey',key:v})});const j=await r.json().catch(()=>({}));
+    if(!r.ok){toast('Anthropic didn’t accept it: '+(j.error&&j.error.message||r.status));return}
+    state.ccSt={hasKey:true};toast('Key saved. Try ✦ Ask Claude on Home');render(true)}catch(e){toast('Couldn’t reach the server. Try again')}}
+function closeTripHtml(){if(ME()!=='us')return '';
+  return `${sec('Close the trip')}<div class="pcard">${data.closed?`<p style="font-size:14px;margin:0"><b>Closed on ${new Date(data.closed).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}.</b> Google maps, photos and suggestions, bill reading and Claude are off for everyone, so nothing more can be charged. Bills, places and plans are still here to read.</p>
+      <button class="btn ghost block" style="margin-top:10px" onclick="reopenTrip()">Reopen the trip</button>`
+    :`<p style="font-size:14px;margin:0">When the holiday’s over, close the trip so no more Google or Claude charges can happen on anyone’s phone. You can reopen it any time.</p>
+      <button class="btn ${state.confirmClose?'':'ghost'} block" style="margin-top:10px;${state.confirmClose?'background:#b3412f;border-color:#b3412f':''}" onclick="closeTrip()">${state.confirmClose?'Tap again to close the trip':'Close the trip'}</button>`}</div>`}
+function closeTrip(){if(!state.confirmClose){state.confirmClose=true;render(true);setTimeout(()=>{state.confirmClose=false},6000);return}
+  state.confirmClose=false;data.closed=Date.now();save();toast('Trip closed. Google and Claude are off');render(true)}
+function reopenTrip(){delete data.closed;save();gPromise=null;toast('Trip reopened');render(true)}
 function screenSettings(){
   const kTxt={ok:['ok','Connected'],bad:['bad','Not accepted'],loading:['none','Checking…'],none:['none','Not set']}[state.keyStatus]||['none',''];
   const {from,to}=data.trip, P=PT();
@@ -3589,11 +3664,14 @@ function screenSettings(){
     ${SB()?'':`<button class="btn ghost block" onclick="push('billsetup')">Connect or set up sharing</button>`}
   </div>
   ${sec('Claude')}
+  <div class="seg2" style="margin:0 0 10px"><button class="${data.claudeMode!=='api'?'on':''}" onclick="data.claudeMode='app';save();render(true)">Claude app</button><button class="${data.claudeMode==='api'?'on':''}" onclick="${SB()?"data.claudeMode='api';save();render(true)":"toast('Turn on sharing first')"}">Built in</button></div>
+  ${data.claudeMode==='api'?claudeApiHtml():`<p class="small" style="margin:0 0 8px">Ask Claude opens your Claude app with the question filled in. Best when it’s just you two.</p>
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
     <p style="font-size:14px;margin:0">Your Xàbia chat in Claude can read the trip, put picks on the map, plan routes and add Instagram accounts. Its link is only saved on this phone.</p>
     <div class="frow"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Link to your Claude project"><button class="btn">Save</button></div>
     ${data.places.some(p=>!p.ig&&!p.disc)?(data.claudeUrl?`<a class="btn ghost block" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="askClaudeIg(true)" style="text-decoration:none;text-align:center">Ask Claude for missing Instagrams (${data.places.filter(p=>!p.ig&&!p.disc).length})</a>`:''):''}
   </form>
+`}
   ${sec('Google')}
   <div class="pcard">
     <div class="srow" style="padding-top:0"><span>Maps &amp; opening hours</span><span class="ks ${kTxt[0]}">${kTxt[1]}</span></div>
@@ -3610,6 +3688,7 @@ function screenSettings(){
         <p class="small" style="margin-top:6px">${SB()?'Kept on the server for the whole trip; phones and trip links never see it.':'Saved on this phone.'} Each bill costs well under a cent.</p></form>
     </details>
   </div>
+  ${closeTripHtml()}
   ${sec('More')}
   <div class="pcard">
     <details class="more" style="margin-top:0;border-top:0;padding-top:0"><summary>Export and backup</summary>

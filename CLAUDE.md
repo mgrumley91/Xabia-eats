@@ -73,6 +73,14 @@ Work out what we want:
   places, you can also send them as Claude's picks (above).
 - **A day out or a plan** (a ride, a route, "plan our Saturday"): make it a draft trip (below).
 
+## Built-in Claude and closing the trip
+
+- Settings → Claude has two modes. **Claude app** (`claudeMode` unset or `app`) opens this kind of chat. **Built in**
+  (`claudeMode: 'api'`) sends questions to the `claude` edge function, which calls the Anthropic API with the trip as
+  context, logs cost in `ai_usage` (kind `claude`), and writes plans and picks to the `suggest` row itself (`by: 'claude-api'`).
+- `closed` in the app row (a timestamp) means the trip is closed: the app makes no Google calls, and the `gemini` and
+  `claude` edge functions refuse to run. Don't write picks or drafts for a closed trip.
+
 ## Draft trips
 
 When we ask you to plan a day out or a trip, put it in the app as a **draft**, not a saved trip. We review it under
