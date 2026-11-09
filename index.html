@@ -562,7 +562,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v118';
+const APP_VERSION='v119';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1041,7 +1041,7 @@ function screenToday(){
   locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key&&!data.closed?'<div id="recmap"></div>':data.closed?'<div class="nomap">The trip is closed, so the Google map is off.</div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>${!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude"><span aria-hidden="true">✦</span> Ask</button>`:''}`:!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
@@ -1169,7 +1169,11 @@ async function drawRecMap(){
     if(first){n+=addSpotMarkers(g,map,b);addYou(g,map)}
     else data.spots.forEach(sp=>{if(sp.lat!=null&&km(HOME,sp)<12){b.extend({lat:sp.lat,lng:sp.lng});n++}});
     const me=state.here&&origin()===state.here, ck=catOf().k+'|'+(data.radius||3)+'|'+(me?'me':'base');
-    if(first||el._ck!==ck){el._ck=ck;
+    const cp=claudePicks(), clp=(state.recPins||[]).filter(([p,k])=>k==='cl'&&p.lat!=null);
+    if(cp&&clp.length&&el._clAt!==cp.s.at){el._clAt=cp.s.at;el._ck=ck;const cb=new window.google.maps.LatLngBounds();clp.forEach(([p])=>cb.extend({lat:p.lat,lng:p.lng}));
+      const o=me?state.here:(stayFor()||null);if(o&&o.lat!=null)cb.extend({lat:o.lat,lng:o.lng});
+      if(clp.length>1||o)map.fitBounds(cb,{top:76,right:40,bottom:46,left:40});else{map.setCenter({lat:clp[0][0].lat,lng:clp[0][0].lng});map.setZoom(15)}}
+    else if(first||el._ck!==ck){el._ck=ck;
       if(me){map.setCenter({lat:state.here.lat,lng:state.here.lng});map.setZoom({1:15,3:14,10:12}[data.radius||3]||14)}
       else if(n>1) map.fitBounds(b,{top:76,right:30,bottom:46,left:30}); else if(n===1){map.setCenter(b.getCenter());map.setZoom(15)}}
     el.dataset.drawn='1';
@@ -3540,7 +3544,9 @@ function claudeCardHtml(){
       <div class="small" style="margin:2px 0 0">${[it.x.why?esc(it.x.why):'',st?`<span class="s-${st.s}">${esc(st.txt)}</span>`:'',it.p?'':'new place · tap for photo &amp; details'].filter(Boolean).join(' · ')}</div></div>
       <button class="btn ${it.picked?'ghost':''}" style="padding:9px 14px;font-size:14px" onclick="pickClaude(${it.i})">${it.picked?'✓ Planned':'Go here'}</button></div>`}).join('')}
     ${cp.items.length>1?`<div class="frow" style="margin-top:10px"><button class="btn" style="flex:1" onclick="saveTripFromPicks(true)">Start trip</button><button class="btn ghost" style="flex:1" onclick="saveTripFromPicks(false)">Save for later</button></div>`:''}
-    <p class="small" style="margin:8px 0 0">${cp.items.length>1?'Start it as a route now, save it for another day, or tap <b>Go here</b> for single stops.':'Tap <b>Go here</b> to add it to today’s plan and the map.'}</p></div>`;
+    <p class="small" style="margin:8px 0 0">${cp.items.length>1?'Start it as a route now, save it for another day, or tap <b>Go here</b> for single stops.':'Tap <b>Go here</b> to add it to today’s plan and the map.'}</p>
+    <a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:10px" href="https://claude.ai/recents" target="_blank" rel="noopener">✦ Back to Claude to ask more</a>
+    <p class="small" style="margin:4px 0 0;text-align:center">Opens your Claude chats; the one that sent these is at the top. Dismiss these to get the Ask button back.</p></div>`;
 }
 async function pickClaude(i){
   const cp=claudePicks(); if(!cp) return; const it=cp.items[i]; let p=it.p;
