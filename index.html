@@ -268,6 +268,8 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .wxcl{gap:3px;cursor:pointer}.wxrow.sky .wxcl i{color:var(--accent)}.wxb{display:block;height:5px;border-radius:3px;background:#eef1f4;overflow:hidden}.wxb span{display:block;height:100%;border-radius:3px}.wxb.lo span{background:#5d6d80}.wxb.mid span{background:#97a5b4}.wxb.hi span{background:#c9d2db}.wxsun{font-size:12px;white-space:nowrap;margin-bottom:2px}.mmv{color:#2a6fb0!important;font-weight:700}.wxsky i{display:block;font-style:normal;font-size:11.5px;margin-top:2px;opacity:.85}
 .wxrow>.wxsky{display:none}.wxrow.sky>.wxsky{grid-column:1/-1;order:9;display:block;font-size:12.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:5px 8px;margin-top:2px;line-height:1.35}
 .wxarr{display:inline-block;font-size:13px;width:14px;text-align:center}.wxw{display:flex;align-items:center;gap:3px;white-space:nowrap}.wxw i{margin-left:2px}.wxday .small{margin:4px 0 0!important;display:block}
+.bsum{margin-top:12px}.bstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 6px}.bstats div{background:var(--bg);border-radius:12px;padding:10px 8px;display:flex;flex-direction:column}.bstats b{font-size:19px;font-variant-numeric:tabular-nums}.bstats span{font-size:12px;color:var(--muted)}
+.bfam .small{display:block;margin:3px 0 0!important}.bsum p.small{margin:8px 0 0!important}.wxb.fam{height:7px}.bsum .lab{margin-top:12px}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
@@ -546,7 +548,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v104';
+const APP_VERSION='v105';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2556,6 +2558,31 @@ function newBill(){
   if(billBusy()&&state.newConfirm!==true){state.newConfirm=true;render(true);setTimeout(()=>{if(state.newConfirm){state.newConfirm=false;renderSoft()}},4000);return}
   state.newConfirm=false;clearClaims();B.bill=blankBill(B.bill.cur,B.bill.mode);B.photo=null;B.photoUrl=null;B.photoData=null;B.readMsg='';B.readErr=false;B.manual=false;B.openId=B.editId=null;B.tallyC=false;B.pickFor=null;saveBill();billGo(1);
 }
+// Trip summary for the Bills tab: meals out, total spent, each family's share, by meal and the big ones
+function mealShares(m){
+  if(m.group&&m.shares)return {...m.shares};
+  const t=m.detail&&m.detail.t;if(t&&(t.uTot!=null||t.wTot!=null))return {us:t.uTot||0,wass:t.wTot||0};
+  return null}
+function billSummaryHtml(){
+  const M=(B.meals||[]).filter(m=>!m.settle);if(M.length<2)return '';
+  const P=PT(),eur=m=>(m.cur||'€')==='€',meals=M.filter(m=>!isShop(m)),shops=M.filter(isShop);
+  const fam={},unk=[];let total=0;
+  M.filter(eur).forEach(m=>{const sh=mealShares(m);if(!sh){unk.push(m);return}Object.entries(sh).forEach(([k,v])=>{fam[k]=(fam[k]||0)+v;total+=v})});
+  const days=new Set(M.map(m=>new Date(m.at).toLocaleDateString('en-GB',{timeZone:TZ}))).size||1;
+  const byMeal={};meals.forEach(m=>{const v=m.visit&&(data.visits||[]).find(x=>x.id===m.visit);const k=v&&v.meal||guessMeal(madridMin(m.at));const sh=mealShares(m);byMeal[k]=byMeal[k]||{n:0,c:0};byMeal[k].n++;if(sh&&eur(m))byMeal[k].c+=Object.values(sh).reduce((a,b)=>a+b,0)});
+  const big=[...M].filter(eur).map(m=>({m,c:(()=>{const sh=mealShares(m);return sh?Object.values(sh).reduce((a,b)=>a+b,0):0})()})).sort((a,b)=>b.c-a.c).slice(0,3).filter(x=>x.c);
+  const mx=Math.max(1,...Object.values(fam));
+  const open=state.sumOpen;
+  return `<div class="pcard bsum">
+    <div class="srow" style="padding-top:0;cursor:pointer" onclick="state.sumOpen=!state.sumOpen;render(true)"><b style="font-size:17px">Trip summary</b><span class="small">${open?'Less ▴':'More ▾'}</span></div>
+    <div class="bstats"><div><b>${meals.length}</b><span>meals out</span></div><div><b>${bMoney(total)}</b><span>spent${unk.length?'*':''}</span></div><div><b>${bMoney(total/days)}</b><span>a day</span></div></div>
+    ${P.filter(p=>fam[p.id]).map(p=>{const ppl=adultsOf(p);return `<div class="bfam"><div class="srow" style="padding:6px 0 2px"><span><i class="pdot" style="background:${pcol(p.id)}"></i> ${esc(p.name)}</span><b>${bMoney(fam[p.id])}</b></div>
+      <span class="wxb fam"><span style="width:${fam[p.id]/mx*100}%;background:${pcol(p.id)}"></span></span><span class="small">${Math.round(fam[p.id]/total*100)}% of the total · ${bMoney(fam[p.id]/days)} a day${ppl>1?` · ${bMoney(fam[p.id]/ppl)} per adult`:''}</span></div>`}).join('')}
+    ${open?`<span class="lab">By meal</span>${MEALS.filter(([k])=>byMeal[k]).map(([k,l])=>`<div class="srow"><span>${l}</span><span>${byMeal[k].n} · ${bMoney(byMeal[k].c)}${byMeal[k].n?` <span class="small">(avg ${bMoney(byMeal[k].c/byMeal[k].n)})</span>`:''}</span></div>`).join('')}
+      ${big.length?`<span class="lab">Biggest bills</span>${big.map(x=>`<div class="srow" style="cursor:pointer" onclick="openMeal('${x.m.id}')"><span>${esc(x.m.place)} <span class="small">${new Date(x.m.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric'})}</span></span><b>${bMoney(x.c)}</b></div>`).join('')}`:''}
+      ${shops.length?`<p class="small" style="margin-top:8px">Includes ${shops.length} shop receipt${shops.length>1?'s':''} (${shops.map(m=>esc(m.place.replace(/,?\s*S\.?A\.?$/i,''))).slice(0,3).join(', ')}${shops.length>3?'…':''}) in the spend, not in meals out.</p>`:''}
+      ${unk.length?`<p class="small">* ${unk.length} bill${unk.length>1?'s were':' was'} added without items, so ${unk.length>1?'they’re':'it’s'} not in the totals.</p>`:''}`:''}
+  </div>`}
 function renderBillsBody(){
   const root=document.getElementById('billsRoot'); if(!root) return;
   if(!B.bill.uid){B.bill.uid=uid();saveBill()}
@@ -2571,6 +2598,7 @@ function renderBillsBody(){
     ${pend.length?((state.vcOpen??(Date.now()-pend[pend.length-1].at<6*36e5))?vcHtml()+`<button class="link" style="display:block;margin:8px auto 0" onclick="state.vcOpen=false;render(true)">Later</button>`
       :`<div class="bask" onclick="state.vcOpen=true;render(true)"><span class="ic">📍</span><div class="grow"><b>${pend.length} bill${pend.length>1?'s':''} need${pend.length>1?'':'s'} a place</b><div class="small" style="margin:0">Tap to say where you ate</div></div><span>›</span></div>`):''}
     ${sec('This trip',`${B.meals.filter(m=>!m.settle).length} meal${B.meals.filter(m=>!m.settle).length===1?'':'s'}`)}
+    ${billSummaryHtml()}
     <div id="bTrip"></div>`;
   }else if(step===1){
     html=`<div class="pcard" style="padding:12px">
