@@ -81,6 +81,11 @@ the app gives the link under Settings → Claude). It's the `trip-mcp` edge func
 If you have the connector, use its tools rather than SQL. Ask Claude in the app opens claude.ai/new with the
 question filled in and asks Claude to use the connector.
 
+## Tiles (Eat & Do)
+
+`hideCats` (tile keys hidden on Home), `catNames` (our own tile names) and `extraDo` (extra Do tiles: `{k, label, tag, q}`)
+live in the app row. A place shows under an extra Do tile when its `tags` include that tile's `tag`.
+
 ## Built-in Claude and closing the trip
 
 - Settings → Claude has two modes. **Claude app** (`claudeMode` unset or `app`) opens this kind of chat. **Built in**

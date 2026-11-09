@@ -336,7 +336,7 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .whenbtn{border:0;background:none;color:var(--accent-dark);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;padding:6px 0}
 .chipsA{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}
 .chipsA::-webkit-scrollbar{display:none}
-.pcard.off{opacity:.6}
+.pcard.off{opacity:.6}.field.tname{flex:1;min-width:0;margin:0;height:auto;border:0;border-bottom:1.5px dashed var(--line);border-radius:0;background:transparent;font-weight:700;font-size:16px;padding:6px 2px;box-shadow:none}.field.tname:focus{border-bottom-color:var(--accent);outline:none}
 .foldsec{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-top:10px;font:inherit;color:var(--ink);cursor:pointer}
 .foldsec b{font-size:18px}.foldsec .small{margin:0!important}.foldsec.on{border-color:var(--ink)}.chev{color:var(--muted);font-size:14px;flex:none}
 .foldbody{margin-top:8px}.foldh{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer}.foldh .small{margin:0!important}.foldb{margin-top:10px}
@@ -562,7 +562,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v116';
+const APP_VERSION='v117';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1057,7 +1057,7 @@ function screenToday(){
      <label class="srow" style="padding:10px 0 4px;font-size:14px"><span>Only places rated 4★ and up</span><input type="checkbox" ${data.only4?'checked':''} onchange="data.only4=this.checked;save();render(true)"></label>
      ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin:8px 0 0">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
      <p class="small" style="margin:6px 0 2px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p></div>`:''}
-    <div class="chipsA"><span class="rowlbl">Eat</span>${CATS.filter(c=>!c.subs&&(!catHidden(c.k)||c.k===(cat.parent||cat.k))).map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    <div class="chipsA"><span class="rowlbl">Eat</span>${CATS.filter(c=>!c.subs&&(!catHidden(c.k)||c.k===(cat.parent||cat.k))).map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${(data.catNames||{})[c.k]?esc(c.label):CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
     ${(()=>{const pc=CATS.find(c=>c.subs);if(!pc)return '';const on=(cat.parent||cat.k)===pc.k;const subs=pc.subs.filter(sb=>!catHidden(sb.k)||(on&&state.sub===sb.k));if(!subs.length)return '';
       return `<div class="dorow"><span class="rowlbl">Do</span>${[...(subs.length>1?[{k:'',label:'Any sport'}]:[]),...subs].map(sb=>`<button class="${on&&(state.sub||'')===sb.k?'on':''}" onclick="state.cat='${pc.k}';state.sub='${sb.k}'||null;state.showMore=false;state.showClosed=false;render(true)">${sb.label}</button>`).join('')}</div>`})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
@@ -2301,7 +2301,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode','pastTrips','hideCats'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode','pastTrips','hideCats','catNames','extraDo'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -3305,6 +3305,19 @@ window.addEventListener('hashchange',()=>{if(/#(join=|bills)/.test(location.hash
 /* ---------- PREFS ---------- */
 // Eat & Do: which tiles show on Home, and what we're hunting for in each (e.g. almond croissants at bakeries)
 const catHidden=k=>(data.hideCats||[]).includes(k);
+// Our own names for tiles, and extra Do tiles (e.g. Cycling, Yoga); applied to CATS before each render
+function applyCats(){const N=data.catNames||{},sp=CATS.find(c=>c.subs);
+  CATS.forEach(c=>{c._label=c._label||c.label;c.label=N[c.k]||c._label;(c.subs||[]).forEach(sb=>{sb._label=sb._label||sb.label;sb.label=N[sb.k]||sb._label})});
+  if(!sp)return;sp._subs=sp._subs||sp.subs.filter(x=>!x.extra);sp._tags=sp._tags||[...sp.tags];
+  const X=(data.extraDo||[]).map(x=>({k:x.k,label:N[x.k]||x.label,tags:[x.tag],q:x.q,extra:true}));
+  sp.subs=[...sp._subs,...X];sp.tags=[...sp._tags,...X.map(x=>x.tags[0])];
+  X.forEach(x=>{if(!FILTERS.includes(x.tags[0]))FILTERS.push(x.tags[0]);if(!ALL_TAGS.includes(x.tags[0]))ALL_TAGS.push(x.tags[0])})}
+function renameCat(k,v){v=String(v||'').trim().slice(0,30);const N=data.catNames=data.catNames||{};const c=CATS.flatMap(x=>[x,...(x.subs||[])]).find(x=>x.k===k);
+  if(!v||(c&&v===(c._label||c.label)))delete N[k];else N[k]=v;save();render(true)}
+function addDo(inp){const v=inp.value.trim().slice(0,30);if(!v)return;const L=data.extraDo=data.extraDo||[];
+  if(CATS.flatMap(x=>[x,...(x.subs||[])]).some(x=>x.label.toLowerCase()===v.toLowerCase())){toast('You already have that one');return}
+  L.push({k:'x'+uid().slice(0,6),label:v,tag:v,q:v.toLowerCase()});save();toast(`Added ${v}. Tag places as ${v} to see them there`);render(true)}
+function rmDo(k){data.extraDo=(data.extraDo||[]).filter(x=>x.k!==k);if(data.catNames)delete data.catNames[k];if(state.sub===k)state.sub=null;save();render(true)}
 function toggleCat(k,show){const h=new Set(data.hideCats||[]);if(show)h.delete(k);else h.add(k);data.hideCats=[...h];save();render(true)}
 const CAT_PREFS={breakfast:['Breakfast'],bakery:['Bakery'],lunch:['Lunch'],seafood:['Seafood','Rice'],tapas:['Tapas'],drinks:['Drinks'],dessert:['Dessert'],dinner:['Dinner']};
 function prefChips(c){const ci=PREF_CATS.indexOf(c),items=data.prefs[c]||[];
@@ -3314,13 +3327,14 @@ function screenPrefs(){
   const hdr=state.stack.at(-1)==='prefs'?subbar('Eat & Do'):topbar('Eat & Do');
   const eat=CATS.filter(c=>!c.subs),doC=CATS.find(c=>c.subs);
   const sw=(k)=>`<input type="checkbox" aria-label="Show on Home" ${catHidden(k)?'':'checked'} onchange="toggleCat('${k}',this.checked)">`;
-  return hdr+`<div class="pad"><p class="lead">Pick the tiles you want on Home, and add what you’re hunting for. Places that have it get a ♥ and move to the front, and Google suggestions and Claude check for it.</p>
+  return hdr+`<div class="pad"><p class="lead">Rename tiles, pick the ones you want on Home, and add what you’re hunting for. Places that have it get a ♥ and move to the front, and Google suggestions and Claude check for it.</p>
   ${sec('Every place')}<div class="pcard"><p class="small" style="margin:0">Checked wherever you go</p>${prefChips('Any venue')}${prefForm('Any venue')}</div>
   ${sec('Eat')}${eat.map(c=>{const pcs=CAT_PREFS[c.k]||[],main=pcs[0];
-    return `<div class="pcard ${catHidden(c.k)?'off':''}"><label class="srow" style="padding:0;border:0"><span style="font-size:17px;font-weight:700">${c.icon||''} ${esc(c.label)}</span>${sw(c.k)}</label>
+    return `<div class="pcard ${catHidden(c.k)?'off':''}"><div class="srow" style="padding:0;border:0;gap:8px"><span style="font-size:20px">${c.icon||''}</span><input class="field tname" value="${esc(c.label)}" aria-label="Tile name" onchange="renameCat('${c.k}',this.value)">${sw(c.k)}</div>
       ${catHidden(c.k)?`<p class="small" style="margin:4px 0 0">Hidden from Home</p>`:main?pcs.map(prefChips).join('')+prefForm(main):''}</div>`}).join('')}
-  ${doC?`${sec('Do')}<div class="pcard">${doC.subs.map((sb,i)=>`<label class="srow" ${i?'':'style="padding-top:0"'}><span>${esc(sb.label)}</span>${sw(sb.k)}</label>`).join('')}
-    <p class="small" style="margin:8px 0 0">Untick the ones you won’t use this trip. Untick them all to hide the Do row.</p></div>`:''}
+  ${doC?`${sec('Do')}<div class="pcard">${doC.subs.map((sb,i)=>`<div class="srow" style="gap:8px;${i?'':'padding-top:0'}"><input class="field tname" value="${esc(sb.label)}" aria-label="Tile name" onchange="renameCat('${sb.k}',this.value)">${sb.extra?`<button class="mini" onclick="rmDo('${sb.k}')" aria-label="Remove ${esc(sb.label)}">×</button>`:''}${sw(sb.k)}</div>`).join('')}
+    <form class="frow" onsubmit="event.preventDefault();addDo(this.d)"><input class="field" name="d" placeholder="Add one, e.g. Cycling, Yoga, Bowling" autocomplete="off"><button class="btn">Add</button></form>
+    <p class="small" style="margin:8px 0 0">Tap a name to rename it. Untick the ones you won’t use this trip, or untick them all to hide the Do row. New ones find places on Google, and you can tag your own places with them.</p></div>`:''}
   <p class="small" style="margin-top:6px">Favourites are checked against each place’s menu, your notes and its type. Google confirms general things like coffee, wine, vegetarian food and outdoor seating, but not specific items like pistachio croissants, so add those to a place’s menu when you find them.</p></div>`;
 }
 function addPref(ci,inp){const v=inp.value.trim();if(!v)return;const c=PREF_CATS[ci];(data.prefs[c]=data.prefs[c]||[]).push(v);save();toast(`Looking for ${v}`);render(true);document.getElementById('pref'+ci)?.focus()}
@@ -3852,7 +3866,7 @@ function renderTripBar(){let bar=document.getElementById('tripbar');if(!state.be
 function renderSync(){const el=document.getElementById('sync');if(el)el.textContent=state.sync}
 // re-render after background work, but never while someone is typing
 function renderSoft(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return renderSync();if(['billsetup','settings','spot','add','prefs'].includes(state.stack.at(-1))||String(state.stack.at(-1)).startsWith('relink'))return renderSync();if(state.tab==='map'&&!state.stack.length)return renderSync();render(true)}
-function render(keepScroll){
+function render(keepScroll){applyCats();
   const app=document.getElementById('app'), top=state.stack.at(-1);
   let html;
   if(top==='add') html=screenAdd();
