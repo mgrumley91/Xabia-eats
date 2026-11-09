@@ -336,6 +336,7 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .whenbtn{border:0;background:none;color:var(--accent-dark);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;padding:6px 0}
 .chipsA{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}
 .chipsA::-webkit-scrollbar{display:none}
+.pcard.off{opacity:.6}
 .rowlbl{flex:none;align-self:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:30px}
 .dorow{display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;margin:6px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}.dorow::-webkit-scrollbar{display:none}
 .dorow button{flex:none;border:0;background:none;padding:6px 8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:8px}.dorow button.on{background:var(--ink);color:#fff}
@@ -558,7 +559,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v113';
+const APP_VERSION='v114';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1050,10 +1051,12 @@ function screenToday(){
      <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)">
      ${nearRowHtml()}
      <p class="small" style="margin:6px 0 0">Distances from ${state.locating?'…finding you':esc(nearLbl())}. <button class="link" onclick="locate(true);setTimeout(()=>render(true),1500)">Update my location</button></p>
-     <label class="srow" style="padding:10px 0 4px;font-size:14px"><span>Only places rated 4★ and up</span><input type="checkbox" ${data.only4?'checked':''} onchange="data.only4=this.checked;save();render(true)"></label></div>`:''}
-    <div class="chipsA"><span class="rowlbl">Eat</span>${CATS.filter(c=>!c.subs).map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
-    ${(()=>{const pc=CATS.find(c=>c.subs);if(!pc)return '';const on=(cat.parent||cat.k)===pc.k;
-      return `<div class="dorow"><span class="rowlbl">Do</span>${[{k:'',label:'Any sport'},...pc.subs].map(sb=>`<button class="${on&&(state.sub||'')===sb.k?'on':''}" onclick="state.cat='${pc.k}';state.sub='${sb.k}'||null;state.showMore=false;state.showClosed=false;render(true)">${sb.label}</button>`).join('')}</div>`})()}
+     <label class="srow" style="padding:10px 0 4px;font-size:14px"><span>Only places rated 4★ and up</span><input type="checkbox" ${data.only4?'checked':''} onchange="data.only4=this.checked;save();render(true)"></label>
+     ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin:8px 0 0">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
+     <p class="small" style="margin:6px 0 2px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p></div>`:''}
+    <div class="chipsA"><span class="rowlbl">Eat</span>${CATS.filter(c=>!c.subs&&(!catHidden(c.k)||c.k===(cat.parent||cat.k))).map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    ${(()=>{const pc=CATS.find(c=>c.subs);if(!pc)return '';const on=(cat.parent||cat.k)===pc.k;const subs=pc.subs.filter(sb=>!catHidden(sb.k)||(on&&state.sub===sb.k));if(!subs.length)return '';
+      return `<div class="dorow"><span class="rowlbl">Do</span>${[...(subs.length>1?[{k:'',label:'Any sport'}]:[]),...subs].map(sb=>`<button class="${on&&(state.sub||'')===sb.k?'on':''}" onclick="state.cat='${pc.k}';state.sub='${sb.k}'||null;state.showMore=false;state.showClosed=false;render(true)">${sb.label}</button>`).join('')}</div>`})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
       <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
       <p class="small" style="margin-top:8px">Your friend gets it in ⚙ → Sync &amp; sharing → Send trip link. Starting your own trip instead? <button class="link" onclick="push('settings')">Add a Google key</button></p></div>`:''}
@@ -1066,9 +1069,6 @@ function screenToday(){
     ${claudeCardHtml()}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
     <div id="list"></div>
-    <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button></div>
-    ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
-    <p class="small" style="margin-top:14px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p>
     ${homePlanHtml()}
   </div></div>`;
 }
@@ -2298,7 +2298,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode','pastTrips'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode','pastTrips','hideCats'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -3300,14 +3300,25 @@ joinFromLink();
 window.addEventListener('hashchange',()=>{if(/#(join=|bills)/.test(location.hash)&&joinFromLink()!==undefined){state.stack=[];render();if(SB())pullBills()}});
 
 /* ---------- PREFS ---------- */
+// Eat & Do: which tiles show on Home, and what we're hunting for in each (e.g. almond croissants at bakeries)
+const catHidden=k=>(data.hideCats||[]).includes(k);
+function toggleCat(k,show){const h=new Set(data.hideCats||[]);if(show)h.delete(k);else h.add(k);data.hideCats=[...h];save();render(true)}
+const CAT_PREFS={breakfast:['Breakfast'],bakery:['Bakery'],lunch:['Lunch'],seafood:['Seafood','Rice'],tapas:['Tapas'],drinks:['Drinks'],dessert:['Dessert'],dinner:['Dinner']};
+function prefChips(c){const ci=PREF_CATS.indexOf(c),items=data.prefs[c]||[];
+  return `<div class="chips wrap" style="padding:0;margin-top:8px">${items.map((v,i)=>`<span class="chip x">${esc(v)}<button onclick="rmPref(${ci},${i})" aria-label="Remove ${esc(v)}">×</button></span>`).join('')}</div>`}
+function prefForm(c,ph){const ci=PREF_CATS.indexOf(c);return `<form class="frow" onsubmit="event.preventDefault();addPref(${ci},this.q)"><input class="field" name="q" id="pref${ci}" placeholder="${ph||'Add, e.g. '+PREF_HINT[c]}"><button class="btn">Add</button></form>`}
 function screenPrefs(){
-  const hdr=state.stack.at(-1)==='prefs'?subbar('Food preferences'):topbar('Food preferences');
-  return hdr+`<div class="pad"><p class="lead">What you’re hunting for. Places that match get a ♥ and move to the front.</p>
-  <div style="margin-top:18px">${PREF_CATS.map((c,ci)=>{const items=data.prefs[c]||[];const n=c==='Any venue'?'Checked at every place':`${data.places.filter(p=>p.tags.includes(c)).length} saved places`;
-   return `<div class="pcard"><h3><i>${PREF_ICON[c]}</i>${c}</h3><p class="small">${n}</p>
-     <div class="chips wrap">${items.map((v,i)=>`<span class="chip x">${esc(v)}<button onclick="rmPref(${ci},${i})" aria-label="Remove ${esc(v)}">×</button></span>`).join('')}</div>
-     <form class="frow" onsubmit="event.preventDefault();addPref(${ci},this.q)"><input class="field" name="q" id="pref${ci}" placeholder="Add, e.g. ${PREF_HINT[c]}"><button class="btn">Add</button></form></div>`}).join('')}</div>
-  <p class="small" style="margin-top:6px">Preferences are checked against each place’s menu list, your notes and its type. Google also confirms general things like coffee, breakfast, wine, cocktails, vegetarian food and outdoor seating. It doesn’t know specific items like pistachio croissants, so add those to a place’s menu when you find them.</p></div>`;
+  const hdr=state.stack.at(-1)==='prefs'?subbar('Eat & Do'):topbar('Eat & Do');
+  const eat=CATS.filter(c=>!c.subs),doC=CATS.find(c=>c.subs);
+  const sw=(k)=>`<input type="checkbox" aria-label="Show on Home" ${catHidden(k)?'':'checked'} onchange="toggleCat('${k}',this.checked)">`;
+  return hdr+`<div class="pad"><p class="lead">Pick the tiles you want on Home, and add what you’re hunting for. Places that have it get a ♥ and move to the front, and Google suggestions and Claude check for it.</p>
+  ${sec('Every place')}<div class="pcard"><p class="small" style="margin:0">Checked wherever you go</p>${prefChips('Any venue')}${prefForm('Any venue')}</div>
+  ${sec('Eat')}${eat.map(c=>{const pcs=CAT_PREFS[c.k]||[],main=pcs[0];
+    return `<div class="pcard ${catHidden(c.k)?'off':''}"><label class="srow" style="padding:0;border:0"><span style="font-size:17px;font-weight:700">${c.icon||''} ${esc(c.label)}</span>${sw(c.k)}</label>
+      ${catHidden(c.k)?`<p class="small" style="margin:4px 0 0">Hidden from Home</p>`:main?pcs.map(prefChips).join('')+prefForm(main):''}</div>`}).join('')}
+  ${doC?`${sec('Do')}<div class="pcard">${doC.subs.map((sb,i)=>`<label class="srow" ${i?'':'style="padding-top:0"'}><span>${esc(sb.label)}</span>${sw(sb.k)}</label>`).join('')}
+    <p class="small" style="margin:8px 0 0">Untick the ones you won’t use this trip. Untick them all to hide the Do row.</p></div>`:''}
+  <p class="small" style="margin-top:6px">Favourites are checked against each place’s menu, your notes and its type. Google confirms general things like coffee, wine, vegetarian food and outdoor seating, but not specific items like pistachio croissants, so add those to a place’s menu when you find them.</p></div>`;
 }
 function addPref(ci,inp){const v=inp.value.trim();if(!v)return;const c=PREF_CATS[ci];(data.prefs[c]=data.prefs[c]||[]).push(v);save();toast(`Looking for ${v}`);render(true);document.getElementById('pref'+ci)?.focus()}
 function rmPref(ci,i){data.prefs[PREF_CATS[ci]].splice(i,1);save();render(true)}
@@ -3607,12 +3618,12 @@ function screenTrip(){
     ${i>=2?`<button class="link danger" style="margin-top:8px" onclick="rmParty(${i})">Remove this group</button>`:''}
   </div>`).join('')}
   <button class="btn ghost block" onclick="addGroup()">＋ Add another family group</button>
-  ${sec('Food')}
+  ${sec('Eat & Do')}
   <div class="pcard">
-    <span class="lab" style="margin-top:0">Dietary needs</span>
+    <div class="srow" style="padding-top:0;cursor:pointer" onclick="push('prefs')"><span>Tiles and favourites<br><span class="small">${CATS.filter(c=>!c.subs&&!catHidden(c.k)).length} eat · ${(CATS.find(c=>c.subs)||{subs:[]}).subs.filter(x=>!catHidden(x.k)).length} do${PREF_CATS.some(c=>(data.prefs[c]||[]).length)?' · '+esc(PREF_CATS.flatMap(c=>data.prefs[c]||[]).filter((v,i,a)=>a.indexOf(v)===i).slice(0,3).join(', ')):''}</span></span><span class="small">Edit ›</span></div>
+    <span class="lab">Dietary needs</span>
     <div class="chips wrap" style="padding:0">${DIETS.map(d=>`<button class="chip ${(data.diet||[]).includes(d)?'on':''}" onclick="toggleDiet('${d}')">${d}</button>`).join('')}</div>
     <p class="small" style="margin-top:6px">Google suggestions skip places that don’t cater for these, and Claude sees them too.</p>
-    <div class="srow" style="margin-top:6px;cursor:pointer" onclick="push('prefs')"><span>Favourite things to order<br><span class="small">${esc(PREF_CATS.filter(c=>(data.prefs[c]||[]).length).map(c=>data.prefs[c].join(', ')).join(' · ')||'None yet')}</span></span><span class="small">Edit ›</span></div>
   </div>
   ${sec('Money')}
   <div class="pcard">
