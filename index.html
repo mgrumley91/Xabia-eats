@@ -554,7 +554,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v107';
+const APP_VERSION='v108';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -2294,7 +2294,7 @@ async function pushAll(){
   B.deleted=[];B.dirtyBill=false;B.dirtyMeals=false;localBills();
 }
 // Everything except this-device-only bits syncs through Supabase, so every screen and phone shows the same app
-const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode'];
+const APP_KEYS=['visits','key','places','spots','base','fromBase','prefs','plan','done','trip','holidays','splitNames','parties','fx','payIn','dayPlans','outings','activeOuting','travel','only4','discover','showPhotos','homes','diet','closed','claudeMode','pastTrips'];
 let appDirty=false, appT=null;
 function queueAppPush(){if(!SB())return;appDirty=true;clearTimeout(appT);appT=setTimeout(()=>pushApp().catch(()=>{}),1500)}
 // Three-way merge so phones combine their changes instead of overwriting each other.
@@ -3643,6 +3643,33 @@ function closeTripHtml(){if(ME()!=='us')return '';
       <button class="btn ghost block" style="margin-top:10px" onclick="reopenTrip()">Reopen the trip</button>`
     :`<p style="font-size:14px;margin:0">When the holiday’s over, close the trip so no more Google or Claude charges can happen on anyone’s phone. You can reopen it any time.</p>
       <button class="btn ${state.confirmClose?'':'ghost'} block" style="margin-top:10px;${state.confirmClose?'background:#b3412f;border-color:#b3412f':''}" onclick="closeTrip()">${state.confirmClose?'Tap again to close the trip':'Close the trip'}</button>`}</div>`}
+// New trip: file this trip under Previous trips, then clear bills and plans. Places, ratings and where we've been stay.
+function newTripHtml(){if(ME()!=='us')return '';
+  return `${sec('New trip')}<div class="pcard"><p style="font-size:14px;margin:0">Starting a new trip saves this one under Previous trips, then clears the bills, plans and saved trips for everyone. Your places, ratings, where you’ve been, food preferences and families stay.</p>
+    <button class="btn ${state.confirmNewTrip?'':'ghost'} block" style="margin-top:10px;${state.confirmNewTrip?'background:#b3412f;border-color:#b3412f':''}" onclick="startNewTrip()">${state.confirmNewTrip?'Tap again to start a new trip':'Start a new trip'}</button></div>`}
+function pastTripsHtml(){const L=data.pastTrips||[];if(!L.length)return '';
+  return `${sec('Previous trips',`${L.length}`)}<div class="list">${L.slice().reverse().map(t=>`<button class="row" onclick="push('past:${t.id}')"><span style="font-size:22px;width:34px;text-align:center">🧳</span><span class="grow" style="text-align:left"><b>${esc(t.name)}</b><br><span class="small">${t.meals.filter(m=>!m.settle).length} bills · ${(t.outings||[]).length} saved trips</span></span><span class="small">›</span></button>`).join('')}</div>`}
+function startNewTrip(){if(!state.confirmNewTrip){state.confirmNewTrip=true;render(true);setTimeout(()=>{state.confirmNewTrip=false},6000);return}
+  state.confirmNewTrip=false;
+  const strip=m=>{const c=JSON.parse(JSON.stringify(m));delete c.photo;delete c.hasPhoto;return c};
+  const name=(tripDates()||new Date(Math.min(...(B.meals.length?B.meals.map(m=>m.at):[Date.now()]))).toLocaleDateString('en-GB',{month:'long',year:'numeric'}))+' · Xàbia';
+  (data.pastTrips=data.pastTrips||[]).push({id:uid(),at:Date.now(),name,trip:{...data.trip},parties:JSON.parse(JSON.stringify(PT())),meals:B.meals.map(strip),outings:JSON.parse(JSON.stringify(data.outings||[])),plan:[...(data.plan||[])],dayPlans:JSON.parse(JSON.stringify(data.dayPlans||{}))});
+  B.deleted.push(...B.meals.map(m=>m.id));B.meals=[];clearClaims();B.bill=blankBill(B.bill.cur,B.bill.mode);B.bill.updated=Date.now();B.dirtyBill=true;B.dirtyMeals=true;
+  data.plan=[];data.done=[];data.dayPlans={};data.outings=[];data.activeOuting=null;data.trip={from:'',to:''};delete data.closed;gPromise=null;
+  B.suggest=null;try{localStorage.removeItem('xe.suggest')}catch(e){}if(SB())sbDelete('suggest').catch(()=>{});state.draftO=null;state.cc=[];
+  save();saveMeals();toast('New trip started. The last one is under Previous trips');state.stack=['settings','trip'];render()}
+function screenPast(id){const t=(data.pastTrips||[]).find(x=>x.id===id);if(!t)return subbar('Previous trip','pop()')+'<div class="pad"><p>Not found.</p></div>';
+  const M=t.meals.filter(m=>!m.settle),fam={};let total=0,unk=0;
+  M.forEach(m=>{if((m.cur||'€')!=='€')return;const sh=mealShares(m);if(!sh){unk++;return}for(const[k,v]of Object.entries(sh)){fam[k]=(fam[k]||0)+v;total+=v}});
+  const days=new Set(M.map(m=>new Date(m.at).toLocaleDateString('en-GB',{timeZone:TZ}))).size||1;
+  const day=m=>new Date(m.at).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'});
+  return subbar(esc(t.name),'pop()')+`<div class="pad">
+    <div class="pcard"><div class="bstats"><div><b>${M.filter(m=>!isShop(m)).length}</b><span>meals out</span></div><div><b>${bMoney(total)}</b><span>spent${unk?'*':''}</span></div><div><b>${bMoney(total/days)}</b><span>a day</span></div></div>
+      ${(t.parties||[]).filter(p=>fam[p.id]).map(p=>`<div class="srow"><span><i class="pdot" style="background:${pcol(p.id)}"></i> ${esc(p.name)}</span><b>${bMoney(fam[p.id])}</b></div>`).join('')}
+      ${unk?`<p class="small" style="margin:6px 0 0">* ${unk} bill${unk>1?'s':''} without a total aren’t counted.</p>`:''}</div>
+    ${sec('Bills',`${M.length}`)}<div class="list">${M.slice().reverse().map(m=>{const sh=mealShares(m),tot=sh?Object.values(sh).reduce((a,b)=>a+b,0):0;return `<div class="row"><span class="grow"><b>${esc(m.place)}</b><br><span class="small">${day(m)}</span></span><b>${tot?bMoney(tot):'–'}</b></div>`}).join('')}</div>
+    ${(t.outings||[]).length?`${sec('Saved trips',`${t.outings.length}`)}<div class="list">${t.outings.map(o=>`<div class="row"><span style="font-size:20px">${(MODES[o.mode]||MODES.walking).icon}</span><span class="grow"><b>${esc(o.title)}</b><br><span class="small">${o.stops.map(x=>esc(x.name)).join(' → ')}</span></span></div>`).join('')}</div>`:''}
+    <p class="small" style="margin-top:14px">Where you went and how you rated it stays with your places.</p></div>`}
 function closeTrip(){if(!state.confirmClose){state.confirmClose=true;render(true);setTimeout(()=>{state.confirmClose=false},6000);return}
   state.confirmClose=false;data.closed=Date.now();save();toast('Trip closed. Google and Claude are off');render(true)}
 function reopenTrip(){delete data.closed;save();gPromise=null;toast('Trip reopened');render(true)}
@@ -3688,6 +3715,8 @@ function screenSettings(){
         <p class="small" style="margin-top:6px">${SB()?'Kept on the server for the whole trip; phones and trip links never see it.':'Saved on this phone.'} Each bill costs well under a cent.</p></form>
     </details>
   </div>
+  ${pastTripsHtml()}
+  ${newTripHtml()}
   ${closeTripHtml()}
   ${sec('More')}
   <div class="pcard">
@@ -3790,6 +3819,7 @@ function render(keepScroll){
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
+  else if(top&&top.startsWith('past:')) html=screenPast(top.slice(5));
   else if(top&&top.startsWith('home:')) html=showHomes()?screenHome(top.slice(5)):subbar('Home','pop()');
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;

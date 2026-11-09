@@ -80,6 +80,9 @@ Work out what we want:
   context, logs cost in `ai_usage` (kind `claude`), and writes plans and picks to the `suggest` row itself (`by: 'claude-api'`).
 - `closed` in the app row (a timestamp) means the trip is closed: the app makes no Google calls, and the `gemini` and
   `claude` edge functions refuse to run. Don't write picks or drafts for a closed trip.
+- `pastTrips` in the app row holds earlier trips (Settings → Previous trips): name, dates, families, bills, saved trips
+  and plans as they were. Starting a new trip moves the current one there and clears bills, plans and outings; places,
+  ratings and `visits` (where we've been) stay. Use past trips to remember where we went and what we liked.
 
 ## Draft trips
 
