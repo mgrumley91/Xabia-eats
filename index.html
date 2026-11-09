@@ -562,7 +562,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v115';
+const APP_VERSION='v116';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -3638,10 +3638,10 @@ function screenTrip(){
   `)}
   ${fold('money','Money',FXR()?`€1 = £${FXR().toFixed(4)} · pay in ${(data.payIn||'£')==='£'?'pounds':'euros'}`:'Exchange rate and how you pay',`
   <div class="pcard">
-    <div class="srow" style="padding-top:0"><span>Exchange rate<br><span class="small">${r?`${data.fx.manual?'Your own rate':'European Central Bank, updates daily'}${data.fx.date&&!data.fx.manual?' · '+esc(fxDay(data.fx.date)):''}`:'Getting today’s rate…'}</span></span><b>${r?`€1 = £${r.toFixed(4)}`:''}</b></div>
+    <div class="srow" style="padding-top:0"><span>Exchange rate<br><span class="small">${r?`${data.fx.manual?'Your own rate, set by you':`Official rate${data.fx.date?' from '+esc(new Date(data.fx.date+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})):''}. A new one comes out each weekday afternoon and the app picks it up.`}`:'Getting today’s rate…'}</span></span><b>${r?`€1 = £${r.toFixed(4)}`:''}</b></div>
     <span class="lab">Pay each other in</span>
     <div class="seg2" style="margin-top:0"><button type="button" class="${(data.payIn||'£')==='£'?'on':''}" onclick="data.payIn='£';save();render(true)">Pounds £</button><button type="button" class="${data.payIn==='€'?'on':''}" onclick="data.payIn='€';save();render(true)">Euros €</button></div>
-    <details class="more"><summary>Use our own rate</summary>
+    <details class="more"><summary>Match your bank’s rate instead</summary>
       <p class="small" style="margin:6px 0">To match your bank exactly. Monzo showed £4.60 for €5.50, which is 0.836.</p>
       <div class="frow" style="margin-top:0"><input class="field" id="fxIn" inputmode="decimal" placeholder="Pounds per euro, e.g. 0.8360" value="${data.fx&&data.fx.manual?data.fx.rate:''}" autocomplete="off"><button class="btn" type="button" onclick="setFx()">Use</button></div>
       ${data.fx&&data.fx.manual?`<button class="btn ghost block" type="button" onclick="getFx(true).then(r=>{if(r){toast('Back to the daily rate');render(true)}})">Go back to the daily rate</button>`:''}</details>
