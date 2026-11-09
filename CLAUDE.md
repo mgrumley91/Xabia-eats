@@ -75,7 +75,7 @@ Plan, ask you for changes in the chat, and tap Save in the app when we're happy.
   also have `"time"`, e.g. `"10:30"`. Check opening hours for the day we're going.
 - When we ask for a change, write the whole updated draft again to the same `suggest` row (new `at`, all stops, in
   order). The app swaps in the new version straight away.
-- Don't add it to `outings` (Saved → Trips) yourself; we save it from the app. Only edit `outings` when we ask you to
+- Don't add it to `outings` (Places → Trips) yourself; we save it from the app. Only edit `outings` when we ask you to
   change a trip we've already saved (see below).
 - Afterwards, check the row saved and tell us: "Your draft is under Plan." If you can't write to Supabase in this
   chat, say so plainly instead of saying it's there.
@@ -101,7 +101,7 @@ set data = jsonb_set(
 where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
 ```
 
-Then tell us what changed. The app shows it on the trip page (Saved → Trips) and on Home if the trip is running.
+Then tell us what changed. The app shows it on the trip page (Places → Trips) and on Home if the trip is running.
 
 ## Review summaries ("Why ★ 3.7?")
 

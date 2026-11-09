@@ -546,7 +546,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v103';
+const APP_VERSION='v104';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1176,9 +1176,9 @@ function screenSaved(){
   const sv=state.savedView||'places', nt=OUT().length;
   const nh=HOMES().length, sh=showHomes(); if(!sh&&sv==='homes')state.savedView='places';
   const seg=`<div class="${sh?'seg3':'seg2'}" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button>${sh?`<button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button>`:''}</div>`;
-  if(sv==='homes'&&sh) return topbar('Saved')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
-  if(sv==='trips') return topbar('Saved')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
-  return topbar('Saved')+`<div class="pad">${seg}
+  if(sv==='homes'&&sh) return topbar('Places')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
+  if(sv==='trips') return topbar('Places')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
+  return topbar('Places')+`<div class="pad">${seg}
    <p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
    <button class="btn block" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">${I.plus} Add a place</button>
@@ -3241,7 +3241,7 @@ function draftTrip(){const cp=claudePicks(); if(!cp||!(cp.s.mode||cp.s.draft)) r
   return state.draftO}
 function saveDraft(start){const d=draftTrip(),cp=claudePicks();if(!d||!cp)return;
   const o={...d,id:uid(),at:Date.now()};delete o._at;OUT().push(o);lsSet('xe.sugDone',+cp.s.at);state.draftO=null;save();
-  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Saved → Trips')}}
+  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Places → Trips')}}
 function discardDraft(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);state.draftO=null;state.stack=state.stack.filter(x=>x!=='outing:draft');toast('Draft discarded');render(true)}
 function draftAsk(){const d=draftTrip();const q=`About the draft trip “${d?d.title:''}”: `;try{const r=navigator.clipboard&&navigator.clipboard.writeText(q);r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Copied. Paste it in Claude and say what to change')}
 function draftCardHtml(){const d=draftTrip();if(!d)return '';const m=MODES[d.mode]||MODES.walking;
@@ -3637,7 +3637,7 @@ function push(s){state.confirmDel=null;state.stack.push(s);render()}
 function pop(){state.confirmDel=null;state.stack.pop();render()}
 function openDetail(id){push('detail:'+id)}
 
-const TABS=[['today','Home',I.home],['saved','Saved',I.heart],['plan','Plan',I.route],['map','Map',I.map],['bills','Bills',I.receipt]];
+const TABS=[['today','Home',I.home],['saved','Places',I.heart],['plan','Plan',I.route],['map','Map',I.map],['bills','Bills',I.receipt]];
 function renderTabs(){
   const top=state.stack.at(-1), hide=top&&top.startsWith('detail:');
   document.getElementById('phone').classList.toggle('detail',!!hide);
