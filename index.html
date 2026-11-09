@@ -336,6 +336,10 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .whenbtn{border:0;background:none;color:var(--accent-dark);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;padding:6px 0}
 .chipsA{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}
 .chipsA::-webkit-scrollbar{display:none}
+.rowlbl{flex:none;align-self:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:30px}
+.dorow{display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;margin:6px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}.dorow::-webkit-scrollbar{display:none}
+.dorow button{flex:none;border:0;background:none;padding:6px 8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:8px}.dorow button.on{background:var(--ink);color:#fff}
+.when .nearrow{margin-top:10px}
 .chipsA button{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .chipsA button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .pickA{display:flex;gap:14px;align-items:center;padding:12px;border-radius:18px;background:var(--accent-soft);border:1.5px solid var(--accent);margin-top:14px;cursor:pointer;position:relative}
@@ -554,7 +558,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v111';
+const APP_VERSION='v112';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1038,15 +1042,17 @@ function screenToday(){
     <div class="sync" id="sync">${esc(state.sync)}</div>
     ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
     ${wxBarHtml()}
-    <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} ▾</button></div>
+    <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} · ${data.radius||3} km${data.only4?'':' · all'} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
      <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
      <span class="t" id="tm">${fmt(w.min)}</span>
      <button class="now ${isNow?'on':''}" onclick="state.when=null;state.showWhen=false;render(true)">Now</button></div>
-     <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)"></div>`:''}
-    <div class="chipsA">${CATS.map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
-    ${nearRowHtml()}
-    ${(()=>{const pc=CATS.find(c=>c.k===(cat.parent||cat.k));return pc&&pc.subs?`<div class="chips wrap" style="margin-top:8px">${[{k:'',label:'All '+pc.label.toLowerCase()},...pc.subs].map(sb=>`<button class="chip ${(state.sub||'')===sb.k?'on':''}" onclick="state.sub='${sb.k}'||null;state.showMore=false;render(true)">${sb.label}</button>`).join('')}</div>`:''})()}
+     <input type="range" id="timeSl" aria-label="Time" min="360" max="1500" step="15" value="${w.min<360?w.min+1440:w.min}" oninput="setWhen(null,+this.value%1440,true)">
+     ${nearRowHtml()}
+     <div class="nearrow"><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ Only 4.0 and up</button></div></div>`:''}
+    <div class="chipsA"><span class="rowlbl">Eat</span>${CATS.filter(c=>!c.subs).map(c=>`<button class="${c.k===(cat.parent||cat.k)?'on':''}" onclick="state.cat='${c.k}';state.sub=null;state.showMore=false;state.showClosed=false;render(true)">${CAT_SHORT[c.k]||c.label}</button>`).join('')}</div>
+    ${(()=>{const pc=CATS.find(c=>c.subs);if(!pc)return '';const on=(cat.parent||cat.k)===pc.k;
+      return `<div class="dorow"><span class="rowlbl">Do</span>${[{k:'',label:'Any sport'},...pc.subs].map(sb=>`<button class="${on&&(state.sub||'')===sb.k?'on':''}" onclick="state.cat='${pc.k}';state.sub='${sb.k}'||null;state.showMore=false;state.showClosed=false;render(true)">${sb.label}</button>`).join('')}</div>`})()}
     ${!data.key&&!SB()?`<div class="note"><b>Joining a friend’s trip?</b> Open the trip link they sent you, or paste it here. It brings in the map, places and bills, no setup needed.
       <form class="frow" onsubmit="event.preventDefault();pasteTrip(this.t.value)"><input class="field" name="t" id="homeTrip" placeholder="Paste trip link" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn">Join</button></form>
       <p class="small" style="margin-top:8px">Your friend gets it in ⚙ → Sync &amp; sharing → Send trip link. Starting your own trip instead? <button class="link" onclick="push('settings')">Add a Google key</button></p></div>`:''}
@@ -1059,7 +1065,7 @@ function screenToday(){
     ${claudeCardHtml()}
     <div id="discnote" class="small" style="text-align:center;margin-top:8px"></div>
     <div id="list"></div>
-    <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
+    <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button></div>
     ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
     <p class="small" style="margin-top:14px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p>
     ${homePlanHtml()}
@@ -2082,7 +2088,7 @@ function locate(force){
     err=>{state.locating=false;if(err.code===1&&!data.noLoc){data.noLoc=true;save()}if(force)toast(err.code===1?'Location is off for this app. Using your apartment instead':'Couldn’t get your location');refreshNear()},
     {enableHighAccuracy:!!force,timeout:9000,maximumAge:force?0:60000});
 }
-function nearRowHtml(){return `<div class="nearrow"><button class="chip" onclick="locate(true);refreshNear()">📍 ${state.locating?'Finding you…':'Near '+esc(nearLbl())}</button>${[1,3,10].map(r=>`<button class="chip ${(data.radius||3)===r?'on':''}" onclick="data.radius=${r};save();refreshNear()">${r} km</button>`).join('')}</div>`}
+function nearRowHtml(){return `<div class="nearrow"><button class="chip" onclick="locate(true);refreshNear()">📍 ${state.locating?'Finding you…':'Near '+esc(nearLbl())}</button>${[1,3,10].map(r=>`<button class="chip ${(data.radius||3)===r?'on':''}" onclick="data.radius=${r};save();render(true)">${r} km</button>`).join('')}</div>`}
 function refreshNear(){const r=document.querySelector('.nearrow');if(r)r.outerHTML=nearRowHtml();if(state.tab==='today'&&!state.stack.length)renderList()}
 const distKm=p=>p.lat==null||p.approx?null:km(origin(),p);
 function distTxt(p){const b=origin();if(!b||p.lat==null||p.approx)return '';const d=km(b,p);return d<1?`${Math.max(50,Math.round(d*1000/50)*50)} m`:`${d.toFixed(1)} km`}
