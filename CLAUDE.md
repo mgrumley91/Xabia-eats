@@ -73,6 +73,14 @@ Work out what we want:
   places, you can also send them as Claude's picks (above).
 - **A day out or a plan** (a ride, a route, "plan our Saturday"): make it a draft trip (below).
 
+## The Xàbia trip connector (everyone's own Claude)
+
+Each person can add the trip as a custom connector in their own Claude (Settings → Connectors → Add custom connector;
+the app gives the link under Settings → Claude). It's the `trip-mcp` edge function, with tools `get_trip`,
+`get_weather`, `get_spending`, `save_picks` and `save_plan`. The private code in the link is in `secrets` (name `mcp`).
+If you have the connector, use its tools rather than SQL. Ask Claude in the app opens claude.ai/new with the
+question filled in and asks Claude to use the connector.
+
 ## Built-in Claude and closing the trip
 
 - Settings → Claude has two modes. **Claude app** (`claudeMode` unset or `app`) opens this kind of chat. **Built in**
@@ -94,7 +102,7 @@ Your plan at the bottom of Home, ask you for changes in the chat, and tap Save i
   also have `"time"`, e.g. `"10:30"`. Check opening hours for the day we're going.
 - When we ask for a change, write the whole updated draft again to the same `suggest` row (new `at`, all stops, in
   order). The app swaps in the new version straight away.
-- Don't add it to `outings` (Places → Trips) yourself; we save it from the app. Only edit `outings` when we ask you to
+- Don't add it to `outings` (Plan → Trips) yourself; we save it from the app. Only edit `outings` when we ask you to
   change a trip we've already saved (see below).
 - Afterwards, check the row saved and tell us: "Your draft is under Your plan, at the bottom of Home." If you can't write to Supabase in this
   chat, say so plainly instead of saying it's there.
@@ -120,7 +128,7 @@ set data = jsonb_set(
 where trip = 'trip_0k3l3f1m5p511x1d0n1e471p1p515m' and id = 'app';
 ```
 
-Then tell us what changed. The app shows it on the trip page (Places → Trips) and on Home if the trip is running.
+Then tell us what changed. The app shows it on the trip page (Plan → Trips) and on Home if the trip is running.
 
 ## Review summaries ("Why ★ 3.7?")
 

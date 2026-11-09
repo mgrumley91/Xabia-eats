@@ -554,7 +554,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v108';
+const APP_VERSION='v109';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1033,7 +1033,7 @@ function screenToday(){
   locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key&&!data.closed?'<div id="recmap"></div>':data.closed?'<div class="nomap">The trip is closed, so the Google map is off.</div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>${data.claudeUrl||apiMode()?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude"><span aria-hidden="true">✦</span> Ask</button>`:''}`:data.claudeUrl||apiMode()?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>${!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude"><span aria-hidden="true">✦</span> Ask</button>`:''}`:!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
@@ -1185,11 +1185,11 @@ function screenSaved(){
   const q=state.q.toLowerCase();
   const nf=data.places.filter(p=>p.fav).length;
   const list=data.places.filter(p=>(!state.favOnly||p.fav)&&(!q||[p.name,p.area,p.type,p.tags.join(' '),(p.menu||[]).join(' '),p.note].join(' ').toLowerCase().includes(q))).sort((a,b)=>(!!b.fav-!!a.fav)||(ourRank(b)-ourRank(a))||a.name.localeCompare(b.name));
-  const sv=state.savedView||'places', nt=OUT().length;
+  if(state.savedView==='trips')state.savedView='places';
+  const sv=state.savedView||'places';
   const nh=HOMES().length, sh=showHomes(); if(!sh&&sv==='homes')state.savedView='places';
-  const seg=`<div class="${sh?'seg3':'seg2'}" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button><button class="${sv==='trips'?'on':''}" onclick="state.savedView='trips';render(true)">Trips${nt?' · '+nt:''}</button>${sh?`<button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button>`:''}</div>`;
+  const seg=!sh?'':`<div class="seg2" style="margin:0 0 14px"><button class="${sv==='places'?'on':''}" onclick="state.savedView='places';render(true)">Places · ${data.places.length}</button>${sh?`<button class="${sv==='homes'?'on':''}" onclick="state.savedView='homes';render(true)">Homes${nh?' · '+nh:''}</button>`:''}</div>`;
   if(sv==='homes'&&sh) return topbar('Places')+`<div class="pad">${seg}${savedHomesHtml()}</div>`;
-  if(sv==='trips') return topbar('Places')+`<div class="pad">${seg}${nt?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a route, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
   return topbar('Places')+`<div class="pad">${seg}
    <p class="lead">${data.places.length} places in Xàbia</p>
    <label class="search" style="cursor:text">${I.search}<input id="savedQ" placeholder="Search name, dish, area…" value="${esc(state.q)}" oninput="state.q=this.value;render(true)"></label>
@@ -1840,10 +1840,11 @@ function claudeSheet(kind,keep){const sh=document.getElementById('poi')||(()=>{c
     ${apiMode()?ccLogHtml():''}
     <label class="lab" for="csQ">${apiMode()&&(state.cc||[]).length?'Reply or ask something else':'Your question or plan'}</label>
     <textarea class="field" id="csQ" rows="3" placeholder="e.g. Where’s good for paella near here? or Plan us a bike ride with lunch by the sea" oninput="state.csQ=this.value">${esc(state.csQ||'')}</textarea>
-    ${apiMode()?ccButtonsHtml():`${u?`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
+    ${apiMode()?ccButtonsHtml():`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('claude',this)">Ask in Claude</a>
+      <p class="small" style="margin:4px 0 0">Opens a new chat in your own Claude with everything filled in, just tap send. It reads the trip and saves plans back through the Xàbia trip connector${state.mcpOK?'':` (<button class="link" onclick="document.getElementById('poi').hidden=true;push('settings');setTimeout(()=>document.getElementById('mcpCard')?.scrollIntoView({block:'center'}),120)">set it up</button>)`}.</p>
+      ${u?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
       <p class="small" style="margin:4px 0 0">Copies everything. Paste it in your chat and send.</p>`:''}
-    <a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:10px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('new',this)">New Claude chat, ready to send</a>
-    <p class="small" style="margin:4px 0 0">Opens a fresh Claude Code chat on the app’s project with everything filled in: just tap send. It won’t remember your earlier chat, but it knows the trip.</p>`}</div>`;
+    ${ME()==='us'?`<a class="link" style="display:block;text-align:center;margin-top:10px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('new',this)">Or in Claude Code on the app’s project</a>`:''}`}</div>`;
   if(apiMode()){const t=document.getElementById('ccLog');if(t)t.scrollTop=1e6}
   if(kind==='ask'&&!keep)setTimeout(()=>document.getElementById('csQ')?.focus(),60)}
 // Built-in Claude (Settings → Claude → Built in): asks go to the 'claude' edge function, which holds the Anthropic key
@@ -1887,15 +1888,16 @@ function claudeText(){const kind=state.csKind,st=stayFor(),h=state.here,w=state.
   else if(w==='stay'&&st){from='from '+locTxt(st.name,st.lat,st.lng);ctx=`I’m at ${st.name} (${st.lat.toFixed(5)}, ${st.lng.toFixed(5)})`}
   else if(w==='else'&&(state.csElse||'').trim()){from='from '+state.csElse.trim()+' in Xàbia';ctx=`I’m at ${state.csElse.trim()}, Xàbia`}
   const now=new Date().toLocaleString('en-GB',{timeZone:TZ,weekday:'long',hour:'2-digit',minute:'2-digit'});
-  return `${q}\n\n(${ctx||'We’re in Xàbia'}. It’s ${now}.${wxForClaude()} Use the places and info in our Xàbia Guide app. If I’m asking for a day out or a plan, put it in the app as a draft trip I can review (see “Draft trips” in the repo’s CLAUDE.md); if it’s a quick question, like where to eat, just answer.)`;}
+  return `${q}\n\n(${ctx||'We’re in Xàbia'}. It’s ${now}.${wxForClaude()} Use the Xàbia trip connector: get_trip for our places and trip, get_weather if the weather matters. If I’m asking for a day out or a plan, save it with save_plan as a draft I can review; if it’s where to go or eat, answer and put the places on our map with save_picks; if it’s a quick question, just answer.)`;}
 function claudeGo(how,a){const kind=state.csKind;
   if(kind==='ask'&&!(state.csQ||'').trim()){toast('Type your question first');document.getElementById('csQ')?.focus();return false}
   if(state.csFrom==='here'&&!(state.here&&Date.now()-(state.here.at||0)<6e5)&&state.csLoc==='busy'){toast('Still finding you… one second');return false}
   const txt=claudeText();
   try{const r=navigator.clipboard&&navigator.clipboard.writeText(txt);r&&r.catch&&r.catch(()=>{})}catch(e){}
   if(how==='new'&&a)a.href='https://claude.ai/code/new?repo=mgrumley91%2FXabia-eats&q='+encodeURIComponent(txt);
+  if(how==='claude'&&a)a.href='https://claude.ai/new?q='+encodeURIComponent(txt);
   document.getElementById('poi').hidden=true;state.csQ='';
-  toast(how==='new'?'Opening Claude with it filled in':'Copied. Paste it in Claude and send');return true}
+  toast(how==='chat'?'Copied. Paste it in Claude and send':'Opening Claude with it filled in. It’s copied too');return true}
 function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
 // The plan now lives at the bottom of Home: a summary of today and the whole trip that opens the Plan page
 function openPlan(v){state.planView=v;push('plan')}
@@ -1907,17 +1909,14 @@ function homePlanHtml(){
     <button class="hpcard" onclick="openPlan('today')"><span class="hprow"><b>Today${tIds.length?` · ${tIds.length} stop${tIds.length>1?'s':''}`:''}</b><span class="small">${esc(pretty(todayKey()))} ›</span></span>
       ${stops.length?stops.map((p,i)=>{const st=status(p),d=done.includes(p.id);return `<span class="hpstop ${d?'done':''}"><i>${d?'✓':i+1}</i><span>${esc(p.name)}</span><em class="s-${st.s}">${esc(st.txt)}</em></span>`}).join('')+(tIds.length>4?`<span class="small">+${tIds.length-4} more</span>`:'')
         :`<span class="small">Nothing planned for today yet. Add stops from any place, or ask Claude above.</span>`}</button>
-    ${OUT().length?`<div class="hpcard" style="cursor:default"><span class="hprow"><b>Saved trips · ${OUT().length}</b><button class="link" onclick="state.savedView='trips';go('saved')">All ›</button></span>
-      ${OUT().slice().reverse().sort((a,b)=>(data.activeOuting&&data.activeOuting.id===b.id)-(data.activeOuting&&data.activeOuting.id===a.id)).slice(0,3).map(o=>{const m=MODES[o.mode]||MODES.walking,act=data.activeOuting&&data.activeOuting.id===o.id;
-        return `<button class="hptrip" onclick="push('outing:${o.id}')"><span aria-hidden="true">${m.icon}</span><span class="grow"><b>${esc(o.title)}</b><span class="small">${act?'On now · ':''}${o.stops.length} stop${o.stops.length===1?'':'s'}</span></span><span class="small">›</span></button>`}).join('')}</div>`:''}
-    <button class="hpcard" onclick="openPlan('trip')"><span class="hprow"><b>Whole trip${trip.length?` · ${trip.length} place${trip.length>1?'s':''}`:''}</b><span class="small">›</span></span>
-      <span class="small">${trip.length?esc(trip.slice(0,3).map(p=>p.name).join(', '))+(trip.length>3?'…':''):'Tap the bookmark on any place to add it.'}</span></button>
   </div>`}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
   const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
   const head=state.stack.at(-1)==='plan'?subbar('Plan','pop()'):topbar('Plan');
-  const tabs=`<div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>`;
+  const nO=OUT().length;
+  const tabs=`<div class="seg3" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button><button class="${v==='trips'?'on':''}" onclick="state.planView='trips';render(true)">Trips${nO?' · '+nO:''}</button></div>`;
+  if(v==='trips') return head+`<div class="pad">${tabs}${draftCardHtml()}${nO?savedTripsHtml().replace(/<div class="sec">[\s\S]*?<\/div>/,''):`<div class="empty">No saved trips yet. When Claude plans a day out, tap <b>Save for later</b> and it appears here.</div>`}</div>`;
   return head+`<div class="pad">
    ${tabs}
    ${draftCardHtml()}
@@ -3336,7 +3335,7 @@ function draftTrip(){const cp=claudePicks(); if(!cp||!(cp.s.mode||cp.s.draft)) r
   return state.draftO}
 function saveDraft(start){const d=draftTrip(),cp=claudePicks();if(!d||!cp)return;
   const o={...d,id:uid(),at:Date.now()};delete o._at;OUT().push(o);lsSet('xe.sugDone',+cp.s.at);state.draftO=null;save();
-  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Places → Trips')}}
+  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Plan → Trips')}}
 function discardDraft(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);state.draftO=null;state.stack=state.stack.filter(x=>x!=='outing:draft');toast('Draft discarded');render(true)}
 function draftAsk(){const d=draftTrip();const q=`About the draft trip “${d?d.title:''}”: `;try{const r=navigator.clipboard&&navigator.clipboard.writeText(q);r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Copied. Paste it in Claude and say what to change')}
 function draftCardHtml(){const d=draftTrip();if(!d)return '';const m=MODES[d.mode]||MODES.walking;
@@ -3349,7 +3348,7 @@ function outingFromSuggest(s){
 function saveTripFromPicks(start){
   const cp=claudePicks(); if(!cp) return; const o=outingFromSuggest(cp.s); OUT().push(o);
   lsSet('xe.sugDone',+cp.s.at); save();
-  if(start) startOuting(o.id); else {toast('Saved. Find it in Places → Trips');render(true)}
+  if(start) startOuting(o.id); else {toast('Saved. Find it in Plan → Trips');render(true)}
 }
 const stopsWithPos=o=>o.stops.filter(x=>x.lat!=null&&x.lng!=null);
 // Real roads and paths from OpenStreetMap's routing service (free, no key); saved with the trip
@@ -3623,6 +3622,26 @@ function screenTrip(){
   </div>`;
 }
 
+// The Xàbia trip connector: each person adds this link once in their own Claude (Settings → Connectors → Add custom connector)
+const MCP_BASE=()=>SB()?SB().url.replace(/\/$/,'')+'/functions/v1/trip-mcp':'';
+async function mcpLink(action){if(!SB()){toast('Turn on sharing first');return}state.mcpBusy=true;render(true);
+  try{const r=await fetch(MCP_BASE(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:action||'link'})});const j=await r.json();
+    if(!r.ok)throw new Error(j.error&&j.error.message||r.status);state.mcpUrl=j.code?MCP_BASE()+'/'+j.code:'';if(action==='reset')toast('New link made. The old one has stopped working')}
+  catch(e){toast('Couldn’t get the link: '+e.message)}state.mcpBusy=false;render(true)}
+function mcpCopy(){const u=state.mcpUrl;if(!u)return;try{navigator.clipboard.writeText(u)}catch(e){}state.mcpOK=true;try{localStorage.setItem('xe.mcpOK','1')}catch(e){}toast('Link copied')}
+async function mcpShare(){const u=state.mcpUrl;if(!u)return;const t=`Xàbia trip connector for Claude. In the Claude app: Settings → Connectors → Add custom connector. Name: Xàbia trip. URL:\n${u}`;
+  if(navigator.share){try{await navigator.share({title:'Xàbia trip connector',text:t});return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{navigator.clipboard.writeText(t)}catch(e){}toast('Copied. Paste it in a message')}
+function mcpCardHtml(){if(!SB())return `<div class="pcard"><p class="small" style="margin:0">Turn on sharing to get the Xàbia trip connector for Claude.</p></div>`;
+  const u=state.mcpUrl;
+  return `<div class="pcard" id="mcpCard"><b style="font-size:16px">Xàbia trip connector</b>
+    <p style="font-size:14px;margin:6px 0 0">Lets anyone’s own Claude read the trip (places, ratings, who’s here, weather, spending) and send picks and draft days out back to the app.</p>
+    ${u?`<input class="field" readonly value="${esc(u)}" onclick="this.select()" style="margin-top:10px;font-size:13px">
+      <div class="frow"><button class="btn" onclick="mcpCopy()">Copy link</button><button class="btn ghost" onclick="mcpShare()">Send to the others</button></div>
+      <ol class="small" style="margin:10px 0 0;padding-left:18px;line-height:1.5"><li>In the Claude app, open Settings → Connectors.</li><li>Tap <b>Add custom connector</b>. Name it <b>Xàbia trip</b> and paste the link.</li><li>In a chat, make sure it’s switched on under the ＋ menu (tools).</li></ol>
+      <p class="small" style="margin:8px 0 0">Anyone with the link can read the trip and add picks, like the trip link. ${ME()==='us'?`<button class="link" onclick="mcpLink('reset')">Make a new link</button> if it gets shared by mistake.`:''}</p>`
+    :`<button class="btn block" style="margin-top:10px" ${state.mcpBusy?'disabled':''} onclick="mcpLink()">${state.mcpBusy?'Getting the link…':'Get the connector link'}</button>`}</div>`}
+try{state.mcpOK=localStorage.getItem('xe.mcpOK')==='1'}catch(e){}
 function claudeApiHtml(){if(!state.ccSt&&SB()&&!state.ccStBusy){state.ccStBusy=true;fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'status'})}).then(r=>r.json()).then(j=>{state.ccSt=j}).catch(()=>{state.ccSt={err:1}}).finally(()=>{state.ccStBusy=false;if(state.stack.at(-1)==='settings')render(true)});
     fetch(SB().url.replace(/\/$/,'')+'/functions/v1/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip:SB().trip,action:'usage'})}).then(r=>r.json()).then(j=>{state.ccU=j;if(state.stack.at(-1)==='settings')render(true)}).catch(()=>{})}
   const st=state.ccSt||{},u=state.ccU;
@@ -3691,8 +3710,9 @@ function screenSettings(){
     ${SB()?'':`<button class="btn ghost block" onclick="push('billsetup')">Connect or set up sharing</button>`}
   </div>
   ${sec('Claude')}
-  <div class="seg2" style="margin:0 0 10px"><button class="${data.claudeMode!=='api'?'on':''}" onclick="data.claudeMode='app';save();render(true)">Claude app</button><button class="${data.claudeMode==='api'?'on':''}" onclick="${SB()?"data.claudeMode='api';save();render(true)":"toast('Turn on sharing first')"}">Built in</button></div>
-  ${data.claudeMode==='api'?claudeApiHtml():`<p class="small" style="margin:0 0 8px">Ask Claude opens your Claude app with the question filled in. Best when it’s just you two.</p>
+  <div class="seg2" style="margin:0 0 10px"><button class="${data.claudeMode!=='api'?'on':''}" onclick="data.claudeMode='app';save();render(true)">Everyone’s own Claude</button><button class="${data.claudeMode==='api'?'on':''}" onclick="${SB()?"data.claudeMode='api';save();render(true)":"toast('Turn on sharing first')"}">Built in (API)</button></div>
+  ${data.claudeMode==='api'?claudeApiHtml():`<p class="small" style="margin:0 0 8px">Ask Claude opens each person’s own Claude with the question filled in. Free on your Claude plans.</p>
+  ${mcpCardHtml()}
   <form class="pcard" onsubmit="event.preventDefault();saveClaude(this.c.value)">
     <p style="font-size:14px;margin:0">Your Xàbia chat in Claude can read the trip, put picks on the map, plan routes and add Instagram accounts. Its link is only saved on this phone.</p>
     <div class="frow"><input class="field" id="claudeUrl" name="c" placeholder="https://claude.ai/project/…" value="${esc(data.claudeUrl||'')}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Link to your Claude project"><button class="btn">Save</button></div>
