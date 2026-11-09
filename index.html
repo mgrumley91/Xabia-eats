@@ -554,7 +554,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v110';
+const APP_VERSION='v111';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1842,9 +1842,7 @@ function claudeSheet(kind,keep){const sh=document.getElementById('poi')||(()=>{c
     <textarea class="field" id="csQ" rows="3" placeholder="e.g. Where’s good for paella near here? or Plan us a bike ride with lunch by the sea" oninput="state.csQ=this.value">${esc(state.csQ||'')}</textarea>
     ${apiMode()?ccButtonsHtml():`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('claude',this)">Ask in Claude</a>
       <p class="small" style="margin:4px 0 0">Opens a new chat in your own Claude with everything filled in, just tap send. It reads the trip and saves plans back through the Xàbia trip connector${state.mcpOK?'':` (<button class="link" onclick="document.getElementById('poi').hidden=true;push('settings');setTimeout(()=>document.getElementById('mcpCard')?.scrollIntoView({block:'center'}),120)">set it up</button>)`}.</p>
-      ${u?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
-      <p class="small" style="margin:4px 0 0">Copies everything. Paste it in your chat and send.</p>`:''}
-    ${ME()==='us'?`<a class="link" style="display:block;text-align:center;margin-top:10px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('new',this)">Or in Claude Code on the app’s project</a>`:''}`}</div>`;
+`}</div>`;
   if(apiMode()){const t=document.getElementById('ccLog');if(t)t.scrollTop=1e6}
   if(kind==='ask'&&!keep)setTimeout(()=>document.getElementById('csQ')?.focus(),60)}
 // Built-in Claude (Settings → Claude → Built in): asks go to the 'claude' edge function, which holds the Anthropic key
