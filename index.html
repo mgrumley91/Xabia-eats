@@ -270,6 +270,11 @@ li.gitem .amt{flex:none;font-weight:700;font-variant-numeric:tabular-nums;font-s
 .wxarr{display:inline-block;font-size:13px;width:14px;text-align:center}.wxw{display:flex;align-items:center;gap:3px;white-space:nowrap}.wxw i{margin-left:2px}.wxday .small{margin:4px 0 0!important;display:block}
 .bsum{margin-top:12px}.bstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 6px}.bstats div{background:var(--bg);border-radius:12px;padding:10px 8px;display:flex;flex-direction:column}.bstats b{font-size:19px;font-variant-numeric:tabular-nums}.bstats span{font-size:12px;color:var(--muted)}
 .bfam .small{display:block;margin:3px 0 0!important}.bsum p.small{margin:8px 0 0!important}.wxb.fam{height:7px}.bsum .lab{margin-top:12px}
+.hplan{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}.hplanh{display:flex;align-items:baseline;justify-content:space-between}.hplanh h2{margin:0;font-size:22px}
+.hpcard{display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;font:inherit;color:var(--ink);cursor:pointer}
+.hpcard .small{margin:0!important}.hprow{display:flex;align-items:center;justify-content:space-between;gap:8px}.hprow b{font-size:17px}
+.hpstop{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}.hpstop i{font-style:normal;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;flex:none}
+.hpstop span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hpstop em{font-style:normal;font-size:12.5px;margin-left:auto;white-space:nowrap;font-weight:500;color:var(--muted)}.hpstop em.s-open{color:var(--open);font-weight:700}.hpstop em.s-closed{color:#b3412f}.hpstop em.s-soon{color:#b4532a}.hpstop.done span{text-decoration:line-through;opacity:.6}.hpstop.done i{background:#9aa3ad}
 .csopt{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;margin-top:8px;text-decoration:none;color:inherit;background:var(--card);width:100%;font:inherit;text-align:left;cursor:pointer}.csopt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.csradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}.csopt.on .csradio{border:6px solid var(--accent)}.csopt .ic{font-size:22px}.csopt .grow{display:flex;flex-direction:column}.csopt.off{opacity:.55}.csopt .small{margin:2px 0 0!important;display:block}
 .clrate{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .clprev .clph{position:relative;margin:-16px -16px 0;height:180px;border-radius:20px 20px 0 0;overflow:hidden}.clprev .clph img{width:100%;height:100%;object-fit:cover}.clprev .clph .mini{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9)}
@@ -525,7 +530,7 @@ select.field{appearance:auto}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:13px;color:var(--muted);margin-top:10px}
 
 /* bottom bar */
-.tabs{position:fixed;left:0;right:0;margin:0 auto;bottom:0;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);align-items:end;padding:8px max(6px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));z-index:5}
+.tabs{position:fixed;left:0;right:0;margin:0 auto;bottom:0;max-width:480px;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);align-items:end;padding:8px max(6px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));z-index:5}
 .tab{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;position:relative}
 .tab svg{width:23px;height:23px}
 .tab.on{color:var(--accent)}
@@ -548,7 +553,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v105';
+const APP_VERSION='v106';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1054,6 +1059,7 @@ function screenToday(){
     <div class="smallrow"><button class="chip" onclick="state.addResults=null;state.addMsg='';state.lastQ='';push('add')">＋ Add a place</button><button class="chip ${data.only4?'on':''}" onclick="data.only4=!data.only4;save();render(true)">★ 4.0 and up</button></div>
     ${data.key&&data.discover&&data.disc[cat.k]?`<p class="small" style="margin-top:10px">Google suggestions from ${new Date(data.disc[cat.k].at).toLocaleDateString('en-GB',{timeZone:TZ,day:'numeric',month:'short'})} · <button class="link" style="padding:0;font-size:12px" onclick="discover(catOf(),true)">Search again</button></p>`:''}
     <p class="small" style="margin-top:14px">Times are Xàbia time. Your favourites come first, then the nearest places rated 4★ or more.</p>
+    ${homePlanHtml()}
   </div></div>`;
 }
 function renderDiscNote(){const el=document.getElementById('discnote');if(el)el.textContent=state.discBusy?`Looking on Google for top-rated ${catOf().label.toLowerCase()}…`:''}
@@ -1809,7 +1815,7 @@ const planView=()=>state.planView||(TPr().ids.length||!data.plan.length?'today':
 const PLIST=v=>(v==='today'?TPr().ids:data.plan).filter(byId), PDONE=v=>v==='today'?TPr().done:data.done;
 const nRev=n=>n>=1000?(n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'k':String(n);
 const PLAN_ASK=(v,from)=>(v==='today'?`Help me plan today in Xàbia using the places in our app, starting ${from||'from where we’re staying'} (check what’s open now and how far things are).`:`Help me plan a day out in Xàbia using the places in our app, starting ${from||'from where we’re staying'} (check opening hours for the day we pick).`)
-  +' Put your plan in the app as a draft trip (see “Draft trips” in the repo’s CLAUDE.md) so I can review it under Plan. When I ask for changes, update the same draft. Don’t save it as a trip: I’ll save it in the app when I’m happy.';
+  +' Put your plan in the app as a draft trip (see “Draft trips” in the repo’s CLAUDE.md) so I can review it under Your plan on Home. When I ask for changes, update the same draft. Don’t save it as a trip: I’ll save it in the app when I’m happy.';
 // Before opening Claude, ask where to start from and pass that location on (copied with the request)
 function stayFor(){const P=PT().find(p=>p.id===ME());return (P&&P.stay&&data.spots.find(x=>x.id===P.stay))||baseSpot()||data.spots.find(x=>x.kind==='home')}
 const locTxt=(lbl,lat,lng)=>`${lbl} (${lat.toFixed(5)}, ${lng.toFixed(5)}, near ${areaFor(lat,lng)}; https://maps.google.com/?q=${lat.toFixed(5)},${lng.toFixed(5)})`;
@@ -1819,16 +1825,16 @@ function claudeSheet(kind,keep){const sh=document.getElementById('poi')||(()=>{c
   const fresh=state.here&&Date.now()-(state.here.at||0)<6e5;
   if(!fresh&&navigator.geolocation&&state.csLoc!=='busy'){state.csLoc='busy';navigator.geolocation.getCurrentPosition(pos=>{state.here={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now()};state.csLoc='';updateYou();if(!sh.hidden)claudeSheet(kind,true)},()=>{state.csLoc='no';if(!sh.hidden)claudeSheet(kind,true)},{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
   const st=stayFor(),h=fresh?state.here:null,u=esc(data.claudeUrl||''),f=state.csFrom;
-  const title=kind==='ask'?'Ask Claude':kind==='today'?'Plan today with Claude':'Plan a day out with Claude';
+  const title='Ask Claude';
   const opt=(id,ic,l,sub)=>`<button class="csopt ${f===id?'on':''}" onclick="csPick('${id}')"><span class="ic">${ic}</span><span class="grow"><b>${l}</b><span class="small">${sub}</span></span><span class="csradio" aria-hidden="true"></span></button>`;
   sh.innerHTML=`<div class="pcard"><div class="srow" style="padding-top:0"><b style="font-size:18px">✦ ${title}</b><button class="mini" onclick="document.getElementById('poi').hidden=true" aria-label="Close">×</button></div>
-    <span class="lab" style="margin-top:4px">${kind==='ask'?'Where are you?':'Start from'}</span>
+    <span class="lab" style="margin-top:4px">Where are you?</span>
     ${opt('here','📍','Where I am now',h?`Near ${esc(areaFor(h.lat,h.lng))}${st&&st.lat!=null?` · ${(d=>d<1?Math.round(d*1000/50)*50+' m':d.toFixed(1)+' km')(km(h,st))} from ${esc(st.name)}`:''}`:state.csLoc==='no'?'Location is off for this app':'Finding you…')}
     ${st&&st.lat!=null?opt('stay','🏠',esc(st.name),'Where we’re staying'):''}
     ${opt('else','✏️','Somewhere else',f==='else'?'':'Type a place')}
     ${f==='else'?`<input class="field" id="csElse" style="margin-top:6px" placeholder="e.g. the port, Cala Blanca" value="${esc(state.csElse||'')}" oninput="state.csElse=this.value" autocomplete="off">`:''}
-    <label class="lab" for="csQ">${kind==='ask'?'Your question':'Anything else? (optional)'}</label>
-    <textarea class="field" id="csQ" rows="3" placeholder="${kind==='ask'?'e.g. Where can we get a good paella for lunch near here?':'e.g. lunch by the sea, back by 5, something for Zach'}" oninput="state.csQ=this.value">${esc(state.csQ||'')}</textarea>
+    <label class="lab" for="csQ">Your question or plan</label>
+    <textarea class="field" id="csQ" rows="3" placeholder="e.g. Where’s good for paella near here? or Plan us a bike ride with lunch by the sea" oninput="state.csQ=this.value">${esc(state.csQ||'')}</textarea>
     ${u?`<a class="btn block" style="text-decoration:none;text-align:center;margin-top:12px" href="${u}" target="_blank" rel="noopener" onclick="return claudeGo('chat')">Open my Xàbia chat</a>
       <p class="small" style="margin:4px 0 0">Copies everything. Paste it in your chat and send.</p>`:''}
     <a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:10px" href="#" target="_blank" rel="noopener" onclick="return claudeGo('new',this)">New Claude chat, ready to send</a>
@@ -1840,8 +1846,7 @@ function claudeText(){const kind=state.csKind,st=stayFor(),h=state.here,w=state.
   else if(w==='stay'&&st){from='from '+locTxt(st.name,st.lat,st.lng);ctx=`I’m at ${st.name} (${st.lat.toFixed(5)}, ${st.lng.toFixed(5)})`}
   else if(w==='else'&&(state.csElse||'').trim()){from='from '+state.csElse.trim()+' in Xàbia';ctx=`I’m at ${state.csElse.trim()}, Xàbia`}
   const now=new Date().toLocaleString('en-GB',{timeZone:TZ,weekday:'long',hour:'2-digit',minute:'2-digit'});
-  if(kind==='ask')return `${q}\n\n(${ctx||'We’re in Xàbia'}. It’s ${now}. Use the places and info in our Xàbia Guide app.)`;
-  return PLAN_ASK(kind,from)+(q?` Also: ${q}`:'')+` It’s ${now} now.`+wxForClaude()}
+  return `${q}\n\n(${ctx||'We’re in Xàbia'}. It’s ${now}.${wxForClaude()} Use the places and info in our Xàbia Guide app. If I’m asking for a day out or a plan, put it in the app as a draft trip I can review (see “Draft trips” in the repo’s CLAUDE.md); if it’s a quick question, like where to eat, just answer.)`;}
 function claudeGo(how,a){const kind=state.csKind;
   if(kind==='ask'&&!(state.csQ||'').trim()){toast('Type your question first');document.getElementById('csQ')?.focus();return false}
   if(state.csFrom==='here'&&!(state.here&&Date.now()-(state.here.at||0)<6e5)&&state.csLoc==='busy'){toast('Still finding you… one second');return false}
@@ -1851,16 +1856,27 @@ function claudeGo(how,a){const kind=state.csKind;
   document.getElementById('poi').hidden=true;state.csQ='';
   toast(how==='new'?'Opening Claude with it filled in':'Copied. Paste it in Claude and send');return true}
 function planClaude(v){try{const r=navigator.clipboard&&navigator.clipboard.writeText(PLAN_ASK(v));r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Request copied. Paste it in Claude')}
+// The plan now lives at the bottom of Home: a summary of today and the whole trip that opens the Plan page
+function openPlan(v){state.planView=v;push('plan')}
+function homePlanHtml(){
+  const tIds=TPr().ids.filter(byId),done=TPr().done||[],trip=data.plan.filter(byId).map(byId);
+  const stops=tIds.map(byId).slice(0,4);
+  return `<div class="hplan"><div class="hplanh"><h2>Your plan</h2><button class="link" onclick="openPlan('today')">Open ›</button></div>
+    ${draftCardHtml()}
+    <button class="hpcard" onclick="openPlan('today')"><span class="hprow"><b>Today${tIds.length?` · ${tIds.length} stop${tIds.length>1?'s':''}`:''}</b><span class="small">${esc(pretty(todayKey()))} ›</span></span>
+      ${stops.length?stops.map((p,i)=>{const st=status(p),d=done.includes(p.id);return `<span class="hpstop ${d?'done':''}"><i>${d?'✓':i+1}</i><span>${esc(p.name)}</span><em class="s-${st.s}">${esc(st.txt)}</em></span>`}).join('')+(tIds.length>4?`<span class="small">+${tIds.length-4} more</span>`:'')
+        :`<span class="small">Nothing planned for today yet. Add stops from any place, or ask Claude above.</span>`}</button>
+    <button class="hpcard" onclick="openPlan('trip')"><span class="hprow"><b>Whole trip${trip.length?` · ${trip.length} place${trip.length>1?'s':''}`:''}</b><span class="small">›</span></span>
+      <span class="small">${trip.length?esc(trip.slice(0,3).map(p=>p.name).join(', '))+(trip.length>3?'…':''):'Tap the bookmark on any place to add it.'}</span></button>
+  </div>`}
 function screenPlan(){
   const v=planView(), ids=PLIST(v), done=PDONE(v), plan=ids.map(byId).filter(Boolean), nT=TPr().ids.filter(byId).length, nP=data.plan.filter(byId).length;
   const extra=v==='today'?data.plan.filter(id=>!ids.includes(id)).map(byId).filter(Boolean):[];
-  const nB=(data.visits||[]).length;
-  const tabs=`<div class="seg3" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button><button class="${v==='been'?'on':''}" onclick="state.planView='been';render(true)">Been${nB?' · '+nB:''}</button></div>`;
-  if(v==='been') return topbar('Plan')+`<div class="pad">${tabs}<p class="lead">Where we’ve eaten and been, newest first. Tap a place to rate it; × removes a visit.</p>${historyHtml()}</div>`;
-  return topbar('Plan')+`<div class="pad">
+  const head=state.stack.at(-1)==='plan'?subbar('Plan','pop()'):topbar('Plan');
+  const tabs=`<div class="seg2" style="margin:0 0 12px"><button class="${v==='today'?'on':''}" onclick="state.planView='today';render(true)">Today${nT?' · '+nT:''}</button><button class="${v==='trip'?'on':''}" onclick="state.planView='trip';render(true)">Whole trip${nP?' · '+nP:''}</button></div>`;
+  return head+`<div class="pad">
    ${tabs}
    ${draftCardHtml()}
-   ${data.claudeUrl?`<button class="askc planc" onclick="claudeSheet('${v}')"><span aria-hidden="true">✦</span> Plan ${v==='today'?'today':'a day out'} with Claude</button>`:''}
    <p class="lead">${v==='today'?(plan.length?`${pretty(todayKey())}: ${plan.length} stop${plan.length>1?'s':''}, in order`:`Nothing planned for today yet. Add stops from your trip list below, or from any place’s page.`)
      :(plan.length?`${plan.length} place${plan.length>1?'s':''} you want to get to this trip`:'Tap the bookmark on any place to add it here.')}</p>
    ${plan.length?`<div class="list" style="margin-top:16px">${plan.map((p,i)=>{const d=done.includes(p.id),st=status(p),tdy=v==='trip'&&inToday(p.id);return `<div class="pitem2 ${d?'done':''}">
@@ -1879,7 +1895,6 @@ function screenPlan(){
    <a class="btn block" ${plan.length?`href="${esc(routeUrl(plan.filter(p=>!done.includes(p.id)).length?plan.filter(p=>!done.includes(p.id)):plan))}" target="_blank" rel="noopener"`:'aria-disabled="true"'}>${I.route} Start ${v==='today'?'today’s ':''}route in Google Maps</a>
    ${plan.length>4?'<p class="small" style="margin-top:8px">Google Maps on phones takes about 4 stops per route. Start with the first few.</p>':''}
    <button class="btn ghost block" ${plan.length?'':'disabled'} onclick="copyText(PLIST('${v}').map(byId).filter(Boolean).map((p,i)=>(i+1)+'. '+p.name+' — '+mapsLink(p)).join('\\n'),'Plan copied. Paste it into WhatsApp.')">Copy ${v==='today'?'today’s ':''}plan as text</button>`:''}
-   ${pendingBills().length?`<div class="bask" style="margin-top:18px" onclick="state.planView='been';render(true)"><span class="ic">📍</span><div class="grow"><b>${pendingBills().length} bill${pendingBills().length>1?'s':''} to match to a place</b><div class="small">Tap to say where you ate</div></div><span class="small">›</span></div>`:''}
    </div>`;
 }
 // Visit history: where you went and when (synced, so Claude can read it too)
@@ -3282,7 +3297,7 @@ function outingFromSuggest(s){
 function saveTripFromPicks(start){
   const cp=claudePicks(); if(!cp) return; const o=outingFromSuggest(cp.s); OUT().push(o);
   lsSet('xe.sugDone',+cp.s.at); save();
-  if(start) startOuting(o.id); else {toast('Saved. Find it in Plan → Saved trips');render(true)}
+  if(start) startOuting(o.id); else {toast('Saved. Find it in Places → Trips');render(true)}
 }
 const stopsWithPos=o=>o.stops.filter(x=>x.lat!=null&&x.lng!=null);
 // Real roads and paths from OpenStreetMap's routing service (free, no key); saved with the trip
@@ -3665,7 +3680,7 @@ function push(s){state.confirmDel=null;state.stack.push(s);render()}
 function pop(){state.confirmDel=null;state.stack.pop();render()}
 function openDetail(id){push('detail:'+id)}
 
-const TABS=[['today','Home',I.home],['saved','Places',I.heart],['plan','Plan',I.route],['map','Map',I.map],['bills','Bills',I.receipt]];
+const TABS=[['today','Home',I.home],['saved','Places',I.heart],['map','Map',I.map],['bills','Bills',I.receipt]];
 function renderTabs(){
   const top=state.stack.at(-1), hide=top&&top.startsWith('detail:');
   document.getElementById('phone').classList.toggle('detail',!!hide);
@@ -3692,6 +3707,7 @@ function render(keepScroll){
   else if(top==='prefs') html=screenPrefs();
   else if(top==='trip') html=screenTrip();
   else if(top==='weather') html=screenWeather();
+  else if(top==='plan') html=screenPlan();
   else if(top==='billsetup') html=screenBillSetup();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));

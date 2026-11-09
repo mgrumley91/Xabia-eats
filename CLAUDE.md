@@ -65,10 +65,18 @@ on conflict (trip, id) do update set data = excluded.data, kind = excluded.kind,
   and details.
 - Then tell us: "They're on your Home map."
 
-## Draft trips ("Plan with Claude")
+## Questions vs plans (✦ Ask Claude)
+
+There's one ✦ Ask Claude button in the app. It sends our question plus where we are, the time and the weather.
+Work out what we want:
+- **A quick question** (where to eat, is X open, what's good near here): just answer in the chat. If you recommend
+  places, you can also send them as Claude's picks (above).
+- **A day out or a plan** (a ride, a route, "plan our Saturday"): make it a draft trip (below).
+
+## Draft trips
 
 When we ask you to plan a day out or a trip, put it in the app as a **draft**, not a saved trip. We review it under
-Plan, ask you for changes in the chat, and tap Save in the app when we're happy.
+Your plan at the bottom of Home, ask you for changes in the chat, and tap Save in the app when we're happy.
 
 - The draft is the `suggest` row (see "Sending recommendations" above) with `"mode"` set to `bicycling`, `walking` or
   `driving`, a `"title"`, a one-line `"summary"`, and the stops in visiting order in `items` (up to 10). Each item can
@@ -77,7 +85,7 @@ Plan, ask you for changes in the chat, and tap Save in the app when we're happy.
   order). The app swaps in the new version straight away.
 - Don't add it to `outings` (Places → Trips) yourself; we save it from the app. Only edit `outings` when we ask you to
   change a trip we've already saved (see below).
-- Afterwards, check the row saved and tell us: "Your draft is under Plan." If you can't write to Supabase in this
+- Afterwards, check the row saved and tell us: "Your draft is under Your plan, at the bottom of Home." If you can't write to Supabase in this
   chat, say so plainly instead of saying it's there.
 
 ## Saved trips (routes)
