@@ -77,7 +77,7 @@ Work out what we want:
 
 Each person can add the trip as a custom connector in their own Claude (Settings → Connectors → Add custom connector;
 the app gives the link under Settings → Claude). It's the `trip-mcp` edge function, with tools `get_trip`,
-`get_weather`, `get_spending`, `save_picks` and `save_plan`. The private code in the link is in `secrets` (name `mcp`).
+`get_weather`, `get_spending`, `save_picks` and `save_plan` (one day with `items`, or several with `days`: `[{label?, title, summary?, mode?, items}]`). The private code in the link is in `secrets` (name `mcp`).
 If you have the connector, use its tools rather than SQL. Ask Claude in the app opens claude.ai/new with the
 question filled in and asks Claude to use the connector.
 

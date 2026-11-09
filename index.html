@@ -340,6 +340,7 @@ details.more>summary .small{flex:1;text-align:right;font-family:var(--body,inher
 .foldsec{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-top:10px;font:inherit;color:var(--ink);cursor:pointer}
 .foldsec b{font-size:18px}.foldsec .small{margin:0!important}.foldsec.on{border-color:var(--ink)}.chev{color:var(--muted);font-size:14px;flex:none}
 .foldbody{margin-top:8px}.foldh{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer}.foldh .small{margin:0!important}.foldb{margin-top:10px}
+.dday{cursor:pointer}.dstop{display:flex;gap:10px;font-size:14px;padding:3px 0}.dstop .small{width:42px;flex:none;margin:0!important}
 .rowlbl{flex:none;align-self:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:30px}
 .dorow{display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;margin:6px calc(-1*max(18px,env(safe-area-inset-left))) 0;padding:0 max(18px,env(safe-area-inset-left))}.dorow::-webkit-scrollbar{display:none}
 .dorow button{flex:none;border:0;background:none;padding:6px 8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:8px}.dorow button.on{background:var(--ink);color:#fff}
@@ -562,7 +563,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v120';
+const APP_VERSION='v121';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1041,7 +1042,7 @@ function screenToday(){
   locate();
   const dayLbl=w.date===today?'Today':pretty(w.date);
   return `<div class="hmap">${data.key&&!data.closed?'<div id="recmap"></div>':data.closed?'<div class="nomap">The trip is closed, so the Google map is off.</div>':`<div class="nomap">${SB()?'Add your Google key in Settings to see the map.':'Join your trip below to see the map.'}</div>`}
-    <div class="hfloat">${claudePicks()?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
+    <div class="hfloat">${claudePicks()&&!claudePicks().s.days?`<button class="askc" onclick="document.getElementById('clpicks')?.scrollIntoView({behavior:'smooth',block:'center'})"><span aria-hidden="true">✦</span> Claude’s picks · ${claudePicks().items.length}</button>`:!data.closed?`<button class="askc" onclick="claudeSheet('ask')" aria-label="Ask Claude about the trip"><span aria-hidden="true">✦</span> Ask Claude</button>`:'<span></span>'}<button class="sqbtn gear" onclick="push('settings')" aria-label="Settings">${I.sliders}</button></div></div>
   <div class="sheetA"><div class="grab"></div><div class="pad">
     <div class="sync" id="sync">${esc(state.sync)}</div>
     ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
@@ -1120,7 +1121,7 @@ function renderList(){
   const waitKind=pick?'wait':'first';
   const rest=open.filter(p=>p!==pick&&p!==alt), later=soon.filter(p=>p!==wait);
   [pick,wait].forEach(x=>{if(x&&x.photo&&!x.photo.resolved&&!x.photo.tried)resolvePhoto(x).then(ok=>{if(ok)renderList()})});
-  const cp=claudePicks();
+  const cp=claudePicks()&&!claudePicks().s.days?claudePicks():null;
   state.recPins=[...(cp?cp.items.filter(it=>it.lat!=null).map(it=>[{id:it.p?it.p.id:null,name:it.name,lat:it.lat,lng:it.lng,_n:it.n},'cl']):[]),...(pick?[[pick,fav?'fav':'pick']]:[]),...(alt?[[alt,'alt']]:[]),...(wait?[[wait,waitKind]]:[]),...rest.slice(0,12).map(p=>[p,'open']),...later.slice(0,6).map(p=>[p,'soon'])];
   const label=state.when?`at ${fmt(when().min)}`:'now';
   let html='';
@@ -3355,7 +3356,7 @@ const lsGet=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'null')??d}ca
 const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 function claudePicks(){
   const s=B.suggest; if(!s||!Array.isArray(s.items)||!s.items.length) return null;
-  if(Date.now()-(+s.at||0)>18*36e5||lsGet('xe.sugDone',0)>=+s.at) return null;
+  if(Date.now()-(+s.at||0)>(s.days?14*864e5:s.mode?3*864e5:18*36e5)||lsGet('xe.sugDone',0)>=+s.at) return null;
   const picked=lsGet('xe.sugPicked',{})[s.at]||[];
   const items=s.items.slice(0,6).map((x,i)=>{
     let p=x.placeId&&byId(x.placeId);
@@ -3368,18 +3369,49 @@ function claudePicks(){
 const MODES={bicycling:{lbl:'Bike',icon:'🚲',kmh:13},walking:{lbl:'Walk',icon:'🚶',kmh:4.5},driving:{lbl:'Car',icon:'🚗',kmh:30}};
 const guessMode=t=>/bike|cycl|bici/i.test(t)?'bicycling':/drive|car\b|coche/i.test(t)?'driving':'walking';
 const OUT=()=>data.outings||(data.outings=[]);
-const outById=id=>id==='draft'?draftTrip():OUT().find(o=>o.id===id);
+const isDraftId=id=>id==='draft'||/^draft:\d+$/.test(id||'');
+const draftIdx=id=>/^draft:(\d+)$/.test(id||'')?+id.slice(6):null;
+const outById=id=>isDraftId(id)?draftTrip(draftIdx(id)):OUT().find(o=>o.id===id);
 // A trip Claude has planned but we haven't saved yet: Claude rewrites the "suggest" row as we chat; we review it under Plan and save it when happy
-function draftTrip(){const cp=claudePicks(); if(!cp||!(cp.s.mode||cp.s.draft)) return null;
+function draftTrip(di){const cp=claudePicks(); if(!cp||!(cp.s.mode||cp.s.draft||cp.s.days)) return null;
+  if(cp.s.days){if(di==null)return null;const L=draftDays();return L?L[di]||null:null}
+  if(di!=null) return null;
   if(!state.draftO||state.draftO._at!==+cp.s.at){const o=outingFromSuggest(cp.s);o.id='draft';o._at=+cp.s.at;
     o.stops.forEach((x,i)=>{const it=cp.s.items[i];if(it&&it.time)x.time=String(it.time)});state.draftO=o}
   return state.draftO}
-function saveDraft(start){const d=draftTrip(),cp=claudePicks();if(!d||!cp)return;
-  const o={...d,id:uid(),at:Date.now()};delete o._at;OUT().push(o);lsSet('xe.sugDone',+cp.s.at);state.draftO=null;save();
-  if(start){state.stack=[];startOuting(o.id)}else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Plan → Day trips')}}
-function discardDraft(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);state.draftO=null;state.stack=state.stack.filter(x=>x!=='outing:draft');toast('Draft discarded');render(true)}
+// A multi-day plan from Claude: one draft day trip per day
+function draftDays(){const cp=claudePicks();if(!cp||!Array.isArray(cp.s.days)||!cp.s.days.length)return null;
+  if(!state.draftD||state.draftD.at!==+cp.s.at)state.draftD={at:+cp.s.at,list:cp.s.days.map((d,i)=>{const o=outingFromSuggest({...d,mode:d.mode||cp.s.mode});o.id='draft:'+i;o._at=+cp.s.at;o.day=i+1;o.label=String(d.label||'Day '+(i+1));
+    o.stops.forEach((x,j)=>{const it=(d.items||[])[j];if(it&&it.time)x.time=String(it.time)});return o})};
+  return state.draftD.list}
+const draftSaved=()=>{const cp=claudePicks();return cp?(lsGet('xe.draftSaved',{})[cp.s.at]||[]):[]};
+function saveDraft(start,di){const d=draftTrip(di),cp=claudePicks();if(!d||!cp)return;
+  const o={...d,id:uid(),at:Date.now(),title:di!=null?`${d.label}: ${d.title}`:d.title};delete o._at;delete o.day;delete o.label;OUT().push(o);
+  if(di!=null){const all=lsGet('xe.draftSaved',{});all[cp.s.at]=[...new Set([...(all[cp.s.at]||[]),di])];lsSet('xe.draftSaved',all);if(all[cp.s.at].length>=draftDays().length){lsSet('xe.sugDone',+cp.s.at);state.draftD=null}}
+  else{lsSet('xe.sugDone',+cp.s.at);state.draftO=null}
+  save();
+  if(start){state.stack=[];startOuting(o.id)}else if(di!=null){state.stack=state.stack.filter(x=>!x.startsWith('outing:draft'));toast(`${d.label} saved. It’s in Plan → Day trips`);render(true)}
+  else{state.stack=state.stack.filter(x=>x!=='outing:draft');push('outing:'+o.id);toast('Saved. It’s in Plan → Day trips')}}
+function saveDraftAll(){const L=draftDays(),cp=claudePicks();if(!L||!cp)return;const done=draftSaved();let n=0;
+  L.forEach((d,i)=>{if(done.includes(i))return;const o={...d,id:uid(),at:Date.now()+i,title:`${d.label}: ${d.title}`};delete o._at;delete o.day;delete o.label;OUT().push(o);n++});
+  lsSet('xe.sugDone',+cp.s.at);state.draftD=null;save();state.stack=state.stack.filter(x=>x!=='draftplan'&&!x.startsWith('outing:draft'));state.planView='trips';
+  toast(`Saved ${n} day trip${n===1?'':'s'}. They’re in Plan → Day trips`);if(state.stack.at(-1)!=='plan')push('plan');else render(true)}
+function screenDraftPlan(){const cp=claudePicks(),L=draftDays();const head=subbar('Draft plan','pop()');
+  if(!L)return head+`<div class="pad"><div class="empty">There’s no draft plan right now. Ask Claude to plan your days.</div></div>`;
+  const done=draftSaved(),at=new Date(+cp.s.at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+  return head+`<div class="pad"><p class="small" style="margin:0;color:var(--accent);font-weight:700">✦ Draft from Claude · updated ${at} · not saved yet</p><h1 class="pagetitle" style="margin-top:4px">${esc(cp.s.title||'Your plan')}</h1>
+    ${cp.s.summary?`<p class="lead">${esc(cp.s.summary)}</p>`:''}
+    ${L.map((d,i)=>{const m=MODES[d.mode]||MODES.walking;return `<div class="pcard dday" onclick="push('outing:draft:${i}')"><div class="srow" style="padding:0;border:0"><span><span class="small" style="font-weight:700;color:var(--accent)">${esc(d.label)}</span><br><b style="font-size:17px">${esc(d.title)}</b></span><span class="small">${done.includes(i)?'✓ Saved':m.icon+' ›'}</span></div>
+      ${d.stops.map(x=>`<div class="dstop"><span class="small">${esc(x.time||'')}</span><span>${esc(x.name)}</span></div>`).join('')}</div>`}).join('')}
+    <button class="btn block" style="margin-top:14px" onclick="saveDraftAll()">Save ${done.length?'the rest':'all '+L.length+' days'} as day trips</button>
+    <button class="btn ghost block" onclick="openClaudeApp('https://claude.ai/recents')">✦ Change it with Claude</button>
+    <p class="small" style="margin-top:6px">Tap a day to see it on the map and save it on its own. To change something, tell Claude in the same chat (e.g. “swap days 3 and 6”) and this refreshes.</p>
+    <button class="link danger" style="display:block;margin:18px auto 0" onclick="discardDraft()">Discard this plan</button></div>`}
+function discardDraft(){const cp=claudePicks();if(cp)lsSet('xe.sugDone',+cp.s.at);state.draftO=null;state.draftD=null;state.stack=state.stack.filter(x=>!x.startsWith('outing:draft')&&x!=='draftplan');toast('Draft discarded');render(true)}
 function draftAsk(){const d=draftTrip();const q=`About the draft trip “${d?d.title:''}”: `;try{const r=navigator.clipboard&&navigator.clipboard.writeText(q);r&&r.catch&&r.catch(()=>{})}catch(e){}toast('Copied. Paste it in Claude and say what to change')}
-function draftCardHtml(){const d=draftTrip();if(!d)return '';const m=MODES[d.mode]||MODES.walking;
+function draftCardHtml(){const L=draftDays();
+  if(L){const cp=claudePicks(),n=draftSaved().length;return `<div class="bask draftc" onclick="push('draftplan')"><span class="ic">✦</span><div class="grow"><b>Draft plan: ${esc(cp.s.title||L.length+' days')}</b><div class="small">${L.length} days${n?` · ${n} saved`:''} · from Claude, not saved yet · tap to review</div></div><span class="small">›</span></div>`}
+  const d=draftTrip();if(!d)return '';const m=MODES[d.mode]||MODES.walking;
   return `<div class="bask draftc" onclick="push('outing:draft')"><span class="ic">✦</span><div class="grow"><b>Draft trip: ${esc(d.title)}</b><div class="small">${m.icon} ${d.stops.length} stops · from Claude, not saved yet · tap to review</div></div><span class="small">›</span></div>`}
 function outingFromSuggest(s){
   return {id:uid(),title:String(s.title||'Claude’s picks'),summary:String(s.summary||''),mode:MODES[s.mode]?s.mode:guessMode(String(s.title||'')+' '+String(s.summary||'')),at:Date.now(),src:'claude',
@@ -3457,21 +3489,22 @@ function tripPanelHtml(){
     <div class="frow" style="margin-top:10px"><a class="btn ghost" style="flex:1;text-decoration:none;text-align:center" href="${esc(routeUrl2(o,Math.max(0,next)))}" target="_blank" rel="noopener">Whole route in Maps</a><button class="btn ghost" style="flex:1" onclick="finishOuting()">Finish trip</button></div></div>`;
 }
 function screenOuting(id){
-  const o=outById(id); const head=subbar(id==='draft'?'Draft trip':'Trip','pop()');
-  if(!o) return head+`<div class="pad"><div class="empty">${id==='draft'?'There’s no draft right now. Ask Claude to plan one.':'This trip was deleted.'}</div></div>`;
-  if(id==='draft'){const at=new Date(o._at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+  const o=outById(id), di=draftIdx(id); const head=subbar(isDraftId(id)?(di!=null?`${o?o.label:'Draft'} of ${(draftDays()||[]).length}`:'Draft trip'):'Trip','pop()');
+  if(!o) return head+`<div class="pad"><div class="empty">${isDraftId(id)?'There’s no draft right now. Ask Claude to plan one.':'This trip was deleted.'}</div></div>`;
+  if(isDraftId(id)){const dt=`draftTrip(${di==null?'':di})`;const at=new Date(o._at).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
     return head+`<div class="pad"><p class="small" style="margin:0;color:var(--accent);font-weight:700">✦ Draft from Claude · updated ${at} · not saved yet</p><h1 class="pagetitle" style="margin-top:4px">${esc(o.title)}</h1>
     ${o.summary?`<p class="lead">${esc(o.summary)}</p>`:''}
-    <div class="chips wrap" style="margin-top:10px">${Object.entries(MODES).map(([k,v])=>`<button class="chip ${o.mode===k?'on':''}" onclick="draftTrip().mode='${k}';delete draftTrip().route;render(true)">${v.icon} ${v.lbl}</button>`).join('')}</div>
+    <div class="chips wrap" style="margin-top:10px">${Object.entries(MODES).map(([k,v])=>`<button class="chip ${o.mode===k?'on':''}" onclick="${dt}.mode='${k}';delete ${dt}.route;render(true)">${v.icon} ${v.lbl}</button>`).join('')}</div>
     <p class="small" id="routeline" style="margin-top:8px">${esc(routeLine(o))}</p>
     ${data.key?'<div id="omap" class="omap"></div>':''}
     ${sec('Stops',`${o.stops.length}`)}
     ${(()=>{const cp=claudePicks();if(cp)setTimeout(()=>clLite(cp.items),0);return ''})()}<div class="list">${o.stops.map((x,i)=>`<div class="row" onclick="${x.placeId?`openDetail('${x.placeId}')`:`clPreview(${i})`}"><b class="clnum">${i+1}</b><div class="grow"><div class="rname" style="font-size:16px">${x.time?`<span class="small" style="font-weight:700;margin-right:6px">${esc(x.time)}</span>`:''}${esc(x.name)} ${clRating({p:x.placeId?byId(x.placeId):null,x:{name:x.name,gid:x.gid}})}</div>${x.why?`<div class="rmeta"><span>${esc(x.why)}</span></div>`:''}</div></div>`).join('')}</div>
-    ${data.claudeUrl?`<a class="btn ghost block" style="text-decoration:none;text-align:center;margin-top:16px" href="${esc(data.claudeUrl)}" target="_blank" rel="noopener" onclick="draftAsk()">✦ Change it with Claude</a>
-      <p class="small" style="margin-top:6px">Say what to change (e.g. “add a lunch stop halfway”). Claude updates this draft and it refreshes here.</p>`:''}
-    <button class="btn block" style="margin-top:14px" onclick="saveDraft(false)">Save trip</button>
+    <button class="btn ghost block" style="margin-top:16px" onclick="draftAsk();openClaudeApp('https://claude.ai/recents')">✦ Change it with Claude</button>
+    <p class="small" style="margin-top:6px">Say what to change (e.g. “add a lunch stop halfway”) in the same chat. Claude updates this draft and it refreshes here.</p>
+    ${di!=null?`<button class="btn block" style="margin-top:14px" ${draftSaved().includes(di)?'disabled':''} onclick="saveDraft(false,${di})">${draftSaved().includes(di)?'✓ Saved':'Save this day'}</button>`
+    :`<button class="btn block" style="margin-top:14px" onclick="saveDraft(false)">Save trip</button>
     <button class="btn ghost block" onclick="saveDraft(true)">Save and start now</button>
-    <button class="link danger" style="display:block;margin:18px auto 0" onclick="discardDraft()">Discard this draft</button></div>`}
+    <button class="link danger" style="display:block;margin:18px auto 0" onclick="discardDraft()">Discard this draft</button>`}</div>`}
   const m=MODES[o.mode]||MODES.walking, act=data.activeOuting&&data.activeOuting.id===id;
   return head+`<div class="pad"><h1 class="pagetitle">${esc(o.title)}</h1>
     <p class="lead">${o.summary?esc(o.summary)+' ':''}${o.src==='claude'?'Planned with Claude.':''}</p>
@@ -3540,7 +3573,7 @@ async function clPreview(i){const cp=claudePicks();if(!cp)return;const it=cp.ite
       <div class="frow" style="margin-top:12px"><button class="btn" style="flex:1" onclick="document.getElementById('poi').hidden=true;pickClaude(${i})">Go here</button>${q.maps?`<a class="btn ghost" href="${esc(q.maps)}" target="_blank" rel="noopener">Google Maps</a>`:''}</div></div>`;
   }catch(e){sh.innerHTML=`<div class="pcard"><div class="srow" style="padding-top:0"><b>${esc(it.name)}</b>${close}</div><p class="small">Couldn’t load it from Google. ${esc(e.message||'')}</p><button class="btn block" onclick="document.getElementById('poi').hidden=true;pickClaude(${i})">Go here anyway</button></div>`}}
 function claudeCardHtml(){
-  const cp=claudePicks(); if(!cp) return '';
+  const cp=claudePicks(); if(!cp||cp.s.days) return '';
   return `<div class="pcard clpicks" id="clpicks"><div class="clhead"><span class="lbl">✦ Claude’s picks</span><button class="link" onclick="dismissPicks()">Dismiss</button></div>
     ${cp.s.title?`<h3 style="font-size:19px;margin-top:2px">${esc(cp.s.title)}</h3>`:''}
     ${(setTimeout(()=>clLite(cp.items),0),'')}${cp.items.map(it=>{const st=it.p?status(it.p):null;return `<div class="clrow"><b class="clnum">${it.n}</b>
@@ -3892,6 +3925,7 @@ function render(keepScroll){applyCats();
   else if(top&&top.startsWith('meal:')) html=screenMeal(top.slice(5));
   else if(top&&top.startsWith('outing:')) html=screenOuting(top.slice(7));
   else if(top&&top.startsWith('past:')) html=screenPast(top.slice(5));
+  else if(top==='draftplan') html=screenDraftPlan();
   else if(top&&top.startsWith('home:')) html=showHomes()?screenHome(top.slice(5)):subbar('Home','pop()');
   else html={today:screenToday,saved:screenSaved,map:screenMap,plan:screenPlan,bills:screenBills,prefs:screenPrefs}[state.tab]();
   const af=document.activeElement, fid=af&&af.id, pos=fid&&af.selectionStart!=null?af.selectionStart:null, y=window.scrollY;
