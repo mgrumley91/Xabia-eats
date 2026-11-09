@@ -562,7 +562,7 @@ select.field{appearance:auto}
 
 <script>
 /* ================= constants ================= */
-const APP_VERSION='v117';
+const APP_VERSION='v118';
 // Snapshot of the shared Wass Bill Splitter trip tally (the live tally stays in the splitter on claude.ai)
 const SPLITTER_URL='https://claude.ai/artifact/L9vj1BBATMKv7FidgMpGc1';
 const TRIP_SNAPSHOT={taken:'4 Nov, 04:15',meals:[
@@ -1046,7 +1046,7 @@ function screenToday(){
     <div class="sync" id="sync">${esc(state.sync)}</div>
     ${data.closed?`<div class="note" style="margin:0 0 10px">This trip is closed: Google maps, photos, bill reading and Claude are switched off.</div>`:''}
     ${wxBarHtml()}
-    <div class="shead"><h1>${activeOut()?'On your trip':esc(cat.label)+', near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} · ${data.radius||3} km${data.only4?'':' · all'} ▾</button></div>
+    <div class="shead"><h1>${activeOut()?'On your trip':'Near you'}</h1><button class="whenbtn" onclick="state.showWhen=!state.showWhen;render(true)">${dayLbl} ${fmt(w.min)} · ${data.radius||3} km${data.only4?'':' · all'} ▾</button></div>
     ${state.showWhen?`<div class="when"><div class="r">${I.clock}
      <select id="daySel" aria-label="Day" onchange="setWhen(this.value,null)">${dayOptions().map(d=>`<option value="${d}" ${d===w.date?'selected':''}>${d===today?'Today':pretty(d)}</option>`).join('')}</select>
      <span class="t" id="tm">${fmt(w.min)}</span>
